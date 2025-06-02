@@ -102,7 +102,7 @@ export default function PurchaseCycleManagementPage() {
       />
 
       <Dialog open={isModalOpen} onOpenChange={(isOpen) => { setIsModalOpen(isOpen); if (!isOpen) setEditingCycle(null); }}>
-        <DialogContent className="sm:max-w-[600px] bg-card bg-opacity-85 backdrop-blur-sm shadow-lg">
+        <DialogContent className="sm:max-w-[600px] bg-card shadow-lg">
           <DialogHeader>
             <DialogTitle className="font-headline text-2xl">
               {editingCycle ? 'Editar Ciclo de Compra' : 'Novo Ciclo de Compra'}
@@ -184,3 +184,4 @@ export default function PurchaseCycleManagementPage() {
     </PageContainer>
   );
 }
+

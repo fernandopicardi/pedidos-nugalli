@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -100,7 +101,7 @@ export default function SeasonManagementPage() {
       />
 
       <Dialog open={isModalOpen} onOpenChange={(isOpen) => { setIsModalOpen(isOpen); if (!isOpen) setEditingSeason(null); }}>
-        <DialogContent className="sm:max-w-[600px] bg-card bg-opacity-85 backdrop-blur-sm shadow-lg">
+        <DialogContent className="sm:max-w-[600px] bg-card shadow-lg">
           <DialogHeader>
             <DialogTitle className="font-headline text-2xl">
               {editingSeason ? 'Editar Temporada' : 'Nova Temporada'}
@@ -178,3 +179,4 @@ export default function SeasonManagementPage() {
     </PageContainer>
   );
 }
+
