@@ -11,8 +11,9 @@ import { PageContainer } from '@/components/shared/page-container';
 import { fetchAdminOrders, updateOrderStatus } from '@/lib/supabasePlaceholders';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
-const statusMapping: Record<Order['orderStatus'], string> = {
+const orderStatusMapping: Record<Order['orderStatus'], string> = {
   "Pending Payment": "Pagamento Pendente",
   "Payment Confirmed": "Pagamento Confirmado",
   "Preparing": "Em Preparação",
@@ -21,13 +22,25 @@ const statusMapping: Record<Order['orderStatus'], string> = {
   "Cancelled": "Cancelado"
 };
 
-const statusColors: Record<Order['orderStatus'], "default" | "secondary" | "destructive"> = {
+const orderStatusColors: Record<Order['orderStatus'], "default" | "secondary" | "destructive" | "outline"> = {
   "Pending Payment": "secondary",
   "Payment Confirmed": "default",
-  "Preparing": "default",
-  "Ready for Pickup/Delivery": "default",
+  "Preparing": "outline", // Using outline for in-progress states
+  "Ready for Pickup/Delivery": "outline",
   "Completed": "default", 
   "Cancelled": "destructive"
+};
+
+const paymentStatusMapping: Record<Order['paymentStatus'], string> = {
+  "Unpaid": "Não Pago",
+  "Paid": "Pago",
+  "Refunded": "Reembolsado",
+};
+
+const paymentStatusColors: Record<Order['paymentStatus'], "default" | "secondary" | "destructive"> = {
+  "Unpaid": "secondary",
+  "Paid": "default",
+  "Refunded": "destructive",
 };
 
 
@@ -40,6 +53,8 @@ export default function OrderVisualizationPage() {
     setIsLoading(true);
     try {
       const data = await fetchAdminOrders();
+      // Sort orders by date descending by default
+      data.sort((a,b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
       setOrders(data);
     } catch (error) {
       toast({ title: "Erro ao Carregar Pedidos", description: "Não foi possível carregar os pedidos.", variant: "destructive" });
@@ -52,10 +67,10 @@ export default function OrderVisualizationPage() {
     loadOrders();
   }, []);
 
-  const handleStatusChange = async (orderId: string, newStatus: Order['orderStatus']) => {
+  const handleStatusChange = async (orderId: string, newOrderStatus: Order['orderStatus'], newPaymentStatus?: Order['paymentStatus']) => {
     try {
-      await updateOrderStatus(orderId, newStatus);
-      toast({ title: "Status Atualizado", description: `Status do pedido #${orderId} alterado para ${statusMapping[newStatus]}.` });
+      await updateOrderStatus(orderId, newOrderStatus, newPaymentStatus);
+      toast({ title: "Status Atualizado", description: `Status do pedido #${orderId.slice(-5)} atualizado.` });
       await loadOrders(); // Refresh list
     } catch (error) {
       toast({ title: "Erro ao Atualizar", description: "Não foi possível atualizar o status do pedido.", variant: "destructive" });
@@ -76,16 +91,17 @@ export default function OrderVisualizationPage() {
             <p className="text-xl text-muted-foreground">Nenhum pedido encontrado.</p>
           </div>
       ) : (
-        <div className="bg-card p-6 rounded-lg shadow">
+        <div className="bg-card p-4 md:p-6 rounded-lg shadow">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID do Pedido</TableHead>
+                <TableHead className="w-[100px]">Pedido</TableHead>
                 <TableHead>Cliente</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead>Valor Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right w-[250px]">Alterar Status</TableHead>
+                <TableHead className="w-[160px]">Data</TableHead>
+                <TableHead className="w-[120px]">Valor Total</TableHead>
+                <TableHead className="w-[180px]">Status Pedido</TableHead>
+                <TableHead className="w-[150px]">Status Pagamento</TableHead>
+                <TableHead className="text-right w-[280px]">Alterar Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -96,26 +112,48 @@ export default function OrderVisualizationPage() {
                   <TableCell>{formatDate(order.orderDate)}</TableCell>
                   <TableCell>R$ {order.orderTotalAmount.toFixed(2).replace('.', ',')}</TableCell>
                   <TableCell>
-                     <Badge variant={statusColors[order.orderStatus] || 'default'}>
-                       {statusMapping[order.orderStatus] || order.orderStatus}
+                     <Badge variant={orderStatusColors[order.orderStatus] || 'default'} className="whitespace-nowrap">
+                       {orderStatusMapping[order.orderStatus] || order.orderStatus}
+                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                     <Badge variant={paymentStatusColors[order.paymentStatus] || 'default'} className="whitespace-nowrap">
+                       {paymentStatusMapping[order.paymentStatus] || order.paymentStatus}
                      </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Select
-                      value={order.orderStatus}
-                      onValueChange={(newStatus: Order['orderStatus']) => handleStatusChange(order.orderId, newStatus)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Alterar status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(Object.keys(statusMapping) as Array<Order['orderStatus']>).map(statusKey => (
-                           <SelectItem key={statusKey} value={statusKey}>
-                             {statusMapping[statusKey]}
-                           </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex flex-col sm:flex-row gap-2 justify-end">
+                      <Select
+                        value={order.orderStatus}
+                        onValueChange={(newStatus: Order['orderStatus']) => handleStatusChange(order.orderId, newStatus, order.paymentStatus)}
+                      >
+                        <SelectTrigger className="w-full sm:w-[180px] h-9 text-xs">
+                          <SelectValue placeholder="Pedido..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(Object.keys(orderStatusMapping) as Array<Order['orderStatus']>).map(statusKey => (
+                             <SelectItem key={statusKey} value={statusKey} className="text-xs">
+                               {orderStatusMapping[statusKey]}
+                             </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                       <Select
+                        value={order.paymentStatus}
+                        onValueChange={(newStatus: Order['paymentStatus']) => handleStatusChange(order.orderId, order.orderStatus, newStatus)}
+                      >
+                        <SelectTrigger className="w-full sm:w-[150px] h-9 text-xs">
+                          <SelectValue placeholder="Pagamento..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(Object.keys(paymentStatusMapping) as Array<Order['paymentStatus']>).map(statusKey => (
+                             <SelectItem key={statusKey} value={statusKey} className="text-xs">
+                               {paymentStatusMapping[statusKey]}
+                             </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -126,4 +164,3 @@ export default function OrderVisualizationPage() {
     </PageContainer>
   );
 }
-

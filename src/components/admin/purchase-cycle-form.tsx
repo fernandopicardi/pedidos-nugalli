@@ -27,15 +27,20 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose }: PurchaseCy
     if (initialData) {
       setName(initialData.name);
       // Input type datetime-local expects YYYY-MM-DDTHH:mm
-      setStartDate(initialData.startDate.substring(0, 16)); 
-      setEndDate(initialData.endDate.substring(0, 16));
+      setStartDate(initialData.startDate ? new Date(initialData.startDate).toISOString().substring(0, 16) : ''); 
+      setEndDate(initialData.endDate ? new Date(initialData.endDate).toISOString().substring(0, 16) : '');
       setIsActive(initialData.isActive);
     } else {
       const now = new Date();
-      const today = now.toISOString().substring(0, 16);
-      now.setMonth(now.getMonth() + 1);
-      const nextMonth = now.toISOString().substring(0, 16);
+      // Adjust for local timezone before formatting for datetime-local
+      const localNow = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
+      const today = localNow.toISOString().substring(0, 16);
       
+      const nextMonthDate = new Date(now.setMonth(now.getMonth() + 1));
+      const localNextMonth = new Date(nextMonthDate.getTime() - (nextMonthDate.getTimezoneOffset() * 60000));
+      const nextMonth = localNextMonth.toISOString().substring(0, 16);
+      
+      setName('');
       setStartDate(today);
       setEndDate(nextMonth);
       setIsActive(false);
@@ -45,6 +50,23 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose }: PurchaseCy
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setIsSubmitting(true);
+
+    if (!name.trim()) {
+      toast({ title: "Erro de Validação", description: "Nome do ciclo é obrigatório.", variant: "destructive" });
+      setIsSubmitting(false);
+      return;
+    }
+    if (!startDate || !endDate) {
+      toast({ title: "Erro de Validação", description: "Datas de início e fim são obrigatórias.", variant: "destructive" });
+      setIsSubmitting(false);
+      return;
+    }
+    if (new Date(startDate) >= new Date(endDate)) {
+      toast({ title: "Erro de Validação", description: "A data de início deve ser anterior à data de fim.", variant: "destructive" });
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const cycleData = { 
         name, 
@@ -69,7 +91,7 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose }: PurchaseCy
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6 max-h-[70vh] overflow-y-auto p-1 pr-4">
       <div>
         <Label htmlFor="cycle-name" className="font-semibold">Nome do Ciclo de Compra</Label>
         <Input
@@ -113,9 +135,9 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose }: PurchaseCy
         />
         <Label htmlFor="is-active" className="font-semibold">Ativar este ciclo?</Label>
       </div>
-      <p className="text-xs text-muted-foreground">Somente um ciclo pode estar ativo por vez. Ativar este ciclo desativará outros automaticamente (lógica a ser implementada no backend/Supabase).</p>
+      <p className="text-xs text-muted-foreground">Somente um ciclo pode estar ativo por vez. Ativar este ciclo desativará outros automaticamente (lógica a ser implementada no backend/Supabase se necessário).</p>
       
-      <div className="flex justify-end space-x-3 pt-4">
+      <div className="flex justify-end space-x-3 pt-4 border-t sticky bottom-0 bg-card py-3">
         <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
           Cancelar
         </Button>
