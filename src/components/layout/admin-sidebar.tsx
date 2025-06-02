@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -15,16 +16,16 @@ import {
   SidebarFooter
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { Home, CalendarClock, Package, ShoppingBag, LogOut, Settings } from 'lucide-react';
+import { Home, CalendarClock, Package, ShoppingBag, LogOut, Users } from 'lucide-react'; // Added Users icon
 import { signOut } from '@/lib/supabasePlaceholders';
 // import { useRouter } from 'next/navigation'; // Uncomment if using router
 
 const adminNavItems = [
-  { href: '/admin/seasons', label: 'Temporadas', icon: CalendarClock },
-  { href: '/admin/products', label: 'Produtos', icon: Package },
+  { href: '/admin/purchase-cycles', label: 'Ciclos de Compra', icon: CalendarClock },
+  { href: '/admin/products', label: 'Produtos (Master)', icon: Package },
   { href: '/admin/orders', label: 'Pedidos', icon: ShoppingBag },
-  // Add more admin links if needed
-  // { href: '/admin/settings', label: 'Configurações', icon: Settings },
+  // TODO: Add link for Customer Data Viewing
+  // { href: '/admin/customers', label: 'Clientes', icon: Users }, 
 ];
 
 export function AdminSidebar() {

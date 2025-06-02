@@ -1,8 +1,9 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import type { Product, Season } from '@/types';
+import type { Product } from '@/types'; // Using master Product type
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -10,7 +11,7 @@ import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { PageContainer } from '@/components/shared/page-container';
 import { ProductForm } from '@/components/admin/product-form';
 import { PlusCircle, Edit3, Trash2 } from 'lucide-react';
-import { fetchAdminProducts, createProduct, updateProduct, deleteProduct, fetchSeasons } from '@/lib/supabasePlaceholders';
+import { fetchAdminProducts, createProduct, updateProduct, deleteProduct } from '@/lib/supabasePlaceholders';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -26,49 +27,40 @@ import {
 
 export default function ProductManagementPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [seasonsMap, setSeasonsMap] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const { toast } = useToast();
 
-  async function loadData() {
+  async function loadMasterProducts() {
     setIsLoading(true);
     try {
-      const [productsData, seasonsData] = await Promise.all([
-        fetchAdminProducts(),
-        fetchSeasons()
-      ]);
+      const productsData = await fetchAdminProducts();
       setProducts(productsData);
-      
-      const sMap: Record<string, string> = {};
-      seasonsData.forEach(s => { sMap[s.id] = s.name; });
-      setSeasonsMap(sMap);
-
     } catch (error) {
-      console.error("Failed to fetch products or seasons:", error);
-      toast({ title: "Erro ao Carregar", description: "Não foi possível carregar dados.", variant: "destructive" });
+      console.error("Failed to fetch master products:", error);
+      toast({ title: "Erro ao Carregar Produtos", description: "Não foi possível carregar a lista de produtos mestre.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   }
 
   useEffect(() => {
-    loadData();
+    loadMasterProducts();
   }, []);
 
-  const handleFormSubmit = async (data: Omit<Product, 'id' | 'imageUrl'> & {imageUrl?: string} | (Partial<Product> & { id: string })) => {
+  const handleFormSubmit = async (data: Omit<Product, 'productId' | 'createdAt' | 'updatedAt'> | (Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>> & { productId: string })) => {
     try {
-      if ('id' in data && data.id) { // Editing
-        await updateProduct(data.id, data);
+      if ('productId' in data && data.productId) { // Editing
+        await updateProduct(data.productId, data as Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>>);
       } else { // Creating
-        await createProduct(data as Omit<Product, 'id'>);
+        await createProduct(data as Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>);
       }
       setIsModalOpen(false);
       setEditingProduct(null);
-      await loadData(); // Refresh list
+      await loadMasterProducts(); // Refresh list
     } catch (error) {
-      // Toast is handled within ProductForm
+      // Toast is handled within ProductForm or supabasePlaceholders
     }
   };
 
@@ -85,8 +77,8 @@ export default function ProductManagementPage() {
   const handleDeleteProduct = async (productId: string, productName: string) => {
     try {
       await deleteProduct(productId);
-      toast({ title: "Produto Deletado", description: `O produto "${productName}" foi deletado.` });
-      await loadData(); // Refresh list
+      toast({ title: "Produto Deletado", description: `O produto "${productName}" foi deletado da lista mestre.` });
+      await loadMasterProducts(); // Refresh list
     } catch (error) {
       toast({ title: "Erro ao Deletar", description: "Não foi possível deletar o produto.", variant: "destructive" });
     }
@@ -95,11 +87,11 @@ export default function ProductManagementPage() {
   return (
     <PageContainer className="py-8">
       <AdminPageHeader
-        title="Gerenciamento de Produtos"
+        title="Gerenciamento de Produtos (Catálogo Mestre)"
         actionButton={
           <Button onClick={openNewProductModal}>
             <PlusCircle size={18} className="mr-2" />
-            Novo Produto
+            Novo Produto Mestre
           </Button>
         }
       />
@@ -108,7 +100,7 @@ export default function ProductManagementPage() {
         <DialogContent className="sm:max-w-[600px] bg-card">
           <DialogHeader>
             <DialogTitle className="font-headline text-2xl">
-              {editingProduct ? 'Editar Produto' : 'Novo Produto'}
+              {editingProduct ? 'Editar Produto Mestre' : 'Novo Produto Mestre'}
             </DialogTitle>
           </DialogHeader>
           <ProductForm
@@ -120,13 +112,13 @@ export default function ProductManagementPage() {
       </Dialog>
 
       {isLoading ? (
-        <p>Carregando produtos...</p>
+        <p>Carregando produtos mestre...</p>
       ) : products.length === 0 ? (
         <div className="text-center py-12 bg-card rounded-lg shadow">
-            <p className="text-xl text-muted-foreground mb-4">Nenhum produto cadastrado.</p>
+            <p className="text-xl text-muted-foreground mb-4">Nenhum produto mestre cadastrado.</p>
             <Button onClick={openNewProductModal}>
               <PlusCircle size={18} className="mr-2" />
-              Criar Primeiro Produto
+              Criar Primeiro Produto Mestre
             </Button>
         </div>
       ) : (
@@ -134,19 +126,19 @@ export default function ProductManagementPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[80px]">Imagem</TableHead>
+                <TableHead className="w-[80px]">Imagem Principal</TableHead>
                 <TableHead>Nome</TableHead>
-                <TableHead>Preço</TableHead>
-                <TableHead>Temporada</TableHead>
+                <TableHead>Descrição Curta</TableHead>
+                <TableHead>Sazonal?</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {products.map((product) => (
-                <TableRow key={product.id}>
+                <TableRow key={product.productId}>
                   <TableCell>
                     <Image
-                      src={product.imageUrl || 'https://placehold.co/80x80.png?text=Img'}
+                      src={product.imageUrls[0] || 'https://placehold.co/80x80.png?text=Img'}
                       alt={product.name}
                       width={60}
                       height={60}
@@ -155,8 +147,8 @@ export default function ProductManagementPage() {
                     />
                   </TableCell>
                   <TableCell className="font-medium">{product.name}</TableCell>
-                  <TableCell>R$ {product.price.toFixed(2).replace('.', ',')}</TableCell>
-                  <TableCell>{product.seasonId ? seasonsMap[product.seasonId] || 'N/A' : 'N/A'}</TableCell>
+                  <TableCell className="truncate max-w-xs">{product.description.substring(0, 50)}...</TableCell>
+                  <TableCell>{product.isSeasonal ? 'Sim' : 'Não'}</TableCell>
                   <TableCell className="text-right space-x-2">
                     <Button variant="outline" size="sm" onClick={() => openEditProductModal(product)}>
                       <Edit3 size={16} className="mr-1" /> Editar
@@ -171,12 +163,12 @@ export default function ProductManagementPage() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Confirmar Deleção</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Tem certeza que deseja deletar o produto "{product.name}"? Esta ação não pode ser desfeita.
+                            Tem certeza que deseja deletar o produto mestre "{product.name}"? Esta ação não pode ser desfeita e removerá o produto de futuros ciclos.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDeleteProduct(product.id, product.name)}>
+                          <AlertDialogAction onClick={() => handleDeleteProduct(product.productId, product.name)}>
                             Deletar
                           </AlertDialogAction>
                         </AlertDialogFooter>
