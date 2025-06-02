@@ -49,18 +49,23 @@ export default function ProductManagementPage() {
     loadMasterProducts();
   }, []);
 
-  const handleFormSubmit = async (data: Omit<Product, 'productId' | 'createdAt' | 'updatedAt'> | (Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>> & { productId: string })) => {
+  const handleFormSubmit = async (data: Omit<Product, 'productId' | 'createdAt' | 'updatedAt'> | (Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>> & { productId: string })): Promise<Product | {productId: string}> => {
+    // This function is now a bit more complex because ProductForm also calls setProductAvailabilityInActiveCycle
+    // The main purpose here is to handle the master product CRUD.
     try {
       if ('productId' in data && data.productId) { // Editing
-        await updateProduct(data.productId, data as Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>>);
+        const updated = await updateProduct(data.productId, data as Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>>);
+        await loadMasterProducts(); 
+        return updated;
       } else { // Creating
-        await createProduct(data as Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>);
+        const created = await createProduct(data as Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>);
+        await loadMasterProducts(); 
+        return created;
       }
-      setIsModalOpen(false);
-      setEditingProduct(null);
-      await loadMasterProducts(); // Refresh list
     } catch (error) {
-      // Toast is handled within ProductForm or supabasePlaceholders
+      // Toast is handled within ProductForm or supabasePlaceholders for more specific messages
+      console.error("Error in handleFormSubmit (ProductManagementPage):", error);
+      throw error; // Re-throw to be caught by ProductForm's handler
     }
   };
 
@@ -78,7 +83,7 @@ export default function ProductManagementPage() {
     try {
       await deleteProduct(productId);
       toast({ title: "Produto Deletado", description: `O produto "${productName}" foi deletado da lista mestre.` });
-      await loadMasterProducts(); // Refresh list
+      await loadMasterProducts(); 
     } catch (error) {
       toast({ title: "Erro ao Deletar", description: "Não foi possível deletar o produto.", variant: "destructive" });
     }
@@ -105,7 +110,7 @@ export default function ProductManagementPage() {
           </DialogHeader>
           <ProductForm
             initialData={editingProduct}
-            onSubmit={handleFormSubmit}
+            onSubmit={handleFormSubmit} // onSubmit in ProductForm now handles more
             onClose={() => { setIsModalOpen(false); setEditingProduct(null); }}
           />
         </DialogContent>
@@ -129,7 +134,7 @@ export default function ProductManagementPage() {
                 <TableHead className="w-[80px]">Imagem Principal</TableHead>
                 <TableHead>Nome</TableHead>
                 <TableHead>Descrição Curta</TableHead>
-                <TableHead>Sazonal?</TableHead>
+                {/* <TableHead>Sazonal (Mestre)?</TableHead> Removed as per new logic */}
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -148,7 +153,7 @@ export default function ProductManagementPage() {
                   </TableCell>
                   <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell className="truncate max-w-xs">{product.description.substring(0, 50)}...</TableCell>
-                  <TableCell>{product.isSeasonal ? 'Sim' : 'Não'}</TableCell>
+                  {/* <TableCell>{product.isSeasonal ? 'Sim' : 'Não'}</TableCell> Removed */}
                   <TableCell className="text-right space-x-2">
                     <Button variant="outline" size="sm" onClick={() => openEditProductModal(product)}>
                       <Edit3 size={16} className="mr-1" /> Editar
@@ -184,3 +189,4 @@ export default function ProductManagementPage() {
     </PageContainer>
   );
 }
+

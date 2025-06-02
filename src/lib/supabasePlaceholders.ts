@@ -51,17 +51,17 @@ function saveCartToLocalStorage(cart: CartItem[]) {
 const MOCK_USERS: User[] = [
     { 
       userId: 'admin-user', email: 'admin@nugali.com', displayName: 'Nugali Admin', role: 'admin', whatsapp: '5547900000001',
-      address: { street: 'Rua Admin', number: '10', neighborhood: 'Centro Admin', city: 'Cidade Admin', state: 'AS', zipCode: '10000-001' },
+      address: { street: 'Rua Admin', number: '10', complement: '', neighborhood: 'Centro Admin', city: 'Cidade Admin', state: 'AS', zipCode: '10000-001' },
       createdAt: new Date().toISOString() 
     },
     { 
       userId: 'fp-admin-user', email: 'fernandopicardi@gmail.com', displayName: 'Fernando Picardi', role: 'admin', whatsapp: '5547900000002',
-      address: { street: 'Rua Fernando', number: '20', neighborhood: 'Bairro FP', city: 'Cidade FP', state: 'FS', zipCode: '20000-002' },
+      address: { street: 'Rua Fernando', number: '20', complement: 'Apto 1', neighborhood: 'Bairro FP', city: 'Cidade FP', state: 'FS', zipCode: '20000-002' },
       createdAt: new Date().toISOString() 
     },
     { 
       userId: 'nn-admin-user', email: 'naiara.nasmaste@gmail.com', displayName: 'Naiara Nasmaste', role: 'admin', whatsapp: '5547900000003',
-      address: { street: 'Rua Naiara', number: '30', neighborhood: 'Bairro NN', city: 'Cidade NN', state: 'NS', zipCode: '30000-003' },
+      address: { street: 'Rua Naiara', number: '30', complement: '', neighborhood: 'Bairro NN', city: 'Cidade NN', state: 'NS', zipCode: '30000-003' },
       createdAt: new Date().toISOString() 
     },
     { 
@@ -71,12 +71,12 @@ const MOCK_USERS: User[] = [
     },
     { 
       userId: 'user-ana', email: 'ana.silva@example.com', displayName: 'Ana Silva', role: 'customer', whatsapp: '5521987654321',
-      address: { street: 'Avenida Copacabana', number: '1000', neighborhood: 'Copacabana', city: 'Rio de Janeiro', state: 'RJ', zipCode: '22000-001' },
+      address: { street: 'Avenida Copacabana', number: '1000', complement: '', neighborhood: 'Copacabana', city: 'Rio de Janeiro', state: 'RJ', zipCode: '22000-001' },
       createdAt: '2023-10-15T00:00:00Z' 
     },
     { 
-      userId: 'user-carlos', email: 'carlos.pereira@example.com', displayName: 'Carlos Pereira', role: 'customer', whatsapp: '5511988887777', // Added WhatsApp
-      address: { street: 'Rua Augusta', number: '500', neighborhood: 'Consolação', city: 'São Paulo', state: 'SP', zipCode: '01305-000' },
+      userId: 'user-carlos', email: 'carlos.pereira@example.com', displayName: 'Carlos Pereira', role: 'customer', whatsapp: '5511988887777',
+      address: { street: 'Rua Augusta', number: '500', complement: 'Ap 55', neighborhood: 'Consolação', city: 'São Paulo', state: 'SP', zipCode: '01305-000' },
       createdAt: '2023-11-01T00:00:00Z' 
     },
 ];
@@ -89,13 +89,10 @@ export async function signInWithEmail(email: string, password: string): Promise<
 
   if (foundUser) {
     let correctPassword = false;
-    // Specific admin passwords
     if (foundUser.email === 'admin@nugali.com' && password === 'adminpass') correctPassword = true;
     else if (foundUser.email === 'fernandopicardi@gmail.com' && password === 'adminpass') correctPassword = true;
     else if (foundUser.email === 'naiara.nasmaste@gmail.com' && password === 'adminpass') correctPassword = true;
-    // Specific test user password
     else if (foundUser.email === 'user@nugali.com' && password === 'userpass') correctPassword = true;
-    // Generic password for other mock customer users
     else if (foundUser.role === 'customer' && password === 'password123') correctPassword = true;
 
 
@@ -112,7 +109,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
 
 export async function signUpWithEmail(email: string, password: string, displayName?: string, whatsapp?: string): Promise<{ user: User | null, error: { message: string } | null }> {
   console.log('signUpWithEmail called with:', email, password, displayName, whatsapp);
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+  await new Promise(resolve => setTimeout(resolve, 500)); 
   
   if (MOCK_USERS.find(u => u.email.toLowerCase() === email.toLowerCase())) {
     return { user: null, error: { message: 'Este email já está cadastrado.' }};
@@ -123,8 +120,7 @@ export async function signUpWithEmail(email: string, password: string, displayNa
     userId: `new-user-${Date.now()}`,
     email,
     displayName: newDisplayName,
-    whatsapp: whatsapp || '', // Initialize as empty, Account page will enforce filling
-    // Address is not collected at signup in this version
+    whatsapp: '', // Initialized as empty, Account page will enforce filling
     role: 'customer', 
     createdAt: new Date().toISOString(),
   };
@@ -134,7 +130,7 @@ export async function signUpWithEmail(email: string, password: string, displayNa
 
 export async function signOut(): Promise<{ error: { message: string } | null }> {
   console.log('signOut called');
-  await new Promise(resolve => setTimeout(resolve, 300)); // Simulate network delay
+  await new Promise(resolve => setTimeout(resolve, 300)); 
    if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('currentUser');
     }
@@ -169,17 +165,16 @@ export async function updateUserDetails(
     return { user: null, error: { message: "Usuário não encontrado." } };
   }
 
-  // Create a copy to modify
   let updatedUser = { ...MOCK_USERS[userIndex] };
 
   if (data.displayName !== undefined) {
     updatedUser.displayName = data.displayName;
   }
-  if (data.whatsapp !== undefined) { // WhatsApp can be updated, ensure it's not empty if form requires
+  if (data.whatsapp !== undefined) { 
     updatedUser.whatsapp = data.whatsapp;
   }
   if (data.address !== undefined) {
-    updatedUser.address = { ...(updatedUser.address || {}), ...data.address } as Address;
+    updatedUser.address = { ...(updatedUser.address || {} as Address), ...data.address } as Address;
   }
   
   MOCK_USERS[userIndex] = updatedUser;
@@ -202,7 +197,7 @@ export async function checkAdminRole(): Promise<boolean> {
 
 
 // MASTER PRODUCTS - For Admin CRUD
-const MOCK_MASTER_PRODUCTS: Product[] = [
+let MOCK_MASTER_PRODUCTS: Product[] = [
   {
     productId: 'prod-new-1',
     name: 'Barra Chocolate Vegano 60% (Sem Glúten, Sem Lactose)',
@@ -312,7 +307,7 @@ const MOCK_MASTER_PRODUCTS: Product[] = [
 
 export async function fetchAdminProducts(): Promise<Product[]> {
   console.log('fetchAdminProducts called');
-  await new Promise(resolve => setTimeout(resolve, 300)); // Simulate network delay
+  await new Promise(resolve => setTimeout(resolve, 300));
   return [...MOCK_MASTER_PRODUCTS];
 }
 
@@ -347,6 +342,8 @@ export async function deleteProduct(productId: string): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, 500));
   const index = MOCK_MASTER_PRODUCTS.findIndex(p => p.productId === productId);
   if (index > -1) MOCK_MASTER_PRODUCTS.splice(index, 1);
+  // Also remove any associated CycleProducts
+  MOCK_CYCLE_PRODUCTS = MOCK_CYCLE_PRODUCTS.filter(cp => cp.productId !== productId);
 }
 
 // PURCHASE CYCLES - For Admin CRUD
@@ -408,7 +405,6 @@ export async function fetchActivePurchaseCycleTitle(): Promise<string> {
 
 // CYCLE PRODUCTS - For associating Master Products with Purchase Cycles, defining price, availability
 let MOCK_CYCLE_PRODUCTS: CycleProduct[] = [
-  // Cycle Products for 'cycle-easter-2025' (active cycle)
   { cycleProductId: 'cp-easter-new-1', cycleId: 'cycle-easter-2025', productId: 'prod-new-1', productNameSnapshot: 'Barra Chocolate Vegano 60% (Sem Glúten, Sem Lactose)', priceInCycle: 88.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Barra+Vegana+60' },
   { cycleProductId: 'cp-easter-new-2', cycleId: 'cycle-easter-2025', productId: 'prod-new-2', productNameSnapshot: 'Barra de chocolate ao leite 45%', priceInCycle: 88.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Barra+Ao+Leite+45' },
   { cycleProductId: 'cp-easter-new-3', cycleId: 'cycle-easter-2025', productId: 'prod-new-3', productNameSnapshot: 'Barra de chocolate 70% ZERO AÇÚCAR vegano', priceInCycle: 100.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Barra+70+Zero+Vegano' },
@@ -422,8 +418,6 @@ let MOCK_CYCLE_PRODUCTS: CycleProduct[] = [
   { cycleProductId: 'cp-easter-new-11', cycleId: 'cycle-easter-2025', productId: 'prod-new-11', productNameSnapshot: 'Tablete ao Leite com recheio de Caramelo', priceInCycle: 11.24, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Caramelo' },
   { cycleProductId: 'cp-easter-new-12', cycleId: 'cycle-easter-2025', productId: 'prod-new-12', productNameSnapshot: 'Tablete ao Leite com recheio de Ganashe', priceInCycle: 11.24, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Ganache' },
   { cycleProductId: 'cp-easter-new-13', cycleId: 'cycle-easter-2025', productId: 'prod-new-13', productNameSnapshot: 'Gotas Chocolate Amargo 70% Cacau - SEM LACTOSE/VEGANO/KOSHER', priceInCycle: 81.75, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Gotas+Amargo+70' },
-
-  // Example for a different cycle (Natal 2024 - inactive) - can be expanded if needed
   { cycleProductId: 'cp-xmas-new-1', cycleId: 'cycle-xmas-2024', productId: 'prod-new-2', productNameSnapshot: 'Barra Chocolate Ao Leite 45% (Especial Natal)', priceInCycle: 90.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Barra+Natal' },
 ];
 
@@ -432,6 +426,56 @@ export async function fetchCycleProducts(cycleId: string): Promise<CycleProduct[
   await new Promise(resolve => setTimeout(resolve, 300));
   return MOCK_CYCLE_PRODUCTS.filter(cp => cp.cycleId === cycleId);
 }
+
+export async function fetchProductAvailabilityInActiveCycle(productId: string): Promise<boolean> {
+  await new Promise(resolve => setTimeout(resolve, 150));
+  const activeCycle = MOCK_PURCHASE_CYCLES.find(pc => pc.isActive);
+  if (!activeCycle) {
+    console.warn("No active cycle found to check product availability.");
+    return false;
+  }
+  const cycleProduct = MOCK_CYCLE_PRODUCTS.find(cp => cp.cycleId === activeCycle.cycleId && cp.productId === productId);
+  return cycleProduct ? cycleProduct.isAvailableInCycle : false; // Default to false if not explicitly in cycle
+}
+
+export async function setProductAvailabilityInActiveCycle(productId: string, isAvailable: boolean): Promise<void> {
+  await new Promise(resolve => setTimeout(resolve, 250));
+  const activeCycle = MOCK_PURCHASE_CYCLES.find(pc => pc.isActive);
+  if (!activeCycle) {
+    console.error("No active cycle found. Cannot set product availability.");
+    throw new Error("Nenhum ciclo de compra ativo encontrado.");
+  }
+
+  const masterProduct = MOCK_MASTER_PRODUCTS.find(mp => mp.productId === productId);
+  if (!masterProduct) {
+    console.error(`Master product ${productId} not found.`);
+    throw new Error("Produto mestre não encontrado.");
+  }
+
+  const cycleProductIndex = MOCK_CYCLE_PRODUCTS.findIndex(cp => cp.cycleId === activeCycle.cycleId && cp.productId === productId);
+
+  if (cycleProductIndex > -1) {
+    MOCK_CYCLE_PRODUCTS[cycleProductIndex].isAvailableInCycle = isAvailable;
+    console.log(`Availability for ${productId} in cycle ${activeCycle.cycleId} set to ${isAvailable}`);
+  } else {
+    // If the CycleProduct doesn't exist for this master product in the active cycle, create it.
+    // This is important for newly created master products.
+    // For mocks, we'll use a default price or derive from master if available (e.g. 0 for now).
+    // A real implementation would need a proper way to set price when adding a product to a cycle.
+    const newCycleProduct: CycleProduct = {
+      cycleProductId: `cp-${activeCycle.cycleId.slice(-5)}-${productId.slice(-5)}-${Date.now()}`,
+      cycleId: activeCycle.cycleId,
+      productId: productId,
+      productNameSnapshot: masterProduct.name, // Take snapshot from master
+      priceInCycle: 0, // Placeholder: Price should be set when product is added to cycle properly
+      isAvailableInCycle: isAvailable,
+      displayImageUrl: masterProduct.imageUrls[0] || 'https://placehold.co/400x300.png?text=Nugali',
+    };
+    MOCK_CYCLE_PRODUCTS.push(newCycleProduct);
+    console.log(`New CycleProduct created for ${productId} in cycle ${activeCycle.cycleId}, availability set to ${isAvailable}`);
+  }
+}
+
 
 // DISPLAYABLE PRODUCTS FOR CLIENT HOMEPAGE
 export async function fetchActivePurchaseCycleProducts(): Promise<DisplayableProduct[]> {
@@ -443,7 +487,7 @@ export async function fetchActivePurchaseCycleProducts(): Promise<DisplayablePro
 
   const masterProducts = await fetchAdminProducts(); 
   const cycleProductsForActiveCycle = MOCK_CYCLE_PRODUCTS.filter(
-    cp => cp.cycleId === activeCycle.cycleId && cp.isAvailableInCycle
+    cp => cp.cycleId === activeCycle.cycleId && cp.isAvailableInCycle // This filter is key
   );
 
   const displayableProducts: DisplayableProduct[] = cycleProductsForActiveCycle.map(cp => {
@@ -474,14 +518,14 @@ let MOCK_CART_ITEMS: CartItem[] = getCartFromLocalStorage();
 
 
 export async function fetchCartItems(): Promise<CartItem[]> {
-  MOCK_CART_ITEMS = getCartFromLocalStorage(); // Ensure it's fresh on fetch
+  MOCK_CART_ITEMS = getCartFromLocalStorage(); 
   notifyCartUpdateListeners(); 
   return [...MOCK_CART_ITEMS];
 }
 
 export async function addToCart(product: DisplayableProduct, quantity: number): Promise<void> {
   console.log('addToCart called for product:', product.name, 'cycleProductId:', product.cycleProductId, 'quantity:', quantity);
-  MOCK_CART_ITEMS = getCartFromLocalStorage(); // Get latest cart
+  MOCK_CART_ITEMS = getCartFromLocalStorage(); 
   const existingItemIndex = MOCK_CART_ITEMS.findIndex(item => item.cycleProductId === product.cycleProductId);
   if (existingItemIndex > -1) {
     MOCK_CART_ITEMS[existingItemIndex].quantity += quantity;
@@ -560,7 +604,7 @@ const MOCK_ORDERS: Order[] = [
     userId: 'user-ana', 
     customerNameSnapshot: 'Ana Silva Exemplo', 
     customerWhatsappSnapshot: '5521987654321', 
-    cycleId: 'cycle-xmas-2024', // Example of an order in an inactive cycle
+    cycleId: 'cycle-xmas-2024', 
     items: [{productId: 'prod-new-2', cycleProductId: 'cp-xmas-new-1', productName: 'Barra Chocolate Ao Leite 45% (Especial Natal)', quantity: 1, priceAtPurchase: 90.00, lineItemTotal: 90.00 }], 
     orderTotalAmount: 90.00, 
     orderStatus: 'Completed', 
@@ -637,7 +681,7 @@ export async function updateOrderStatus(orderId: string, newOrderStatus: Order['
             MOCK_ORDERS[orderIndex].paymentStatus = "Refunded";
         }
     } else if (newOrderStatus === "Pending Payment") {
-        if (MOCK_ORDERS[orderIndex].paymentStatus !== "Refunded") {
+        if (MOCK_ORDERS[orderIndex].paymentStatus !== "Refunded") { // Don't revert a refund to unpaid automatically
             MOCK_ORDERS[orderIndex].paymentStatus = "Unpaid";
         }
     }
@@ -671,4 +715,3 @@ export async function fetchAdminUsers(): Promise<User[]> {
     await new Promise(resolve => setTimeout(resolve, 300));
     return MOCK_USERS.filter(user => user.role === 'customer');
 }
-

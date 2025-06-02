@@ -10,10 +10,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
+import { Loader2 } from 'lucide-react';
+import { fetchProductAvailabilityInActiveCycle, setProductAvailabilityInActiveCycle } from '@/lib/supabasePlaceholders';
 
 interface ProductFormProps {
   initialData?: Product | null;
-  onSubmit: (data: Omit<Product, 'productId' | 'createdAt' | 'updatedAt'> | (Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>> & { productId: string })) => Promise<void>;
+  onSubmit: (data: Omit<Product, 'productId' | 'createdAt' | 'updatedAt'> | (Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>> & { productId: string })) => Promise<{productId: string} | Product>; // Ensure onSubmit returns the product or its ID
   onClose: () => void;
 }
 
@@ -25,16 +27,18 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [imageUrls, setImageUrls] = useState<string[]>(['']);
-  const [isSeasonal, setIsSeasonal] = useState(true);
-  
+  const [masterIsSeasonalFlag, setMasterIsSeasonalFlag] = useState(true); // For the master product's own seasonal flag
+
   // New state for specific attributes
   const [selectedCategorias, setSelectedCategorias] = useState<string[]>([]);
   const [selectedDietary, setSelectedDietary] = useState<string[]>([]);
   const [productPeso, setProductPeso] = useState('');
   const [productCacau, setProductCacau] = useState('');
   const [productUnidade, setProductUnidade] = useState('');
-  // Add other common attributes as needed, e.g., sabor: string[]
-  const [productSabor, setProductSabor] = useState(''); // Example for an attribute like 'sabor'
+  const [productSabor, setProductSabor] = useState('');
+
+  const [isAvailableInActiveCycle, setIsAvailableInActiveCycle] = useState(true);
+  const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -44,29 +48,42 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       setName(initialData.name);
       setDescription(initialData.description);
       setImageUrls(initialData.imageUrls && initialData.imageUrls.length > 0 ? initialData.imageUrls : ['']);
-      setIsSeasonal(initialData.isSeasonal);
+      setMasterIsSeasonalFlag(initialData.isSeasonal); // Keep track of the master product's seasonal flag
 
-      // Populate specific attribute states
       setSelectedCategorias(initialData.attributes?.categoria || []);
       setSelectedDietary(initialData.attributes?.dietary || []);
       setProductPeso(initialData.attributes?.peso?.[0] || '');
       setProductCacau(initialData.attributes?.cacau?.[0] || '');
       setProductUnidade(initialData.attributes?.unidade?.[0] || '');
       setProductSabor(initialData.attributes?.sabor?.[0] || '');
+
+      setIsLoadingAvailability(true);
+      fetchProductAvailabilityInActiveCycle(initialData.productId)
+        .then(isAvailable => {
+          setIsAvailableInActiveCycle(isAvailable);
+        })
+        .catch(err => {
+          console.error("Error fetching product availability:", err);
+          toast({ title: "Erro", description: "Não foi possível carregar a disponibilidade no ciclo ativo.", variant: "destructive" });
+        })
+        .finally(() => setIsLoadingAvailability(false));
+
     } else {
       // Defaults for new product
       setName('');
       setDescription('');
       setImageUrls(['']);
-      setIsSeasonal(true);
+      setMasterIsSeasonalFlag(true);
       setSelectedCategorias([]);
       setSelectedDietary([]);
       setProductPeso('');
       setProductCacau('');
       setProductUnidade('');
       setProductSabor('');
+      setIsAvailableInActiveCycle(true); // Default to available for new products
+      setIsLoadingAvailability(false);
     }
-  }, [initialData]);
+  }, [initialData, toast]);
 
   const handleImageUrlsChange = (index: number, value: string) => {
     const newImageUrls = [...imageUrls];
@@ -108,7 +125,6 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         finalImageUrls.push('https://placehold.co/400x300.png?text=Produto');
     }
 
-    // Construct attributes object
     const newAttributes: Record<string, string[]> = {};
     if (selectedCategorias.length > 0) newAttributes.categoria = selectedCategorias;
     if (selectedDietary.length > 0) newAttributes.dietary = selectedDietary;
@@ -117,27 +133,35 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
     if (productUnidade.trim()) newAttributes.unidade = [productUnidade.trim()];
     if (productSabor.trim()) newAttributes.sabor = [productSabor.trim()];
 
-
     try {
-      const productData = { 
+      const productMasterData = { 
         name, 
         description,
         imageUrls: finalImageUrls,
         attributes: newAttributes,
-        isSeasonal,
+        isSeasonal: masterIsSeasonalFlag, // Submit the original seasonal flag for the master product
       };
 
+      let currentProductId: string;
+
       if (initialData?.productId) {
-        await onSubmit({ ...productData, productId: initialData.productId });
-        toast({ title: "Produto Atualizado", description: `O produto "${name}" foi atualizado.` });
+        currentProductId = initialData.productId;
+        await onSubmit({ ...productMasterData, productId: currentProductId });
+        toast({ title: "Produto Mestre Atualizado", description: `O produto "${name}" foi atualizado.` });
       } else {
-        await onSubmit(productData as Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>);
-        toast({ title: "Produto Criado", description: `O produto "${name}" foi criado.` });
+        const newProduct = await onSubmit(productMasterData as Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>);
+        currentProductId = newProduct.productId;
+        toast({ title: "Produto Mestre Criado", description: `O produto "${name}" foi criado.` });
       }
+
+      // After saving master product, update its availability in the active cycle
+      await setProductAvailabilityInActiveCycle(currentProductId, isAvailableInActiveCycle);
+      toast({ title: "Disponibilidade Atualizada", description: `Disponibilidade de "${name}" no ciclo ativo foi salva.` });
+      
       onClose();
     } catch (error) {
-      console.error("Failed to save product:", error);
-      toast({ title: "Erro ao Salvar", description: "Não foi possível salvar o produto.", variant: "destructive" });
+      console.error("Failed to save product or availability:", error);
+      toast({ title: "Erro ao Salvar", description: "Não foi possível salvar o produto ou sua disponibilidade.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -177,7 +201,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       </div>
 
       <Separator />
-      <p className="font-semibold text-lg">Atributos do Produto</p>
+      <p className="font-semibold text-lg">Atributos do Produto Mestre</p>
 
       <div>
         <Label className="font-semibold">Categorias</Label>
@@ -232,24 +256,38 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
           <Input id="product-sabor" value={productSabor} onChange={(e) => setProductSabor(e.target.value)} className="mt-1" placeholder="Ex: Açaí, Cupuaçu, Caramelo"/>
         </div>
       </div>
-
-
-      <Separator />
       
       <div className="flex items-center space-x-2 pt-2">
         <Checkbox
-          id="is-seasonal"
-          checked={isSeasonal}
-          onCheckedChange={(checked) => setIsSeasonal(Boolean(checked))}
+          id="master-is-seasonal"
+          checked={masterIsSeasonalFlag}
+          onCheckedChange={(checked) => setMasterIsSeasonalFlag(Boolean(checked))}
         />
-        <Label htmlFor="is-seasonal" className="font-semibold">É um produto primariamente sazonal?</Label>
+        <Label htmlFor="master-is-seasonal" className="font-semibold">Este é um produto mestre primariamente sazonal?</Label>
       </div>
+      <p className="text-xs text-muted-foreground">Esta marcação é para organização interna do catálogo mestre.</p>
+
+
+      <Separator />
+      <p className="font-semibold text-lg">Disponibilidade para Venda</p>
+      
+      <div className="flex items-center space-x-2 pt-2">
+        <Checkbox
+          id="is-available-in-active-cycle"
+          checked={isAvailableInActiveCycle}
+          onCheckedChange={(checked) => setIsAvailableInActiveCycle(Boolean(checked))}
+          disabled={isLoadingAvailability}
+        />
+        <Label htmlFor="is-available-in-active-cycle" className="font-semibold">Disponível no ciclo de compra ativo?</Label>
+        {isLoadingAvailability && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
+      </div>
+      <p className="text-xs text-muted-foreground">Controla se este produto aparece para os clientes no ciclo de vendas ativo no site.</p>
       
       <div className="flex justify-end space-x-3 pt-4 border-t sticky bottom-0 bg-card py-3">
         <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
           Cancelar
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting || isLoadingAvailability}>
           {isSubmitting ? (initialData ? 'Salvando...' : 'Criando...') : (initialData ? 'Salvar Alterações' : 'Criar Produto Mestre')}
         </Button>
       </div>
