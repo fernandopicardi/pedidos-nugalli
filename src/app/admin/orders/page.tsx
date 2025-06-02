@@ -17,7 +17,7 @@ const orderStatusMapping: Record<Order['orderStatus'], string> = {
   "Pending Payment": "Pagamento Pendente",
   "Payment Confirmed": "Pagamento Confirmado",
   "Preparing": "Em Preparação",
-  "Ready for Pickup/Delivery": "Pronto para Retirada/Entrega",
+  "Pronto para Retirada": "Pronto para Retirada",
   "Completed": "Concluído",
   "Cancelled": "Cancelado"
 };
@@ -26,7 +26,7 @@ const orderStatusColors: Record<Order['orderStatus'], "default" | "secondary" | 
   "Pending Payment": "secondary",
   "Payment Confirmed": "default",
   "Preparing": "outline", // Using outline for in-progress states
-  "Ready for Pickup/Delivery": "outline",
+  "Pronto para Retirada": "outline",
   "Completed": "default", 
   "Cancelled": "destructive"
 };

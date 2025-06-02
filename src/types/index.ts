@@ -1,20 +1,9 @@
 
-export interface Address {
-  street: string;
-  number: string;
-  complement?: string;
-  neighborhood: string;
-  city: string;
-  state: string; // Could be an enum/select in a real app
-  zipCode: string;
-}
-
 export interface User {
   userId: string; // Auth UID
   email: string;
   displayName: string;
-  whatsapp: string; // No longer optional
-  address?: Address; // Address object is optional at user level
+  whatsapp: string; 
   role: 'customer' | 'admin';
   createdAt: string; // ISO date string
 }
@@ -86,7 +75,7 @@ export interface Order {
   cycleId: string; // ref to PurchaseCycles active at time of order
   items: OrderItem[];
   orderTotalAmount: number; // auto-calculated
-  orderStatus: "Pending Payment" | "Payment Confirmed" | "Preparing" | "Ready for Pickup/Delivery" | "Completed" | "Cancelled";
+  orderStatus: "Pending Payment" | "Payment Confirmed" | "Preparing" | "Pronto para Retirada" | "Completed" | "Cancelled";
   paymentStatus: "Unpaid" | "Paid" | "Refunded";
   orderDate: string; // ISO date string (timestamp)
   adminNotes?: string;

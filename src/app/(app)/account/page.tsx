@@ -9,24 +9,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUser, updateUserDetails, signOut } from '@/lib/supabasePlaceholders';
-import type { User as AppUser, Address } from '@/types';
+import type { User as AppUser } from '@/types';
 import { useRouter } from 'next/navigation';
 import { Loader2, LogOut } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
 
 export default function AccountPage() {
   const [user, setUser] = useState<AppUser | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
-
-  // Address state
-  const [street, setStreet] = useState('');
-  const [number, setNumber] = useState('');
-  const [complement, setComplement] = useState('');
-  const [neighborhood, setNeighborhood] = useState('');
-  const [city, setCity] = useState('');
-  const [state, setState] = useState('');
-  const [zipCode, setZipCode] = useState('');
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -40,17 +30,7 @@ export default function AccountPage() {
       if (currentUser) {
         setUser(currentUser);
         setDisplayName(currentUser.displayName);
-        setWhatsapp(currentUser.whatsapp || ''); // Ensure WhatsApp is populated, even if empty for now
-        
-        // Populate address fields
-        setStreet(currentUser.address?.street || '');
-        setNumber(currentUser.address?.number || '');
-        setComplement(currentUser.address?.complement || '');
-        setNeighborhood(currentUser.address?.neighborhood || '');
-        setCity(currentUser.address?.city || '');
-        setState(currentUser.address?.state || '');
-        setZipCode(currentUser.address?.zipCode || '');
-
+        setWhatsapp(currentUser.whatsapp || '');
       } else {
         router.push('/auth');
       }
@@ -65,20 +45,9 @@ export default function AccountPage() {
 
     setIsSubmitting(true);
 
-    const updatedAddress: Address = {
-      street,
-      number,
-      complement,
-      neighborhood,
-      city,
-      state,
-      zipCode,
-    };
-
     const { error, user: updatedUser } = await updateUserDetails(user.userId, { 
       displayName, 
       whatsapp,
-      address: updatedAddress 
     });
     setIsSubmitting(false);
 
@@ -121,7 +90,7 @@ export default function AccountPage() {
       <Card className="shadow-xl">
         <CardHeader>
           <CardTitle className="font-headline text-3xl text-center">Minha Conta</CardTitle>
-          <CardDescription className="text-center">Gerencie suas informações pessoais e de entrega.</CardDescription>
+          <CardDescription className="text-center">Gerencie suas informações pessoais.</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-6">
@@ -157,47 +126,6 @@ export default function AccountPage() {
                 required
               />
                <p className="text-xs text-muted-foreground">Inclua o código do país (ex: 55 para Brasil). Obrigatório.</p>
-            </div>
-
-            <Separator className="my-6" />
-            <h3 className="text-xl font-headline text-foreground">Endereço de Entrega</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2 space-y-2">
-                <Label htmlFor="street">Logradouro (Rua/Avenida)</Label>
-                <Input id="street" placeholder="Ex: Rua das Flores" value={street} onChange={(e) => setStreet(e.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="number">Número</Label>
-                <Input id="number" placeholder="Ex: 123" value={number} onChange={(e) => setNumber(e.target.value)} required />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="complement">Complemento (Opcional)</Label>
-                <Input id="complement" placeholder="Ex: Apto 101, Bloco B" value={complement} onChange={(e) => setComplement(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="neighborhood">Bairro</Label>
-                <Input id="neighborhood" placeholder="Ex: Centro" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} required />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2 space-y-2">
-                <Label htmlFor="city">Cidade</Label>
-                <Input id="city" placeholder="Ex: São Paulo" value={city} onChange={(e) => setCity(e.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="state">Estado</Label>
-                <Input id="state" placeholder="Ex: SP" value={state} onChange={(e) => setState(e.target.value)} required />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="zipCode">CEP</Label>
-              <Input id="zipCode" placeholder="Ex: 01000-000" value={zipCode} onChange={(e) => setZipCode(e.target.value)} required />
             </div>
 
           </CardContent>

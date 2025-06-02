@@ -1,5 +1,5 @@
 
-import type { Product, PurchaseCycle, Order, CartItem, CycleProduct, User, DisplayableProduct, OrderItem, Address } from '@/types';
+import type { Product, PurchaseCycle, Order, CartItem, CycleProduct, User, DisplayableProduct, OrderItem } from '@/types';
 
 // --- Cart Update Listener System ---
 let cartUpdateListeners: Array<(cartItems: CartItem[]) => void> = [];
@@ -51,32 +51,26 @@ function saveCartToLocalStorage(cart: CartItem[]) {
 const MOCK_USERS: User[] = [
     { 
       userId: 'admin-user', email: 'admin@nugali.com', displayName: 'Nugali Admin', role: 'admin', whatsapp: '5547900000001',
-      address: { street: 'Rua Admin', number: '10', complement: '', neighborhood: 'Centro Admin', city: 'Cidade Admin', state: 'AS', zipCode: '10000-001' },
       createdAt: new Date().toISOString() 
     },
     { 
       userId: 'fp-admin-user', email: 'fernandopicardi@gmail.com', displayName: 'Fernando Picardi', role: 'admin', whatsapp: '5547900000002',
-      address: { street: 'Rua Fernando', number: '20', complement: 'Apto 1', neighborhood: 'Bairro FP', city: 'Cidade FP', state: 'FS', zipCode: '20000-002' },
       createdAt: new Date().toISOString() 
     },
     { 
       userId: 'nn-admin-user', email: 'naiara.nasmaste@gmail.com', displayName: 'Naiara Nasmaste', role: 'admin', whatsapp: '5547900000003',
-      address: { street: 'Rua Naiara', number: '30', complement: '', neighborhood: 'Bairro NN', city: 'Cidade NN', state: 'NS', zipCode: '30000-003' },
       createdAt: new Date().toISOString() 
     },
     { 
       userId: 'test-user', email: 'user@nugali.com', displayName: 'Cliente Teste', role: 'customer', whatsapp: '5547999998888',
-      address: { street: 'Rua Cliente Teste', number: '123', complement: 'Casa', neighborhood: 'Vila Teste', city: 'Testópolis', state: 'TS', zipCode: '89123-000' },
       createdAt: new Date().toISOString() 
     },
     { 
       userId: 'user-ana', email: 'ana.silva@example.com', displayName: 'Ana Silva', role: 'customer', whatsapp: '5521987654321',
-      address: { street: 'Avenida Copacabana', number: '1000', complement: '', neighborhood: 'Copacabana', city: 'Rio de Janeiro', state: 'RJ', zipCode: '22000-001' },
       createdAt: '2023-10-15T00:00:00Z' 
     },
     { 
       userId: 'user-carlos', email: 'carlos.pereira@example.com', displayName: 'Carlos Pereira', role: 'customer', whatsapp: '5511988887777',
-      address: { street: 'Rua Augusta', number: '500', complement: 'Ap 55', neighborhood: 'Consolação', city: 'São Paulo', state: 'SP', zipCode: '01305-000' },
       createdAt: '2023-11-01T00:00:00Z' 
     },
 ];
@@ -155,7 +149,7 @@ export async function getCurrentUser(): Promise<User | null> {
 
 export async function updateUserDetails(
   userId: string, 
-  data: Partial<Pick<User, 'displayName' | 'whatsapp' | 'address'>>
+  data: Partial<Pick<User, 'displayName' | 'whatsapp'>>
 ): Promise<{ user: User | null, error: { message: string } | null }> {
   console.log('updateUserDetails called for userId:', userId, 'with data:', data);
   await new Promise(resolve => setTimeout(resolve, 500));
@@ -172,9 +166,6 @@ export async function updateUserDetails(
   }
   if (data.whatsapp !== undefined) { 
     updatedUser.whatsapp = data.whatsapp;
-  }
-  if (data.address !== undefined) {
-    updatedUser.address = { ...(updatedUser.address || {} as Address), ...data.address } as Address;
   }
   
   MOCK_USERS[userIndex] = updatedUser;
@@ -672,7 +663,7 @@ export async function updateOrderStatus(orderId: string, newOrderStatus: Order['
   if (newPaymentStatus) {
     MOCK_ORDERS[orderIndex].paymentStatus = newPaymentStatus;
   } else { 
-    if (newOrderStatus === "Payment Confirmed" || newOrderStatus === "Preparing" || newOrderStatus === "Ready for Pickup/Delivery" || newOrderStatus === "Completed") {
+    if (newOrderStatus === "Payment Confirmed" || newOrderStatus === "Preparing" || newOrderStatus === "Pronto para Retirada" || newOrderStatus === "Completed") {
         if (MOCK_ORDERS[orderIndex].paymentStatus === "Unpaid") {
             MOCK_ORDERS[orderIndex].paymentStatus = "Paid";
         }
