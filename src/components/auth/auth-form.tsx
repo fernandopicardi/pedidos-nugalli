@@ -19,6 +19,16 @@ export function AuthForm() {
   const { toast } = useToast();
   const router = useRouter();
 
+  const redirectToStoredPathOrFallback = (fallbackPath: string = '/') => {
+    const redirectPath = sessionStorage.getItem('redirectAfterLogin');
+    if (redirectPath) {
+      sessionStorage.removeItem('redirectAfterLogin');
+      router.push(redirectPath);
+    } else {
+      router.push(fallbackPath);
+    }
+  };
+
   const handleLogin = async (event: FormEvent) => {
     event.preventDefault();
     setIsSubmitting(true);
@@ -27,7 +37,7 @@ export function AuthForm() {
       toast({ title: "Erro no Login", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Login Bem-Sucedido", description: "Bem-vindo de volta!" });
-      router.push('/'); // Redirect after login
+      redirectToStoredPathOrFallback('/');
     }
     setIsSubmitting(false);
   };
@@ -47,9 +57,9 @@ export function AuthForm() {
       // Attempt to log in the new user automatically for redirection
       const loginResult = await signInWithEmail(email, password);
       if (loginResult.error) {
-        router.push('/auth'); // Fallback to auth page if auto-login fails
+        redirectToStoredPathOrFallback('/auth'); // Fallback to auth page if auto-login fails
       } else {
-        router.push('/'); // Redirect after successful registration and auto-login
+        redirectToStoredPathOrFallback('/'); // Redirect after successful registration and auto-login
       }
     }
     setIsSubmitting(false);

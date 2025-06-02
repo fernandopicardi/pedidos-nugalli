@@ -7,16 +7,16 @@ import { Button } from '@/components/ui/button';
 import { PageContainer } from '@/components/shared/page-container';
 import { CartItemDisplay } from '@/components/cart/cart-item-display';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { fetchCartItems, processCheckout } from '@/lib/supabasePlaceholders';
+import { fetchCartItems, processCheckout, getCurrentUser } from '@/lib/supabasePlaceholders';
 import { useToast } from "@/hooks/use-toast";
 import Link from 'next/link';
-// import { useRouter } from 'next/navigation'; // Uncomment if using router
+import { useRouter } from 'next/navigation';
 
 export default function CartPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-  // const router = useRouter(); // Uncomment if using router
+  const router = useRouter();
 
   useEffect(() => {
     async function loadCartItems() {
@@ -47,16 +47,25 @@ export default function CartPage() {
       toast({ title: "Carrinho Vazio", description: "Adicione itens ao carrinho antes de finalizar.", variant: "destructive" });
       return;
     }
+
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      toast({ title: "Login Necessário", description: "Você precisa estar logado para finalizar o pedido.", variant: "default" });
+      sessionStorage.setItem('redirectAfterLogin', '/cart');
+      router.push('/auth');
+      return;
+    }
+
     try {
       const order = await processCheckout(cartItems);
       toast({
         title: "Pedido Realizado!",
-        description: `Seu pedido #${order.orderNumber} foi confirmado.`, // Using orderNumber for display
+        description: `Seu pedido #${order.orderNumber} foi confirmado.`,
       });
-      setCartItems([]); // Clear cart after successful checkout
-      // router.push(`/order-confirmation/${order.orderId}`); // Redirect to an order confirmation page
+      setCartItems([]);
+      // router.push(`/order-confirmation/${order.orderId}`); // TODO: Implement order confirmation page
     } catch (error) {
-      toast({ title: "Erro no Checkout", description: "Não foi possível finalizar seu pedido. Tente novamente.", variant: "destructive" });
+      toast({ title: "Erro no Checkout", description: (error as Error).message || "Não foi possível finalizar seu pedido. Tente novamente.", variant: "destructive" });
     }
   };
 
@@ -104,7 +113,7 @@ export default function CartPage() {
               </Card>
             </div>
             <div className="md:col-span-1">
-              <Card className="shadow-lg sticky top-24"> {/* Sticky summary card */}
+              <Card className="shadow-lg sticky top-24">
                 <CardHeader>
                   <CardTitle className="font-headline text-2xl">Total do Pedido</CardTitle>
                 </CardHeader>
