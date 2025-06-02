@@ -50,18 +50,16 @@ export function AdminSidebar() {
         <SidebarMenu>
           {adminNavItems.map((item) => (
             <SidebarMenuItem key={item.href}>
-              <Link href={item.href} legacyBehavior passHref>
-                <SidebarMenuButton
-                  asChild
-                  isActive={item.href === '/admin' ? pathname === item.href : pathname.startsWith(item.href)}
-                  tooltip={{ children: item.label, side: "right", align:"center" }}
-                >
-                  <a>
-                    <item.icon />
-                    <span>{item.label}</span>
-                  </a>
-                </SidebarMenuButton>
-              </Link>
+              <SidebarMenuButton
+                asChild
+                isActive={item.href === '/admin' ? pathname === item.href : pathname.startsWith(item.href)}
+                tooltip={{ children: item.label, side: "right", align:"center" }}
+              >
+                <Link href={item.href}>
+                  <item.icon />
+                  <span>{item.label}</span>
+                </Link>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>

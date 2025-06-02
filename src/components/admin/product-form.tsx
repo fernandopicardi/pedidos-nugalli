@@ -16,7 +16,7 @@ import { fetchProductAvailabilityInActiveCycle, setProductAvailabilityInActiveCy
 
 interface ProductFormProps {
   initialData?: Product | null;
-  onSubmit: (data: Omit<Product, 'productId' | 'createdAt' | 'updatedAt'> | (Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>> & { productId: string })) => Promise<{productId: string} | Product>; // Ensure onSubmit returns the product or its ID
+  onSubmit: (data: Omit<Product, 'productId' | 'createdAt' | 'updatedAt'> | (Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>> & { productId: string })) => Promise<Product>; // Ensure onSubmit returns the product
   onClose: () => void;
 }
 
@@ -124,7 +124,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
     setIsUploadingImage(true);
 
     const filePath = `products/${Date.now()}_${selectedImage.name}`;
-    const bucketName = 'product-images'; // <-- REPLACE WITH YOUR ACTUAL BUCKET NAME
+    const bucketName = 'product-images'; 
 
     try {
       const { data, error } = await supabase.storage
@@ -135,17 +135,16 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         throw error;
       }
 
-      // Get public URL and add to imageUrls
-      const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(data.path); // Corrected: data.path for getPublicUrl
+      const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(data.path); 
       setImageUrls(prevUrls => [...prevUrls.filter(url => url.trim() !== ''), publicUrlData.publicUrl]);
       toast({ title: "Upload Sucesso", description: "Imagem carregada com sucesso." });
     } catch (error: any) {
       toast({ title: "Erro no Upload", description: `Não foi possível carregar a imagem: ${error.message}`, variant: "destructive" });
     } finally {
       setIsUploadingImage(false);
-      setSelectedImage(null); // Reset file input
+      setSelectedImage(null); 
       const fileInput = document.getElementById('imageUpload') as HTMLInputElement;
-      if (fileInput) fileInput.value = ''; // Clear file input value
+      if (fileInput) fileInput.value = ''; 
     }
   };
 
@@ -178,7 +177,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         description,
         imageUrls: finalImageUrls,
         attributes: newAttributes,
-        isSeasonal: masterIsSeasonalFlag, // Submit the original seasonal flag for the master product
+        isSeasonal: masterIsSeasonalFlag, 
       };
 
       let currentProductId: string;
@@ -193,7 +192,6 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         toast({ title: "Produto Mestre Criado", description: `O produto "${name}" foi criado.` });
       }
 
-      // After saving master product, update its availability in the active cycle
       await setProductAvailabilityInActiveCycle(currentProductId, isAvailableInActiveCycle);
       toast({ title: "Disponibilidade Atualizada", description: `Disponibilidade de "${name}" no ciclo ativo foi salva.` });
       
@@ -239,7 +237,6 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         {imageUrls.filter(url => url.trim())[0] && <img src={imageUrls.filter(url => url.trim())[0]} data-ai-hint="chocolate product" alt="Preview" className="mt-2 h-24 w-24 object-cover rounded-md border"/>}
       </div>
 
-      {/* New Image Upload Section */}
       <div>
          <Label className="font-semibold">Carregar Imagem do Computador</Label>
          <div className="flex items-center space-x-2 mt-1">
@@ -345,4 +342,3 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
     </form>
   );
 }
-

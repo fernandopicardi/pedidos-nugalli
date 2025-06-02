@@ -49,7 +49,7 @@ export default function ProductManagementPage() {
     loadMasterProducts();
   }, []);
 
-  const handleFormSubmit = async (data: Omit<Product, 'productId' | 'createdAt' | 'updatedAt'> | (Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>> & { productId: string })): Promise<Product | {productId: string}> => {
+  const handleFormSubmit = async (data: Omit<Product, 'productId' | 'createdAt' | 'updatedAt'> | (Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>> & { productId: string })): Promise<Product> => {
     // This function is now a bit more complex because ProductForm also calls setProductAvailabilityInActiveCycle
     // The main purpose here is to handle the master product CRUD.
     try {
