@@ -51,19 +51,19 @@ function saveCartToLocalStorage(cart: CartItem[]) {
 const MOCK_USERS: User[] = [
     {
       userId: 'admin-user', email: 'admin@nugali.com', displayName: 'Nugali Admin', role: 'admin', whatsapp: '5547900000001',
-      createdAt: new Date().toISOString()
+      createdAt: '2023-01-01T00:00:00Z'
     },
     {
       userId: 'fp-admin-user', email: 'fernandopicardi@gmail.com', displayName: 'Fernando Picardi', role: 'admin', whatsapp: '5547900000002',
-      createdAt: new Date().toISOString()
+      createdAt: '2023-01-02T00:00:00Z'
     },
     {
       userId: 'nn-admin-user', email: 'naiara.nasmaste@gmail.com', displayName: 'Naiara Nasmaste', role: 'admin', whatsapp: '5547900000003',
-      createdAt: new Date().toISOString()
+      createdAt: '2023-01-03T00:00:00Z'
     },
     {
       userId: 'test-user', email: 'user@nugali.com', displayName: 'Cliente Teste', role: 'customer', whatsapp: '5547999998888',
-      createdAt: new Date().toISOString()
+      createdAt: '2023-02-10T00:00:00Z'
     },
     {
       userId: 'user-ana', email: 'ana.silva@example.com', displayName: 'Ana Silva', role: 'customer', whatsapp: '5521987654321',
@@ -131,7 +131,7 @@ export async function signOut(): Promise<{ error: { message: string } | null }> 
   return { error: null };
 }
 
-export async function getCurrentUser(): Promise<User | null> {
+export async function getCurrentUser(): Promise<AppUser | null> {
   if (typeof localStorage !== 'undefined') {
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
@@ -543,7 +543,7 @@ export async function addToCart(product: DisplayableProduct, quantity: number): 
       name: product.name,
       price: product.price,
       quantity: quantity,
-      imageUrl: product.imageUrl, // This will now be the Unsplash URL
+      imageUrl: product.imageUrl,
       description: product.description.substring(0,50) + "...",
     });
   }
@@ -578,7 +578,7 @@ const MOCK_ORDERS: Order[] = [
     orderId: 'order-mock-1',
     orderNumber: 'ORD-00123',
     userId: 'user-ana',
-    customerNameSnapshot: 'Ana Silva Exemplo',
+    customerNameSnapshot: 'Ana Silva',
     customerWhatsappSnapshot: '5521987654321',
     cycleId: 'cycle-easter-2025',
     items: [
@@ -594,7 +594,7 @@ const MOCK_ORDERS: Order[] = [
     orderId: 'order-mock-2',
     orderNumber: 'ORD-00124',
     userId: 'user-carlos',
-    customerNameSnapshot: 'Carlos Pereira Exemplo',
+    customerNameSnapshot: 'Carlos Pereira',
     customerWhatsappSnapshot: '5511998877665',
     cycleId: 'cycle-easter-2025',
     items: [
@@ -609,7 +609,7 @@ const MOCK_ORDERS: Order[] = [
     orderId: 'order-mock-3',
     orderNumber: 'ORD-00125',
     userId: 'user-ana',
-    customerNameSnapshot: 'Ana Silva Exemplo',
+    customerNameSnapshot: 'Ana Silva',
     customerWhatsappSnapshot: '5521987654321',
     cycleId: 'cycle-xmas-2024',
     items: [{productId: 'prod-new-2', cycleProductId: 'cp-xmas-new-1', productName: 'Barra Chocolate Ao Leite 45% (Especial Natal)', quantity: 1, priceAtPurchase: 90.00, lineItemTotal: 90.00 }],
@@ -665,6 +665,12 @@ export async function fetchAdminOrders(): Promise<Order[]> {
   console.log('fetchAdminOrders called');
   await new Promise(resolve => setTimeout(resolve, 300));
   return [...MOCK_ORDERS];
+}
+
+export async function fetchUserOrders(userId: string): Promise<Order[]> {
+  console.log('fetchUserOrders called for userId:', userId);
+  await new Promise(resolve => setTimeout(resolve, 300));
+  return MOCK_ORDERS.filter(order => order.userId === userId);
 }
 
 
@@ -769,3 +775,18 @@ MOCK_CYCLE_PRODUCTS.forEach(cp => {
         cp.displayImageUrl = master.imageUrls[0];
     }
 });
+// Update mock users with more realistic creation dates
+MOCK_USERS.forEach(user => {
+    if (user.userId.startsWith('new-user-')) { // for dynamically created ones
+        user.createdAt = new Date(parseInt(user.userId.split('-')[2])).toISOString();
+    }
+});
+// Correct snapshots for existing orders
+MOCK_ORDERS.forEach(order => {
+    const user = MOCK_USERS.find(u => u.userId === order.userId);
+    if (user) {
+        order.customerNameSnapshot = user.displayName;
+        order.customerWhatsappSnapshot = user.whatsapp;
+    }
+});
+
