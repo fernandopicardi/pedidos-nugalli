@@ -136,8 +136,8 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       }
 
       // Get public URL and add to imageUrls
-      const { publicUrl } = supabase.storage.from(bucketName).getPublicUrl(data.path);
-      setImageUrls(prevUrls => [...prevUrls.filter(url => url.trim() !== ''), publicUrl]);
+      const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(data.path); // Corrected: data.path for getPublicUrl
+      setImageUrls(prevUrls => [...prevUrls.filter(url => url.trim() !== ''), publicUrlData.publicUrl]);
       toast({ title: "Upload Sucesso", description: "Imagem carregada com sucesso." });
     } catch (error: any) {
       toast({ title: "Erro no Upload", description: `Não foi possível carregar a imagem: ${error.message}`, variant: "destructive" });
@@ -338,7 +338,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
           Cancelar
         </Button>
-        <Button type=\"submit\" disabled={isSubmitting || isLoadingAvailability || isUploadingImage}>\n
+        <Button type="submit" disabled={isSubmitting || isLoadingAvailability || isUploadingImage}>
           {isSubmitting ? (initialData ? 'Salvando...' : 'Criando...') : (initialData ? 'Salvar Alterações' : 'Criar Produto Mestre')}
         </Button>
       </div>
