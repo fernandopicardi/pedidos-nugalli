@@ -12,15 +12,15 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarFooter
-} from '@/components/ui/sidebar'; // Removed SidebarProvider from here
+} from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { Home, CalendarClock, Package, ShoppingBag, LogOut, Users, AlertCircle, Loader2, ExternalLink, LayoutDashboard } from 'lucide-react'; // Added ExternalLink & LayoutDashboard
+import { Home, CalendarClock, Package, ShoppingBag, LogOut, Users, AlertCircle, Loader2, ArrowLeft, LayoutDashboard } from 'lucide-react'; // Added ArrowLeft, removed ExternalLink if not used elsewhere
 import { signOut, checkAdminRole } from '@/lib/supabasePlaceholders';
 import { PageContainer } from '@/components/shared/page-container';
-import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'; // SidebarProvider and SidebarInset are used in AdminLayoutWrapper
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 
 const adminNavItems = [
-  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard }, // Added Dashboard link
+  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/purchase-cycles', label: 'Ciclos de Compra', icon: CalendarClock },
   { href: '/admin/products', label: 'Produtos (Master)', icon: Package },
   { href: '/admin/orders', label: 'Pedidos', icon: ShoppingBag },
@@ -38,11 +38,10 @@ export function AdminSidebar() {
   };
 
   return (
-    // SidebarProvider is no longer nested here; it's in AdminLayoutWrapper
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="p-4 border-b border-sidebar-border">
          <Link href="/admin" className="flex items-center gap-2">
-          <Home className="text-sidebar-primary" /> {/* Using Home as a generic logo icon */}
+          <Home className="text-sidebar-primary" />
           <h1 className="text-2xl font-headline font-bold text-sidebar-primary group-data-[collapsible=icon]:hidden">
             Nugali Admin
           </h1>
@@ -55,7 +54,7 @@ export function AdminSidebar() {
               <Link href={item.href} legacyBehavior passHref>
                 <SidebarMenuButton
                   asChild
-                  isActive={pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href))}
+                  isActive={item.href === '/admin' ? pathname === item.href : pathname.startsWith(item.href)}
                   tooltip={{ children: item.label, side: "right", align:"center" }}
                 >
                   <a>
@@ -70,9 +69,9 @@ export function AdminSidebar() {
       </SidebarContent>
       <SidebarFooter className="p-4 border-t border-sidebar-border flex flex-col gap-2">
         <Button variant="ghost" asChild className="w-full justify-start gap-2 group-data-[collapsible=icon]:justify-center">
-          <Link href="/" target="_blank" rel="noopener noreferrer">
-            <ExternalLink size={18} />
-            <span className="group-data-[collapsible=icon]:hidden">Ver Site</span>
+          <Link href="/">
+            <ArrowLeft size={18} />
+            <span className="group-data-[collapsible=icon]:hidden">Voltar</span>
           </Link>
         </Button>
         <Button variant="ghost" onClick={handleSignOut} className="w-full justify-start gap-2 group-data-[collapsible=icon]:justify-center">
@@ -84,8 +83,6 @@ export function AdminSidebar() {
   );
 }
 
-// This is a wrapper for the admin layout to correctly use SidebarInset
-// and handle client-side authorization
 export function AdminLayoutWrapper({ children }: { children: ReactNode }) {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -122,9 +119,8 @@ export function AdminLayoutWrapper({ children }: { children: ReactNode }) {
     );
   }
 
-  // If authorized, render the admin layout with sidebar and content
   return (
-    <SidebarProvider defaultOpen> {/* Provider needed for SidebarInset and sidebar interactions */}
+    <SidebarProvider defaultOpen>
       <div className="flex h-screen bg-background">
         <AdminSidebar />
         <SidebarInset className="flex-1 overflow-y-auto">
