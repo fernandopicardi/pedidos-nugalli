@@ -1,6 +1,35 @@
 
 import type { Product, PurchaseCycle, Order, CartItem, CycleProduct, User, DisplayableProduct, OrderItem } from '@/types';
 
+// --- Cart Update Listener System ---
+let cartUpdateListeners: Array<(cartItems: CartItem[]) => void> = [];
+
+function notifyCartUpdateListeners() {
+  const currentCart = [...MOCK_CART_ITEMS];
+  for (const listener of cartUpdateListeners) {
+    try {
+      listener(currentCart);
+    } catch (e) {
+      console.error("Error in cart update listener:", e);
+    }
+  }
+}
+
+export function subscribeToCartUpdates(callback: (cartItems: CartItem[]) => void): () => void {
+  cartUpdateListeners.push(callback);
+  // Immediately provide current state to the new subscriber
+  try {
+    callback([...MOCK_CART_ITEMS]);
+  } catch (e) {
+    console.error("Error in initial cart update callback:", e);
+  }
+  // Return an unsubscribe function
+  return () => {
+    cartUpdateListeners = cartUpdateListeners.filter(cb => cb !== callback);
+  };
+}
+// Note: unsubscribeFromCartUpdates is not explicitly needed if the subscribe function returns an unsubscribe callback.
+
 // AUTH
 export async function signInWithEmail(email: string, password: string) {
   console.log('signInWithEmail called with:', email, password);
@@ -49,7 +78,7 @@ const MOCK_MASTER_PRODUCTS: Product[] = [
   {
     productId: 'prod-1',
     name: 'Ovo Praliné Amargo (Master)',
-    description: 'Master description for Praliné. Crocante e intenso.',
+    description: 'Master description for Praliné. Crocante e intenso, com pedaços de avelã caramelizada e cobertura de chocolate amargo 70% cacau. Uma experiência única para os amantes de sabores marcantes.',
     imageUrls: ['https://placehold.co/600x400.png?text=Master+P1+Img1', 'https://placehold.co/600x400.png?text=Master+P1+Img2'],
     attributes: {
       "categoria": ["Recheado"],
@@ -64,7 +93,7 @@ const MOCK_MASTER_PRODUCTS: Product[] = [
   {
     productId: 'prod-2',
     name: 'Caixa de Bombons Finos (Master)',
-    description: 'Master description for Bombons. Uma seleção dos nossos melhores.',
+    description: 'Master description for Bombons. Uma seleção dos nossos melhores bombons artesanais, com recheios variados como ganache de maracujá, trufa clássica e caramelo salgado. Perfeito para presentear.',
     imageUrls: ['https://placehold.co/600x400.png?text=Master+P2+Img1'],
     attributes: {
       "categoria": ["Recheado"],
@@ -80,12 +109,12 @@ const MOCK_MASTER_PRODUCTS: Product[] = [
   {
     productId: 'prod-3',
     name: 'Panettone Trufado (Master)',
-    description: 'Master description for Panettone. Ideal para o Natal.',
+    description: 'Master description for Panettone. Com massa de fermentação natural e generoso recheio de trufa de chocolate ao leite, coberto com chocolate Nugali. Ideal para o Natal.',
     imageUrls: ['https://placehold.co/600x400.png?text=Master+P3+Img1'],
     attributes: {
       "categoria": ["Recheado"],
       "peso": ["750g"],
-      "dietary": ["sem lactose"]
+      "dietary": ["sem lactose"] // Example, might not be true for typical panettone
     },
     isSeasonal: true,
     createdAt: '2023-01-03T00:00:00Z',
@@ -94,12 +123,13 @@ const MOCK_MASTER_PRODUCTS: Product[] = [
   {
     productId: 'prod-4',
     name: 'Tablete Ao Leite Clássico (Master)',
-    description: 'Nosso chocolate ao leite tradicional, cremoso e delicioso.',
+    description: 'Nosso chocolate ao leite tradicional, com 45% de cacau, cremoso e com dulçor equilibrado. Uma receita consagrada da Nugali.',
     imageUrls: ['https://placehold.co/600x400.png?text=Master+P4+Img1'],
     attributes: {
       "categoria": ["Tablete"],
       "peso": ["100g"],
-      "cacau": ["45%"]
+      "cacau": ["45%"],
+      "dietary": ["sem glúten"]
     },
     isSeasonal: false,
     createdAt: '2023-01-04T00:00:00Z',
@@ -108,7 +138,7 @@ const MOCK_MASTER_PRODUCTS: Product[] = [
   {
     productId: 'prod-5',
     name: 'Barra Vegana 80% Cacau (Master)',
-    description: 'Intenso sabor de cacau, totalmente vegano.',
+    description: 'Intenso sabor de cacau de origem única, esta barra com 80% de sólidos de cacau é totalmente vegana, sem lactose e sem glúten. Para paladares exigentes.',
     imageUrls: ['https://placehold.co/600x400.png?text=Master+P5+Img1'],
     attributes: {
       "categoria": ["Barra"],
@@ -123,7 +153,7 @@ const MOCK_MASTER_PRODUCTS: Product[] = [
   {
     productId: 'prod-6',
     name: 'Gotas de Chocolate 63% (Master)',
-    description: 'Perfeitas para suas receitas, chocolate 63% em gotas.',
+    description: 'Perfeitas para suas receitas de confeitaria, nosso chocolate 63% cacau em formato de gotas garante derretimento uniforme e sabor autêntico.',
     imageUrls: ['https://placehold.co/600x400.png?text=Master+P6+Img1'],
     attributes: {
       "categoria": ["Gotas"],
@@ -138,7 +168,7 @@ const MOCK_MASTER_PRODUCTS: Product[] = [
    {
     productId: 'prod-7',
     name: 'Pastilhas de Chocolate Zero Açúcar (Master)',
-    description: 'Deliciosas pastilhas de chocolate, sem adição de açúcar.',
+    description: 'Deliciosas pastilhas de chocolate 70% cacau, sem adição de açúcar, adoçadas com maltitol. Sabor intenso com menos culpa.',
     imageUrls: ['https://placehold.co/600x400.png?text=Master+P7+Img1'],
     attributes: {
       "categoria": ["Pastilhas"],
@@ -151,6 +181,7 @@ const MOCK_MASTER_PRODUCTS: Product[] = [
     updatedAt: '2023-01-07T00:00:00Z'
   }
 ];
+
 
 export async function fetchAdminProducts(): Promise<Product[]> {
   console.log('fetchAdminProducts called');
@@ -268,14 +299,14 @@ export async function fetchActivePurchaseCycleProducts(): Promise<DisplayablePro
     }
     return {
       cycleProductId: cp.cycleProductId,
-      productId: cp.productId,
-      cycleId: cp.cycleId,
-      name: cp.productNameSnapshot,
-      description: masterProduct.description,
-      price: cp.priceInCycle,
-      imageUrl: cp.displayImageUrl || masterProduct.imageUrls[0] || 'https://placehold.co/400x300.png?text=Nugali',
-      attributes: masterProduct.attributes || {}, // Ensure attributes is always an object
-      isAvailableInCycle: cp.isAvailableInCycle,
+      productId: cp.productId, // from master Product
+      cycleId: cp.cycleId, // from CycleProduct
+      name: cp.productNameSnapshot, // from CycleProduct (snapshot)
+      description: masterProduct.description, // from master Product
+      price: cp.priceInCycle, // from CycleProduct
+      imageUrl: cp.displayImageUrl || masterProduct.imageUrls[0] || 'https://placehold.co/400x300.png?text=Nugali', // specific image or fallback
+      attributes: masterProduct.attributes || {},
+      isAvailableInCycle: cp.isAvailableInCycle, // from CycleProduct
     };
   }).filter(dp => dp !== null) as DisplayableProduct[];
 
@@ -291,6 +322,7 @@ let MOCK_CART_ITEMS: CartItem[] = [
 
 export async function fetchCartItems(): Promise<CartItem[]> {
   console.log('fetchCartItems called');
+  notifyCartUpdateListeners(); // Ensure listeners are updated even on fetch if state could be stale
   return [...MOCK_CART_ITEMS];
 }
 
@@ -310,6 +342,7 @@ export async function addToCart(product: DisplayableProduct, quantity: number): 
       description: product.description.substring(0,50) + "...",
     });
   }
+  notifyCartUpdateListeners();
 }
 
 export async function updateCartItemQuantity(cycleProductId: string, quantity: number): Promise<void> {
@@ -322,11 +355,13 @@ export async function updateCartItemQuantity(cycleProductId: string, quantity: n
       MOCK_CART_ITEMS[itemIndex].quantity = quantity;
     }
   }
+  notifyCartUpdateListeners();
 }
 
 export async function removeFromCart(cycleProductId: string): Promise<void> {
   console.log('removeFromCart called for cycleProductId:', cycleProductId);
   MOCK_CART_ITEMS = MOCK_CART_ITEMS.filter(item => item.cycleProductId !== cycleProductId);
+  notifyCartUpdateListeners();
 }
 
 const MOCK_ORDERS: Order[] = [];
@@ -349,49 +384,73 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
   const newOrder: Order = {
     orderId: `order-${Date.now().toString()}`,
     orderNumber: `ORD-${Date.now().toString().slice(-5)}`,
-    userId: 'test-user',
-    customerNameSnapshot: 'Cliente Teste Checkout',
-    customerWhatsappSnapshot: '55123456789',
+    userId: 'test-user', // Placeholder user
+    customerNameSnapshot: 'Cliente Teste Checkout', // Placeholder
+    customerWhatsappSnapshot: '55123456789', // Placeholder
     cycleId: activeCycle.cycleId,
     items: orderItems,
     orderTotalAmount,
-    orderStatus: 'Pending Payment',
-    paymentStatus: 'Unpaid',
+    orderStatus: "Pending Payment",
+    paymentStatus: "Unpaid",
     orderDate: new Date().toISOString(),
   };
   MOCK_ORDERS.push(newOrder);
-  MOCK_CART_ITEMS = [];
+  MOCK_CART_ITEMS = []; // Clear cart
+  notifyCartUpdateListeners(); // Notify that cart is now empty
   return newOrder;
 }
 
+// Renamed status from old placeholder to match new Order type
 export async function fetchAdminOrders(): Promise<Order[]> {
   console.log('fetchAdminOrders called');
   if (MOCK_ORDERS.length === 0) {
-    const placeholderOrderItems: OrderItem[] = [
+    // Add some more realistic placeholder orders
+    const placeholderOrderItems1: OrderItem[] = [
       { productId: 'prod-1', cycleProductId: 'cp-easter-1', productName: 'Ovo Praliné Amargo (Ed. Páscoa)', quantity: 1, priceAtPurchase: 149.90, lineItemTotal: 149.90 },
-      { productId: 'prod-2', cycleProductId: 'cp-easter-2', productName: 'Caixa de Bombons Finos (Seleção Páscoa)', quantity: 1, priceAtPurchase: 109.50, lineItemTotal: 109.50 },
+      { productId: 'prod-2', cycleProductId: 'cp-easter-2', productName: 'Caixa de Bombons Finos (Seleção Páscoa)', quantity: 2, priceAtPurchase: 109.50, lineItemTotal: 219.00 },
+    ];
+     const placeholderOrderItems2: OrderItem[] = [
+      { productId: 'prod-5', cycleProductId: 'cp-easter-5', productName: 'Barra Vegana 80% Cacau (Ed. Páscoa)', quantity: 3, priceAtPurchase: 35.00, lineItemTotal: 105.00 },
     ];
      MOCK_ORDERS.push(
-      { orderId: 'order-mock-1', orderNumber: 'ORD-00123', userId: 'user-1', customerNameSnapshot: 'João Silva Exemplo', customerWhatsappSnapshot: '5511999998888', cycleId: 'cycle-easter-2025', items: placeholderOrderItems, orderTotalAmount: 259.40, orderStatus: 'Pending Payment', paymentStatus: 'Unpaid', orderDate: '2024-05-20T10:30:00Z' },
-      { orderId: 'order-mock-2', orderNumber: 'ORD-00124', userId: 'user-2', customerNameSnapshot: 'Maria Oliveira Exemplo', customerWhatsappSnapshot: '5521988887777', cycleId: 'cycle-easter-2025', items: [placeholderOrderItems[1]], orderTotalAmount: 109.50, orderStatus: 'Preparing', paymentStatus: 'Paid', orderDate: '2024-05-19T15:00:00Z' }
+      { orderId: 'order-mock-1', orderNumber: 'ORD-00123', userId: 'user-1', customerNameSnapshot: 'João Silva Exemplo', customerWhatsappSnapshot: '5511999998888', cycleId: 'cycle-easter-2025', items: placeholderOrderItems1, orderTotalAmount: 368.90, orderStatus: 'Pending Payment', paymentStatus: 'Unpaid', orderDate: '2024-05-20T10:30:00Z' },
+      { orderId: 'order-mock-2', orderNumber: 'ORD-00124', userId: 'user-2', customerNameSnapshot: 'Maria Oliveira Exemplo', customerWhatsappSnapshot: '5521988887777', cycleId: 'cycle-easter-2025', items: placeholderOrderItems2, orderTotalAmount: 105.00, orderStatus: 'Preparing', paymentStatus: 'Paid', orderDate: '2024-05-19T15:00:00Z' },
+      { orderId: 'order-mock-3', orderNumber: 'ORD-00125', userId: 'user-1', customerNameSnapshot: 'João Silva Exemplo', customerWhatsappSnapshot: '5511999998888', cycleId: 'cycle-xmas-2024', items: [{productId: 'prod-3', cycleProductId: 'cp-xmas-3', productName: 'Panettone Trufado (Natalino)', quantity: 1, priceAtPurchase: 89.90, lineItemTotal: 89.90 }], orderTotalAmount: 89.90, orderStatus: 'Completed', paymentStatus: 'Paid', orderDate: '2023-12-15T11:00:00Z' }
     );
   }
   return [...MOCK_ORDERS];
 }
 
-export async function updateOrderStatus(orderId: string, status: Order['orderStatus'], paymentStatus?: Order['paymentStatus']): Promise<Order> {
-  console.log('updateOrderStatus called for order ID:', orderId, 'new orderStatus:', status, 'new paymentStatus:', paymentStatus);
+
+export async function updateOrderStatus(orderId: string, newOrderStatus: Order['orderStatus'], newPaymentStatus?: Order['paymentStatus']): Promise<Order> {
+  console.log('updateOrderStatus called for order ID:', orderId, 'new orderStatus:', newOrderStatus, 'new paymentStatus:', newPaymentStatus);
   const orderIndex = MOCK_ORDERS.findIndex(o => o.orderId === orderId);
   if (orderIndex === -1) throw new Error('Order not found');
 
-  MOCK_ORDERS[orderIndex].orderStatus = status;
-  if (paymentStatus) {
-    MOCK_ORDERS[orderIndex].paymentStatus = paymentStatus;
+  MOCK_ORDERS[orderIndex].orderStatus = newOrderStatus;
+  if (newPaymentStatus) {
+    MOCK_ORDERS[orderIndex].paymentStatus = newPaymentStatus;
   }
+  // If order status implies payment, update payment status too (example logic)
+  if (newOrderStatus === "Payment Confirmed" && MOCK_ORDERS[orderIndex].paymentStatus === "Unpaid") {
+    MOCK_ORDERS[orderIndex].paymentStatus = "Paid";
+  }
+  if (newOrderStatus === "Preparing" && MOCK_ORDERS[orderIndex].paymentStatus === "Unpaid") {
+     MOCK_ORDERS[orderIndex].paymentStatus = "Paid"; // Assuming preparing implies payment
+  }
+  if (newOrderStatus === "Completed" && MOCK_ORDERS[orderIndex].paymentStatus !== "Paid") {
+    MOCK_ORDERS[orderIndex].paymentStatus = "Paid";
+  }
+  if (newOrderStatus === "Cancelled" && MOCK_ORDERS[orderIndex].paymentStatus === "Paid") {
+    // Potentially set to "Refunded" or handle refund logic elsewhere
+    // MOCK_ORDERS[orderIndex].paymentStatus = "Refunded";
+  }
+
   return MOCK_ORDERS[orderIndex];
 }
 
-// Old Season functions (deprecated, will be removed or fully replaced by PurchaseCycle)
+
+// Old Season functions (deprecated, effectively replaced by PurchaseCycle)
 export interface Season { // This will be replaced by PurchaseCycle
   id: string;
   name: string;
@@ -419,6 +478,3 @@ export async function deleteSeason(seasonId: string): Promise<void> {
   const index = MOCK_SEASONS.findIndex(s => s.id === seasonId);
   if (index > -1) MOCK_SEASONS.splice(index, 1);
 }
-
-
-    

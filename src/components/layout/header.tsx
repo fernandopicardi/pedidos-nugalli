@@ -1,15 +1,12 @@
+
 "use client";
 
 import Link from 'next/link';
 import { ShoppingCart, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
-
-// Placeholder for fetching cart item count
-async function fetchCartItemCount(): Promise<number> {
-  // TODO: Implement logic to get cart item count (e.g., from context or Supabase)
-  return 3; // Stubbed data
-}
+import { subscribeToCartUpdates } from '@/lib/supabasePlaceholders';
+import type { CartItem } from '@/types';
 
 export function Header() {
   const [itemCount, setItemCount] = useState(0);
@@ -17,7 +14,19 @@ export function Header() {
 
   useEffect(() => {
     setIsClient(true);
-    fetchCartItemCount().then(count => setItemCount(count));
+
+    const handleCartUpdate = (cartItems: CartItem[]) => {
+      const totalQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+      setItemCount(totalQuantity);
+    };
+
+    // Subscribe to cart updates and get an unsubscribe function
+    const unsubscribe = subscribeToCartUpdates(handleCartUpdate);
+
+    // Cleanup subscription on component unmount
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   return (
