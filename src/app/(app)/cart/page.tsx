@@ -113,10 +113,6 @@ export default function CartPage() {
                     <span>Subtotal:</span>
                     <span>R$ {totalValue.toFixed(2).replace('.', ',')}</span>
                   </div>
-                  <div className="flex justify-between text-lg">
-                    <span>Frete:</span>
-                    <span className="text-primary">Grátis</span> {/* Placeholder */}
-                  </div>
                   <hr className="my-2 border-border" />
                   <div className="flex justify-between text-2xl font-bold text-primary">
                     <span>Total:</span>
