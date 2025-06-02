@@ -288,3 +288,32 @@ export async function updateOrderStatus(orderId: string, status: Order['orderSta
   }
   return MOCK_ORDERS[orderIndex];
 }
+
+// Old Season functions (deprecated, will be removed or fully replaced by PurchaseCycle)
+export interface Season { // This will be replaced by PurchaseCycle
+  id: string;
+  name: string;
+  startDate: string; // ISO date string
+  endDate: string; // ISO date string
+  isActive: boolean;
+}
+const MOCK_SEASONS: Season[] = [
+  { id: 'season-1', name: 'Páscoa 2024', startDate: '2024-03-01T00:00:00Z', endDate: '2024-04-20T23:59:59Z', isActive: true },
+  { id: 'season-2', name: 'Natal 2023', startDate: '2023-11-01T00:00:00Z', endDate: '2023-12-25T23:59:59Z', isActive: false },
+];
+export async function fetchSeasons(): Promise<Season[]> { return [...MOCK_SEASONS]; }
+export async function createSeason(seasonData: Omit<Season, 'id'>): Promise<Season> {
+  const newSeason: Season = { ...seasonData, id: `season-${Date.now()}` };
+  MOCK_SEASONS.push(newSeason);
+  return newSeason;
+}
+export async function updateSeason(seasonId: string, seasonData: Partial<Season>): Promise<Season> {
+  const seasonIndex = MOCK_SEASONS.findIndex(s => s.id === seasonId);
+  if (seasonIndex === -1) throw new Error("Season not found");
+  MOCK_SEASONS[seasonIndex] = { ...MOCK_SEASONS[seasonIndex], ...seasonData };
+  return MOCK_SEASONS[seasonIndex];
+}
+export async function deleteSeason(seasonId: string): Promise<void> {
+  const index = MOCK_SEASONS.findIndex(s => s.id === seasonId);
+  if (index > -1) MOCK_SEASONS.splice(index, 1);
+}

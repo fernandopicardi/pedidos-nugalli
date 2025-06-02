@@ -1,3 +1,4 @@
+
 "use client";
 
 import Image from 'next/image';
@@ -10,8 +11,8 @@ import { updateCartItemQuantity, removeFromCart } from '@/lib/supabasePlaceholde
 
 interface CartItemDisplayProps {
   item: CartItem;
-  onQuantityChange: (itemId: string, newQuantity: number) => void;
-  onRemove: (itemId: string) => void;
+  onQuantityChange: (cycleProductId: string, newQuantity: number) => void;
+  onRemove: (cycleProductId: string) => void;
 }
 
 export function CartItemDisplay({ item, onQuantityChange, onRemove }: CartItemDisplayProps) {
@@ -19,20 +20,15 @@ export function CartItemDisplay({ item, onQuantityChange, onRemove }: CartItemDi
 
   const handleIncreaseQuantity = async () => {
     const newQuantity = item.quantity + 1;
-    // TODO: Implement Supabase update quantity logic
-    await updateCartItemQuantity(item.id, newQuantity);
-    onQuantityChange(item.id, newQuantity);
+    await updateCartItemQuantity(item.cycleProductId, newQuantity);
+    onQuantityChange(item.cycleProductId, newQuantity);
   };
 
   const handleDecreaseQuantity = async () => {
     if (item.quantity > 1) {
       const newQuantity = item.quantity - 1;
-      // TODO: Implement Supabase update quantity logic
-      await updateCartItemQuantity(item.id, newQuantity);
-      onQuantityChange(item.id, newQuantity);
-    } else {
-      // Optionally, remove if quantity becomes 0, or keep at 1
-      // For now, just don't go below 1 with +/- buttons. Use remove button for that.
+      await updateCartItemQuantity(item.cycleProductId, newQuantity);
+      onQuantityChange(item.cycleProductId, newQuantity);
     }
   };
   
@@ -41,15 +37,13 @@ export function CartItemDisplay({ item, onQuantityChange, onRemove }: CartItemDi
     if (isNaN(newQuantity) || newQuantity < 1) {
       newQuantity = 1;
     }
-    // TODO: Implement Supabase update quantity logic
-    await updateCartItemQuantity(item.id, newQuantity);
-    onQuantityChange(item.id, newQuantity);
+    await updateCartItemQuantity(item.cycleProductId, newQuantity);
+    onQuantityChange(item.cycleProductId, newQuantity);
   };
 
   const handleRemoveItem = async () => {
-    // TODO: Implement Supabase remove item logic
-    await removeFromCart(item.id);
-    onRemove(item.id);
+    await removeFromCart(item.cycleProductId);
+    onRemove(item.cycleProductId);
     toast({
       title: `${item.name} removido do carrinho.`,
       variant: "default",

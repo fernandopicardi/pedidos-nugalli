@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -20,7 +21,6 @@ export default function CartPage() {
   useEffect(() => {
     async function loadCartItems() {
       setIsLoading(true);
-      // TODO: Fetch cart items from Supabase or local storage
       const items = await fetchCartItems();
       setCartItems(items);
       setIsLoading(false);
@@ -28,16 +28,16 @@ export default function CartPage() {
     loadCartItems();
   }, []);
 
-  const handleQuantityChange = (itemId: string, newQuantity: number) => {
+  const handleQuantityChange = (cycleProductId: string, newQuantity: number) => {
     setCartItems(prevItems =>
       prevItems.map(item =>
-        item.id === itemId ? { ...item, quantity: newQuantity } : item
+        item.cycleProductId === cycleProductId ? { ...item, quantity: newQuantity } : item
       )
     );
   };
 
-  const handleRemoveItem = (itemId: string) => {
-    setCartItems(prevItems => prevItems.filter(item => item.id !== itemId));
+  const handleRemoveItem = (cycleProductId: string) => {
+    setCartItems(prevItems => prevItems.filter(item => item.cycleProductId !== cycleProductId));
   };
 
   const totalValue = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -47,15 +47,14 @@ export default function CartPage() {
       toast({ title: "Carrinho Vazio", description: "Adicione itens ao carrinho antes de finalizar.", variant: "destructive" });
       return;
     }
-    // TODO: Implement Supabase checkout logic
     try {
       const order = await processCheckout(cartItems);
       toast({
         title: "Pedido Realizado!",
-        description: `Seu pedido #${order.id} foi confirmado.`,
+        description: `Seu pedido #${order.orderNumber} foi confirmado.`, // Using orderNumber for display
       });
       setCartItems([]); // Clear cart after successful checkout
-      // router.push(`/order-confirmation/${order.id}`); // Redirect to an order confirmation page
+      // router.push(`/order-confirmation/${order.orderId}`); // Redirect to an order confirmation page
     } catch (error) {
       toast({ title: "Erro no Checkout", description: "Não foi possível finalizar seu pedido. Tente novamente.", variant: "destructive" });
     }
@@ -95,7 +94,7 @@ export default function CartPage() {
                 <CardContent className="p-0">
                   {cartItems.map(item => (
                     <CartItemDisplay
-                      key={item.id}
+                      key={item.cycleProductId}
                       item={item}
                       onQuantityChange={handleQuantityChange}
                       onRemove={handleRemoveItem}
