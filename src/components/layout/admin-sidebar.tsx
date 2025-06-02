@@ -2,7 +2,8 @@
 "use client";
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation'; // Added useRouter
+import { useEffect, useState, type ReactNode } from 'react'; // Added useEffect, useState, ReactNode
 import { 
   SidebarProvider, 
   Sidebar, 
@@ -16,9 +17,9 @@ import {
   SidebarFooter
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { Home, CalendarClock, Package, ShoppingBag, LogOut, Users } from 'lucide-react'; // Added Users icon
-import { signOut } from '@/lib/supabasePlaceholders';
-// import { useRouter } from 'next/navigation'; // Uncomment if using router
+import { Home, CalendarClock, Package, ShoppingBag, LogOut, Users, AlertCircle, Loader2 } from 'lucide-react'; // Added AlertCircle, Loader2
+import { signOut, checkAdminRole } from '@/lib/supabasePlaceholders'; // Added checkAdminRole
+import { PageContainer } from '@/components/shared/page-container'; // Added PageContainer
 
 const adminNavItems = [
   { href: '/admin/purchase-cycles', label: 'Ciclos de Compra', icon: CalendarClock },
@@ -30,12 +31,11 @@ const adminNavItems = [
 
 export function AdminSidebar() {
   const pathname = usePathname();
-  // const router = useRouter(); // Uncomment if using router
+  const router = useRouter(); 
 
   const handleSignOut = async () => {
     await signOut();
-    // router.push('/auth'); // Redirect to login after sign out
-    console.log("User signed out");
+    router.push('/auth'); // Redirect to auth page after sign out
   };
 
   return (
@@ -76,14 +76,50 @@ export function AdminSidebar() {
           </Button>
         </SidebarFooter>
       </Sidebar>
-      {/* The SidebarInset is where the main content of the admin page will go */}
-      {/* This will be handled by the AdminLayout component */}
     </SidebarProvider>
   );
 }
 
 // This is a wrapper for the admin layout to correctly use SidebarInset
-export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) {
+// and handle client-side authorization
+export function AdminLayoutWrapper({ children }: { children: ReactNode }) {
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    async function verifyAdminStatus() {
+      const isAdmin = await checkAdminRole();
+      setIsAuthorized(isAdmin);
+      setIsLoading(false);
+      // No automatic redirect here, will show access denied message
+    }
+    verifyAdminStatus();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <PageContainer className="flex flex-col items-center justify-center min-h-screen">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground">Verificando permissões...</p>
+      </PageContainer>
+    );
+  }
+
+  if (!isAuthorized) {
+    return (
+      <PageContainer className="flex flex-col items-center justify-center min-h-screen text-center">
+        <AlertCircle className="h-16 w-16 text-destructive mb-6" />
+        <h1 className="text-3xl font-headline text-destructive mb-3">Acesso Negado</h1>
+        <p className="text-lg text-muted-foreground mb-8">Você não tem permissão para visualizar esta página.</p>
+        <Button onClick={() => router.push('/')} size="lg">
+          Voltar para Início
+        </Button>
+      </PageContainer>
+    );
+  }
+
+  // If authorized, render the admin layout with sidebar and content
   return (
     <SidebarProvider defaultOpen> {/* Provider needed for SidebarInset */}
       <div className="flex h-screen bg-background">
