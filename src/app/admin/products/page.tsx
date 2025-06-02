@@ -102,7 +102,7 @@ export default function ProductManagementPage() {
       />
 
       <Dialog open={isModalOpen} onOpenChange={(isOpen) => { setIsModalOpen(isOpen); if (!isOpen) setEditingProduct(null); }}>
-        <DialogContent className="sm:max-w-[600px] bg-card">
+        <DialogContent className="sm:max-w-[600px] bg-card bg-opacity-85 backdrop-blur-sm shadow-lg">
           <DialogHeader>
             <DialogTitle className="font-headline text-2xl">
               {editingProduct ? 'Editar Produto Mestre' : 'Novo Produto Mestre'}
