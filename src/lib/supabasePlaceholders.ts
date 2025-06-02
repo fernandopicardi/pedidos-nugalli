@@ -18,7 +18,9 @@ function notifyCartUpdateListeners() {
 export function subscribeToCartUpdates(callback: (cartItems: CartItem[]) => void): () => void {
   cartUpdateListeners.push(callback);
   try {
-    callback([...MOCK_CART_ITEMS]);
+    // Immediately call callback with current cart state for initial load
+    const currentCart = typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem('mockCart') || '[]') : [...MOCK_CART_ITEMS];
+    callback(currentCart);
   } catch (e) {
     console.error("Error in initial cart update callback:", e);
   }
@@ -27,40 +29,83 @@ export function subscribeToCartUpdates(callback: (cartItems: CartItem[]) => void
   };
 }
 
+// Persist cart to localStorage for a more realistic mock
+function saveCartToLocalStorage() {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('mockCart', JSON.stringify(MOCK_CART_ITEMS));
+  }
+}
+
+function loadCartFromLocalStorage(): CartItem[] {
+  if (typeof localStorage !== 'undefined') {
+    const storedCart = localStorage.getItem('mockCart');
+    if (storedCart) {
+      return JSON.parse(storedCart);
+    }
+  }
+  return [];
+}
+
+// Initialize cart from localStorage
+let MOCK_CART_ITEMS: CartItem[] = loadCartFromLocalStorage();
+
+
 // AUTH
+const MOCK_USERS: User[] = [
+    { userId: 'admin-user', email: 'admin@nugali.com', displayName: 'Nugali Admin', role: 'admin', createdAt: new Date().toISOString() },
+    { userId: 'fp-admin-user', email: 'fernandopicardi@gmail.com', displayName: 'Fernando Picardi', role: 'admin', createdAt: new Date().toISOString() },
+    { userId: 'nn-admin-user', email: 'naiara.nasmaste@gmail.com', displayName: 'Naiara Nasmaste', role: 'admin', createdAt: new Date().toISOString() },
+    { userId: 'test-user', email: 'user@nugali.com', displayName: 'Cliente Teste', role: 'customer', whatsapp: '5547999998888', createdAt: new Date().toISOString() },
+    { userId: 'user-ana', email: 'ana.silva@example.com', displayName: 'Ana Silva', role: 'customer', whatsapp: '5521987654321', createdAt: '2023-10-15T00:00:00Z' },
+    { userId: 'user-carlos', email: 'carlos.pereira@example.com', displayName: 'Carlos Pereira', role: 'customer', createdAt: '2023-11-01T00:00:00Z' },
+];
+
 export async function signInWithEmail(email: string, password: string) {
   console.log('signInWithEmail called with:', email, password);
-  if (email === 'admin@nugali.com' && password === 'adminpass') {
-    const user: User = { userId: 'admin-user', email, displayName: 'Admin User', role: 'admin', createdAt: new Date().toISOString() };
-    // Simulate storing user session (very basic)
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('currentUser', JSON.stringify(user));
+
+  const foundUser = MOCK_USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
+
+  if (foundUser) {
+    let correctPassword = false;
+    if (foundUser.role === 'admin' && password === 'adminpass') {
+      correctPassword = true;
+    } else if (foundUser.role === 'customer' && foundUser.email === 'user@nugali.com' && password === 'userpass') {
+      correctPassword = true;
+    } else if (foundUser.role === 'customer' && password === 'password123') { // Generic password for other customer mock users
+      correctPassword = true;
     }
-    return { user, error: null };
-  }
-  if (email === 'user@nugali.com' && password === 'userpass') {
-     const user: User = { userId: 'test-user', email, displayName: 'Test User', role: 'customer', createdAt: new Date().toISOString() };
-     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('currentUser', JSON.stringify(user));
+
+
+    if (correctPassword) {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('currentUser', JSON.stringify(foundUser));
+      }
+      return { user: foundUser, error: null };
     }
-    return { user, error: null };
   }
-  return { user: null, error: { message: 'Invalid credentials' } };
+  
+  return { user: null, error: { message: 'Credenciais inválidas.' } };
 }
 
 export async function signUpWithEmail(email: string, password: string, displayName?: string, whatsapp?: string) {
   console.log('signUpWithEmail called with:', email, password, displayName, whatsapp);
+  
+  if (MOCK_USERS.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+    return { user: null, error: { message: 'Este email já está cadastrado.' }};
+  }
+  
   const newDisplayName = displayName || email.split('@')[0];
   const newUser: User = {
     userId: `new-user-${Date.now()}`,
     email,
     displayName: newDisplayName,
     whatsapp: whatsapp || undefined,
-    role: 'customer',
+    role: 'customer', // New sign-ups are always customers
     createdAt: new Date().toISOString(),
   };
-  // Simulate adding to a mock user list
   MOCK_USERS.push(newUser);
+  // For mock purposes, log them in directly or require login after signup.
+  // Here, we won't log them in automatically to test the login flow separately.
   return { user: newUser, error: null };
 }
 
@@ -68,30 +113,26 @@ export async function signOut() {
   console.log('signOut called');
    if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('currentUser');
+      // Also clear cart on sign out for this mock, or handle cart persistence per user if needed later
+      // MOCK_CART_ITEMS = [];
+      // saveCartToLocalStorage();
+      // notifyCartUpdateListeners(); 
     }
   return { error: null };
 }
 
 export async function getCurrentUser(): Promise<User | null> {
-  // console.log('getCurrentUser called');
   if (typeof localStorage !== 'undefined') {
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
       return JSON.parse(storedUser);
     }
   }
-  return null; // Simulate no user logged in default
+  return null; 
 }
 
-const MOCK_USERS: User[] = [
-    { userId: 'admin-user', email: 'admin@nugali.com', displayName: 'Admin User', role: 'admin', createdAt: new Date().toISOString() },
-    { userId: 'test-user', email: 'user@nugali.com', displayName: 'Test User', role: 'customer', whatsapp: '5547999998888', createdAt: new Date().toISOString() },
-    { userId: 'user-ana', email: 'ana.silva@example.com', displayName: 'Ana Silva', role: 'customer', whatsapp: '5521987654321', createdAt: '2023-10-15T00:00:00Z' },
-    { userId: 'user-carlos', email: 'carlos.pereira@example.com', displayName: 'Carlos Pereira', role: 'customer', createdAt: '2023-11-01T00:00:00Z' },
-];
 
 export async function checkAdminRole(): Promise<boolean> {
-  // console.log('checkAdminRole called');
   const user = await getCurrentUser();
   return user?.role === 'admin';
 }
@@ -266,13 +307,12 @@ export async function fetchCycleProducts(cycleId: string): Promise<CycleProduct[
 
 // DISPLAYABLE PRODUCTS FOR CLIENT HOMEPAGE
 export async function fetchActivePurchaseCycleProducts(): Promise<DisplayableProduct[]> {
-  // console.log('fetchActivePurchaseCycleProducts (Displayable) called');
   const activeCycle = MOCK_PURCHASE_CYCLES.find(pc => pc.isActive);
   if (!activeCycle) {
     return [];
   }
 
-  const masterProducts = await fetchAdminProducts(); // Already fetches MOCK_MASTER_PRODUCTS
+  const masterProducts = await fetchAdminProducts(); 
   const cycleProductsForActiveCycle = MOCK_CYCLE_PRODUCTS.filter(
     cp => cp.cycleId === activeCycle.cycleId && cp.isAvailableInCycle
   );
@@ -301,11 +341,9 @@ export async function fetchActivePurchaseCycleProducts(): Promise<DisplayablePro
 
 
 // CART & ORDERS
-let MOCK_CART_ITEMS: CartItem[] = [];
 
 export async function fetchCartItems(): Promise<CartItem[]> {
-  // console.log('fetchCartItems called');
-  notifyCartUpdateListeners();
+  notifyCartUpdateListeners(); // Ensure listeners are notified with the latest cart from LS
   return [...MOCK_CART_ITEMS];
 }
 
@@ -325,6 +363,7 @@ export async function addToCart(product: DisplayableProduct, quantity: number): 
       description: product.description.substring(0,50) + "...",
     });
   }
+  saveCartToLocalStorage();
   notifyCartUpdateListeners();
 }
 
@@ -338,12 +377,14 @@ export async function updateCartItemQuantity(cycleProductId: string, quantity: n
       MOCK_CART_ITEMS[itemIndex].quantity = quantity;
     }
   }
+  saveCartToLocalStorage();
   notifyCartUpdateListeners();
 }
 
 export async function removeFromCart(cycleProductId: string): Promise<void> {
   console.log('removeFromCart called for cycleProductId:', cycleProductId);
   MOCK_CART_ITEMS = MOCK_CART_ITEMS.filter(item => item.cycleProductId !== cycleProductId);
+  saveCartToLocalStorage();
   notifyCartUpdateListeners();
 }
 
@@ -423,12 +464,13 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
     cycleId: activeCycle.cycleId,
     items: orderItems,
     orderTotalAmount,
-    orderStatus: "Pending Payment",
-    paymentStatus: "Unpaid",
+    orderStatus: "Pending Payment", // Initial status
+    paymentStatus: "Unpaid",      // Initial status
     orderDate: new Date().toISOString(),
   };
   MOCK_ORDERS.push(newOrder);
   MOCK_CART_ITEMS = []; 
+  saveCartToLocalStorage();
   notifyCartUpdateListeners(); 
   return newOrder;
 }
@@ -445,28 +487,27 @@ export async function updateOrderStatus(orderId: string, newOrderStatus: Order['
   if (orderIndex === -1) throw new Error('Order not found');
 
   MOCK_ORDERS[orderIndex].orderStatus = newOrderStatus;
+  
+  // If a specific payment status is provided, use it
   if (newPaymentStatus) {
     MOCK_ORDERS[orderIndex].paymentStatus = newPaymentStatus;
+  } else { // Otherwise, apply some default logic based on order status
+    if (newOrderStatus === "Payment Confirmed" || newOrderStatus === "Preparing" || newOrderStatus === "Ready for Pickup/Delivery" || newOrderStatus === "Completed") {
+        if (MOCK_ORDERS[orderIndex].paymentStatus === "Unpaid") {
+            MOCK_ORDERS[orderIndex].paymentStatus = "Paid";
+        }
+    } else if (newOrderStatus === "Cancelled") {
+        if (MOCK_ORDERS[orderIndex].paymentStatus === "Paid") {
+            MOCK_ORDERS[orderIndex].paymentStatus = "Refunded";
+        }
+    } else if (newOrderStatus === "Pending Payment") {
+        // If moving back to Pending Payment, reset payment status unless it was already Refunded
+        if (MOCK_ORDERS[orderIndex].paymentStatus !== "Refunded") {
+            MOCK_ORDERS[orderIndex].paymentStatus = "Unpaid";
+        }
+    }
   }
   
-  if (newOrderStatus === "Payment Confirmed" && MOCK_ORDERS[orderIndex].paymentStatus === "Unpaid") {
-    MOCK_ORDERS[orderIndex].paymentStatus = "Paid";
-  }
-  if (newOrderStatus === "Preparing" && MOCK_ORDERS[orderIndex].paymentStatus === "Unpaid") {
-     MOCK_ORDERS[orderIndex].paymentStatus = "Paid"; 
-  }
-  if (newOrderStatus === "Completed" && MOCK_ORDERS[orderIndex].paymentStatus !== "Paid") {
-    MOCK_ORDERS[orderIndex].paymentStatus = "Paid";
-  }
-   if (newOrderStatus === "Cancelled" && MOCK_ORDERS[orderIndex].paymentStatus === "Paid") {
-     MOCK_ORDERS[orderIndex].paymentStatus = "Refunded";
-   }
-   if (newOrderStatus !== "Cancelled" && MOCK_ORDERS[orderIndex].paymentStatus === "Refunded" && newOrderStatus !== "Pending Payment") {
-    // If order is un-cancelled and was refunded, perhaps set to Unpaid or require manual update
-    MOCK_ORDERS[orderIndex].paymentStatus = "Unpaid";
-   }
-
-
   return MOCK_ORDERS[orderIndex];
 }
 
@@ -479,7 +520,7 @@ export async function fetchActiveCycleMetrics(): Promise<{ activeCycle: Purchase
 
   if (activeCycle) {
     const ordersInActiveCycle = MOCK_ORDERS.filter(order => order.cycleId === activeCycle.cycleId);
-    pendingOrdersCount = ordersInActiveCycle.filter(order => order.orderStatus === "Pending Payment" || order.orderStatus === "Preparing").length;
+    pendingOrdersCount = ordersInActiveCycle.filter(order => order.orderStatus === "Pending Payment" || order.orderStatus === "Preparing" || order.orderStatus === "Payment Confirmed").length;
     totalSalesActiveCycle = ordersInActiveCycle
       .filter(order => order.paymentStatus === "Paid")
       .reduce((sum, order) => sum + order.orderTotalAmount, 0);
@@ -493,3 +534,5 @@ export async function fetchAdminUsers(): Promise<User[]> {
     console.log('fetchAdminUsers called');
     return MOCK_USERS.filter(user => user.role === 'customer');
 }
+
+    
