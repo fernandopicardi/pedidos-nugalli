@@ -20,19 +20,23 @@ interface ProductCardProps {
 const formatAttributes = (attributes: Record<string, string[]>): string => {
   const allAttributes: string[] = [];
   for (const key in attributes) {
-    if (key.toLowerCase() !== 'unidade' && key.toLowerCase() !== 'categoria' && key.toLowerCase() !== 'peso' && key.toLowerCase() !== 'cacau' && key.toLowerCase() !== 'sabor' && key.toLowerCase() !== 'unidades') { // Exclude specific keys from general list
+    // Exclude specific keys that might be displayed differently or are part of the main description/title.
+    if (!["unidade", "categoria", "peso", "cacau", "sabor", "unidades"].includes(key.toLowerCase())) {
       attributes[key].forEach(value => allAttributes.push(value));
     }
   }
   return allAttributes.join(', ');
 };
 
+const MAX_SHORT_DESC_LENGTH = 80;
+
 export function ProductCard({ product }: ProductCardProps) {
   const { toast } = useToast();
   const [quantity, setQuantity] = useState(0);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   const handleQuantityChange = (newQuantity: number) => {
-    if (newQuantity >= 0 && newQuantity <= 10) {
+    if (newQuantity >= 0 && newQuantity <= 10) { // Max 10 items per product type via UI
       setQuantity(newQuantity);
     }
   };
@@ -55,7 +59,11 @@ export function ProductCard({ product }: ProductCardProps) {
   };
 
   const unitOfSale = product.attributes?.unidade?.[0] || 'unidade';
-  const complementaryDescription = formatAttributes(product.attributes);
+  const complementaryAttributesDisplay = formatAttributes(product.attributes); // Renamed for clarity
+
+  const toggleDescription = () => {
+    setIsDescriptionExpanded(!isDescriptionExpanded);
+  };
 
   return (
     <Card className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg">
@@ -70,21 +78,54 @@ export function ProductCard({ product }: ProductCardProps) {
           />
         </div>
       </CardHeader>
-      <CardContent className="p-4 flex-grow flex flex-col justify-between">
-        <div>
-          <CardTitle className="font-headline text-xl mb-1 line-clamp-2">{product.name}</CardTitle>
-          {complementaryDescription && (
+      <CardContent className="p-4 flex-grow flex flex-col">
+        <div className="flex-grow"> {/* This div will allow content to push quantity selector down */}
+          <CardTitle className="font-headline text-xl mb-1 line-clamp-2 h-[3em]">{product.name}</CardTitle>
+          
+          {/* Expandable Product Description */}
+          {product.description && (
+            <div className="text-sm text-muted-foreground mb-2 min-h-[3.5em]" aria-live="polite">
+              {isDescriptionExpanded || product.description.length <= MAX_SHORT_DESC_LENGTH ? (
+                <>
+                  {product.description}
+                  {product.description.length > MAX_SHORT_DESC_LENGTH && (
+                    <button
+                      onClick={toggleDescription}
+                      aria-expanded="true"
+                      className="text-primary hover:underline focus:underline focus:outline-none ml-1 font-medium"
+                    >
+                      Ver menos
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  {`${product.description.substring(0, MAX_SHORT_DESC_LENGTH)}...`}
+                  <button
+                    onClick={toggleDescription}
+                    aria-expanded="false"
+                    className="text-primary hover:underline focus:underline focus:outline-none ml-1 font-medium"
+                  >
+                    Ver mais
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {complementaryAttributesDisplay && (
             <p className="text-xs text-muted-foreground mb-2 min-h-[1.5em] line-clamp-2">
-              {complementaryDescription}
+              {complementaryAttributesDisplay}
             </p>
           )}
-          <p className="text-2xl font-semibold text-primary mb-2">
+          
+          <p className="text-2xl font-semibold text-primary mb-3">
             R$ {product.price.toFixed(2).replace('.', ',')}
-            {unitOfSale !== 'unidade' && <span className="text-sm font-normal text-muted-foreground"> / {unitOfSale}</span>}
+            {unitOfSale.toLowerCase() !== 'unidade' && <span className="text-sm font-normal text-muted-foreground"> / {unitOfSale}</span>}
           </p>
         </div>
         
-        <div className="mt-auto"> {/* Pushes quantity selector and button to the bottom if content above is short */}
+        <div className="mt-auto pt-3"> {/* mt-auto pushes this block to the bottom, pt-3 for spacing */}
           <div className="flex items-center justify-center space-x-2 mb-3">
             <Button variant="outline" size="icon" onClick={() => handleQuantityChange(quantity - 1)} disabled={quantity === 0}>
               <MinusCircle size={18} />
@@ -95,7 +136,7 @@ export function ProductCard({ product }: ProductCardProps) {
               onChange={(e) => handleQuantityChange(parseInt(e.target.value, 10) || 0)}
               className="w-16 h-10 text-center font-bold"
               min="0"
-              max="10"
+              max="10" // Consistent with handleQuantityChange
             />
             <Button variant="outline" size="icon" onClick={() => handleQuantityChange(quantity + 1)} disabled={quantity === 10}>
               <PlusCircle size={18} />

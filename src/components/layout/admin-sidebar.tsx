@@ -43,7 +43,7 @@ export function AdminSidebar() {
          <Link href="/admin" className="flex items-center gap-2">
           <Home className="text-sidebar-primary" />
           <h1 className="text-2xl font-headline font-bold text-sidebar-primary group-data-[collapsible=icon]:hidden">
-            Nugali Admin
+            Panel Admin
           </h1>
         </Link>
       </SidebarHeader>
