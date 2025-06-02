@@ -12,58 +12,57 @@ h1, h2, h3, h4, h5, h6 {
 
 @layer base {
   :root {
-    --background: 48 56% 91%; /* Light Cream #F5F5DC */
-    --foreground: 27 34% 18%; /* Rich Chocolate Brown #3D2B1F */
+    --background: 48 56% 91%;          /* Light Cream */
+    --foreground: 27 34% 18%;          /* Rich Chocolate Brown */
 
-    --card: 48 56% 94%; /* Slightly lighter cream for cards */
-    --card-foreground: 27 34% 18%;
+    --card: 48 56% 94%;                /* Slightly lighter cream for cards */
+    --card-foreground: 27 34% 18%;     /* Rich Chocolate Brown */
 
-    --popover: 48 56% 94%;
-    --popover-foreground: 27 34% 18%;
+    --popover: 48 56% 94%;             /* Same as card */
+    --popover-foreground: 27 34% 18%;  /* Rich Chocolate Brown */
 
-    --primary: 41 92% 38%; /* Bronze/Gold #B8860B */
-    --primary-foreground: 48 33% 95%; /* Light cream / off-white for contrast on bronze */
+    --primary: 28 65% 50%;             /* New: Rich Caramel/Copper (e.g., #C98F4E) */
+    --primary-foreground: 25 30% 95%;  /* New: Warm Off-White (e.g., #F5F2EF) */
 
-    --secondary: 27 34% 25%; /* Darker chocolate for secondary elements */
-    --secondary-foreground: 48 33% 95%;
+    --secondary: 27 34% 25%;           /* Darker chocolate */
+    --secondary-foreground: 25 30% 95%;/* New: Warm Off-White (matching primary-foreground) */
 
-    --muted: 48 33% 85%; /* Muted cream */
-    --muted-foreground: 27 34% 30%;
+    --muted: 35 40% 88%;               /* New: Warmer Muted Cream (e.g., #EBE4D9) */
+    --muted-foreground: 27 30% 35%;    /* New: Softer Dark Brown (e.g., #6B5D51) */
 
-    --accent: 41 92% 38%; /* Bronze/Gold #B8860B */
-    --accent-foreground: 48 33% 95%;
+    --accent: 28 65% 50%;              /* New: Rich Caramel/Copper (same as primary) */
+    --accent-foreground: 25 30% 95%;   /* New: Warm Off-White (same as primary-foreground) */
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 84.2% 60.2%;      /* Standard Red */
+    --destructive-foreground: 0 0% 98%;/* Standard Light */
 
-    --border: 48 33% 80%; /* Cream-based border */
-    --input: 48 33% 88%; /* Cream-based input */
-    --ring: 41 92% 38%; /* Bronze/Gold for focus rings */
+    --border: 35 35% 82%;              /* New: Warmer Cream-based border (e.g., #DFD9CF) */
+    --input: 35 45% 90%;               /* New: Warmer Cream-based input (e.g., #F0EBE3) */
+    --ring: 28 65% 50%;                /* New: Rich Caramel/Copper for focus rings (same as primary) */
 
     --radius: 0.5rem;
 
-    /* Chart colors - can be adjusted if charts are used */
-    --chart-1: 41 92% 38%;
-    --chart-2: 27 34% 25%;
-    --chart-3: 48 33% 60%;
-    --chart-4: 41 80% 50%;
-    --chart-5: 27 30% 40%;
+    /* Chart colors */
+    --chart-1: 28 65% 50%; /* Primary */
+    --chart-2: 27 34% 25%; /* Secondary */
+    --chart-3: 35 40% 70%; /* Lighter Muted */
+    --chart-4: 28 60% 60%; /* Lighter Primary */
+    --chart-5: 27 30% 40%; /* Mid-tone Secondary */
 
     /* Sidebar specific theme for admin panel */
     --sidebar-background: 48 33% 88%; /* Slightly darker cream for admin sidebar */
     --sidebar-foreground: 27 34% 18%; /* Rich chocolate brown text */
-    --sidebar-primary: 41 92% 38%; /* Bronze/Gold for active/primary items */
-    --sidebar-primary-foreground: 48 33% 95%; /* Light cream text on bronze */
-    --sidebar-accent: 41 92% 45%; /* Lighter bronze for hover/accent */
-    --sidebar-accent-foreground: 27 34% 18%; /* Chocolate text on hover */
-    --sidebar-border: 48 33% 75%; /* Cream-based border for sidebar */
-    --sidebar-ring: 41 92% 38%; /* Bronze/Gold for focus rings in sidebar */
+    --sidebar-primary: 28 65% 50%;    /* New: Rich Caramel/Copper for active/primary items */
+    --sidebar-primary-foreground: 25 30% 95%; /* New: Warm Off-White text on primary */
+    --sidebar-accent: 28 65% 55%;     /* New: Slightly lighter Caramel/Copper for hover/accent */
+    --sidebar-accent-foreground: 25 30% 95%;  /* New: Warm Off-White text on hover */
+    --sidebar-border: 35 35% 78%;     /* New: Warmer Cream-based border for sidebar */
+    --sidebar-ring: 28 65% 50%;       /* New: Rich Caramel/Copper for focus rings in sidebar */
   }
 
   .dark {
-    /* Define dark theme variables if needed in the future, for now, focus on light theme */
-    --background: 27 34% 10%; /* Dark chocolate background */
-    --foreground: 48 33% 91%; /* Light cream text */
+    --background: 27 34% 10%;          /* Dark chocolate background */
+    --foreground: 48 33% 91%;          /* Light cream text */
 
     --card: 27 34% 15%;
     --card-foreground: 48 33% 91%;
@@ -71,8 +70,8 @@ h1, h2, h3, h4, h5, h6 {
     --popover: 27 34% 15%;
     --popover-foreground: 48 33% 91%;
 
-    --primary: 41 92% 45%; /* Brighter Bronze/Gold for dark mode */
-    --primary-foreground: 27 34% 10%;
+    --primary: 28 70% 55%;             /* New Dark: Brighter Caramel/Copper (e.g., #D69A5C) */
+    --primary-foreground: 27 34% 10%;  /* New Dark: Dark Chocolate (for text on bright primary) */
 
     --secondary: 48 33% 85%;
     --secondary-foreground: 27 34% 10%;
@@ -80,24 +79,25 @@ h1, h2, h3, h4, h5, h6 {
     --muted: 27 34% 20%;
     --muted-foreground: 48 33% 70%;
 
-    --accent: 41 92% 45%;
-    --accent-foreground: 27 34% 10%;
+    --accent: 28 70% 55%;              /* New Dark: Brighter Caramel/Copper (same as primary) */
+    --accent-foreground: 27 34% 10%;   /* New Dark: Dark Chocolate (same as primary-foreground) */
 
     --destructive: 0 72.2% 50.6%;
     --destructive-foreground: 0 0% 98%;
 
     --border: 27 34% 25%;
     --input: 27 34% 22%;
-    --ring: 41 92% 45%;
+    --ring: 28 70% 55%;                /* New Dark: Brighter Caramel/Copper for rings */
 
+    /* Dark Sidebar */
     --sidebar-background: 27 34% 12%;
     --sidebar-foreground: 48 33% 91%;
-    --sidebar-primary: 41 92% 45%;
-    --sidebar-primary-foreground: 27 34% 10%;
-    --sidebar-accent: 41 92% 50%;
-    --sidebar-accent-foreground: 48 33% 91%;
+    --sidebar-primary: 28 70% 55%;    /* New Dark: Brighter Caramel/Copper */
+    --sidebar-primary-foreground: 27 34% 10%; /* New Dark: Dark Chocolate */
+    --sidebar-accent: 28 70% 60%;     /* New Dark: Even Brighter Caramel/Copper for hover */
+    --sidebar-accent-foreground: 27 34% 10%; /* New Dark: Dark Chocolate */
     --sidebar-border: 27 34% 20%;
-    --sidebar-ring: 41 92% 45%;
+    --sidebar-ring: 28 70% 55%;       /* New Dark: Brighter Caramel/Copper */
   }
 }
 
