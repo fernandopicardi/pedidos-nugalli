@@ -10,15 +10,16 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button'; // Import buttonVariants
 import { Loader2, ListFilter, X, Filter } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
-const DIETARY_ATTRIBUTE_KEY = "dietary"; // e.g., "Vegano", "Sem lactose"
-const CATEGORY_ATTRIBUTE_KEY = "categoria"; // e.g., "Barra", "Tablete"
-const CACAO_ATTRIBUTE_KEY = "cacau"; // e.g., "70%", "80%"
-const WEIGHT_ATTRIBUTE_KEY = "peso"; // e.g., "100g", "500g"
+const DIETARY_ATTRIBUTE_KEY = "dietary";
+const CATEGORY_ATTRIBUTE_KEY = "categoria";
+const CACAO_ATTRIBUTE_KEY = "cacau";
+const WEIGHT_ATTRIBUTE_KEY = "peso";
 
 export default function HomePage() {
   const [allProducts, setAllProducts] = useState<DisplayableProduct[]>([]);
@@ -59,7 +60,7 @@ export default function HomePage() {
     const values = new Set<string>();
     allProducts.forEach(p => {
       if (p.attributes?.[attributeKey]) {
-        p.attributes[attributeKey].forEach(v => values.add(v));
+        (Array.isArray(p.attributes[attributeKey]) ? p.attributes[attributeKey] : [p.attributes[attributeKey]]).forEach(v => values.add(String(v)));
       }
     });
     return Array.from(values).sort();
@@ -184,12 +185,19 @@ export default function HomePage() {
       <div className="mb-8">
         <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="filters">
-            <AccordionTrigger>
-              <Button variant="outline" className="w-full md:w-auto">
+            <AccordionTrigger
+              className={cn(
+                buttonVariants({ variant: 'outline', size: 'default' }),
+                'w-full md:w-auto',
+                'flex justify-between' // Ensure content is on left, chevron on right
+              )}
+            >
+              <span className="flex items-center">
                 <Filter size={18} className="mr-2" />
                 Filtros e Ordenação
                 {hasActiveFilters && <span className="ml-2 h-2 w-2 rounded-full bg-primary" />}
-              </Button>
+              </span>
+              {/* AccordionTrigger automatically adds its own ChevronDown icon */}
             </AccordionTrigger>
             <AccordionContent>
               <Card>
