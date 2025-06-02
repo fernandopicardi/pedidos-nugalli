@@ -2,11 +2,11 @@
 "use client";
 
 import Link from 'next/link';
-import { ShoppingCart, User, LayoutDashboard } from 'lucide-react'; // Added LayoutDashboard
+import { ShoppingCart, User, LayoutDashboard, Settings } from 'lucide-react'; // Added LayoutDashboard, Settings
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
-import { subscribeToCartUpdates, getCurrentUser } from '@/lib/supabasePlaceholders'; // Added getCurrentUser
-import type { CartItem, User as AppUser } from '@/types'; // Added AppUser type
+import { subscribeToCartUpdates, getCurrentUser } from '@/lib/supabasePlaceholders';
+import type { CartItem, User as AppUser } from '@/types';
 
 export function Header() {
   const [itemCount, setItemCount] = useState(0);
@@ -29,8 +29,13 @@ export function Header() {
     loadUser();
     const unsubscribe = subscribeToCartUpdates(handleCartUpdate);
 
+    // Periodically check for user changes (e.g. if localStorage updates)
+    const userCheckInterval = setInterval(loadUser, 2000);
+
+
     return () => {
       unsubscribe();
+      clearInterval(userCheckInterval);
     };
   }, []);
 
@@ -41,37 +46,44 @@ export function Header() {
           <Link href="/" className="text-3xl font-headline text-primary hover:opacity-80 transition-opacity">
             Nugali
           </Link>
-          <nav className="flex items-center space-x-4 md:space-x-6">
-            <Link href="/" className="text-foreground hover:text-primary transition-colors text-sm md:text-base">
+          <nav className="flex items-center space-x-2 md:space-x-4">
+            <Link href="/" className="text-foreground hover:text-primary transition-colors text-sm md:text-base px-2 py-1 rounded-md">
               Início
             </Link>
-            {/* Add more navigation links if needed */}
-            {/* <Link href="/about" className="text-foreground hover:text-primary transition-colors">
-              Sobre Nós
-            </Link> */}
+            
             {currentUser && currentUser.role === 'admin' && (
-              <Link href="/admin" legacyBehavior>
+              <Link href="/admin" legacyBehavior passHref>
                 <Button variant="ghost" size="sm" className="text-sm md:text-base">
                   <LayoutDashboard size={20} className="mr-1 md:mr-2" />
-                  <span className="hidden md:inline">Admin Panel</span>
+                  <span className="hidden md:inline">Admin</span>
                   <span className="md:hidden">Admin</span>
                 </Button>
               </Link>
             )}
-            <Link href="/cart" className="relative flex items-center text-foreground hover:text-primary transition-colors">
+
+            <Link href="/cart" className="relative flex items-center text-foreground hover:text-primary transition-colors p-2 rounded-md">
               <ShoppingCart size={24} />
               {isClient && itemCount > 0 && (
-                <span className="absolute -top-2 -right-3 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center">
                   {itemCount}
                 </span>
               )}
               <span className="sr-only">Carrinho de Compras</span>
             </Link>
-            <Link href="/auth" legacyBehavior>
-              <Button variant="ghost" size="icon" aria-label="User Account">
-                 <User size={24} />
-              </Button>
-            </Link>
+
+            {currentUser ? (
+              <Link href="/account" legacyBehavior passHref>
+                 <Button variant="ghost" size="icon" aria-label="Minha Conta">
+                   <Settings size={24} />
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/auth" legacyBehavior passHref>
+                <Button variant="ghost" size="icon" aria-label="Login ou Cadastro">
+                   <User size={24} />
+                </Button>
+              </Link>
+            )}
           </nav>
         </div>
       </div>

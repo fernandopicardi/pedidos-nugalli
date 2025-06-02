@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, type FormEvent } from 'react';
@@ -8,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { signInWithEmail, signUpWithEmail } from '@/lib/supabasePlaceholders';
 import { useToast } from "@/hooks/use-toast";
-// import { useRouter } from 'next/navigation'; // Uncomment if using router
+import { useRouter } from 'next/navigation';
 
 export function AuthForm() {
   const [email, setEmail] = useState('');
@@ -16,19 +17,17 @@ export function AuthForm() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
-  // const router = useRouter(); // Uncomment if using router
+  const router = useRouter();
 
   const handleLogin = async (event: FormEvent) => {
     event.preventDefault();
     setIsSubmitting(true);
-    // TODO: Implement Supabase login logic
-    // Example: const { error } = await signInWithEmail(email, password);
     const { error } = await signInWithEmail(email, password);
     if (error) {
       toast({ title: "Erro no Login", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Login Bem-Sucedido", description: "Bem-vindo de volta!" });
-      // router.push('/'); // Redirect after login
+      router.push('/'); // Redirect after login
     }
     setIsSubmitting(false);
   };
@@ -40,14 +39,18 @@ export function AuthForm() {
       return;
     }
     setIsSubmitting(true);
-    // TODO: Implement Supabase registration logic
-    // Example: const { error } = await signUpWithEmail(email, password);
-    const { error } = await signUpWithEmail(email, password);
+    const { error, user } = await signUpWithEmail(email, password);
     if (error) {
       toast({ title: "Erro no Cadastro", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Cadastro Bem-Sucedido", description: "Sua conta foi criada. Faça o login." });
-      // router.push('/auth/login'); // Or automatically log in
+      toast({ title: "Cadastro Bem-Sucedido", description: "Sua conta foi criada. Você será redirecionado." });
+      // Attempt to log in the new user automatically for redirection
+      const loginResult = await signInWithEmail(email, password);
+      if (loginResult.error) {
+        router.push('/auth'); // Fallback to auth page if auto-login fails
+      } else {
+        router.push('/'); // Redirect after successful registration and auto-login
+      }
     }
     setIsSubmitting(false);
   };

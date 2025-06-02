@@ -5,7 +5,7 @@ import type { Product, PurchaseCycle, Order, CartItem, CycleProduct, User, Displ
 let cartUpdateListeners: Array<(cartItems: CartItem[]) => void> = [];
 
 function notifyCartUpdateListeners() {
-  const currentCart = [...MOCK_CART_ITEMS];
+  const currentCart = getCartFromLocalStorage();
   for (const listener of cartUpdateListeners) {
     try {
       listener(currentCart);
@@ -15,39 +15,36 @@ function notifyCartUpdateListeners() {
   }
 }
 
+function getCartFromLocalStorage(): CartItem[] {
+  if (typeof localStorage !== 'undefined') {
+    const storedCart = localStorage.getItem('mockCart');
+    if (storedCart) {
+      try {
+        return JSON.parse(storedCart);
+      } catch (e) {
+        console.error("Error parsing cart from localStorage:", e);
+        return []; // Return empty cart on error
+      }
+    }
+  }
+  return [];
+}
+
 export function subscribeToCartUpdates(callback: (cartItems: CartItem[]) => void): () => void {
   cartUpdateListeners.push(callback);
-  try {
-    // Immediately call callback with current cart state for initial load
-    const currentCart = typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem('mockCart') || '[]') : [...MOCK_CART_ITEMS];
-    callback(currentCart);
-  } catch (e) {
-    console.error("Error in initial cart update callback:", e);
-  }
+  // Immediately call callback with current cart state for initial load
+  callback(getCartFromLocalStorage());
   return () => {
     cartUpdateListeners = cartUpdateListeners.filter(cb => cb !== callback);
   };
 }
 
 // Persist cart to localStorage for a more realistic mock
-function saveCartToLocalStorage() {
+function saveCartToLocalStorage(cart: CartItem[]) {
   if (typeof localStorage !== 'undefined') {
-    localStorage.setItem('mockCart', JSON.stringify(MOCK_CART_ITEMS));
+    localStorage.setItem('mockCart', JSON.stringify(cart));
   }
 }
-
-function loadCartFromLocalStorage(): CartItem[] {
-  if (typeof localStorage !== 'undefined') {
-    const storedCart = localStorage.getItem('mockCart');
-    if (storedCart) {
-      return JSON.parse(storedCart);
-    }
-  }
-  return [];
-}
-
-// Initialize cart from localStorage
-let MOCK_CART_ITEMS: CartItem[] = loadCartFromLocalStorage();
 
 
 // AUTH
@@ -60,20 +57,22 @@ const MOCK_USERS: User[] = [
     { userId: 'user-carlos', email: 'carlos.pereira@example.com', displayName: 'Carlos Pereira', role: 'customer', createdAt: '2023-11-01T00:00:00Z' },
 ];
 
-export async function signInWithEmail(email: string, password: string) {
+export async function signInWithEmail(email: string, password: string): Promise<{ user: User | null, error: { message: string } | null }> {
   console.log('signInWithEmail called with:', email, password);
+  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
 
   const foundUser = MOCK_USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
 
   if (foundUser) {
     let correctPassword = false;
-    if (foundUser.role === 'admin' && password === 'adminpass') {
-      correctPassword = true;
-    } else if (foundUser.role === 'customer' && foundUser.email === 'user@nugali.com' && password === 'userpass') {
-      correctPassword = true;
-    } else if (foundUser.role === 'customer' && password === 'password123') { // Generic password for other customer mock users
-      correctPassword = true;
-    }
+    // Specific admin passwords
+    if (foundUser.email === 'admin@nugali.com' && password === 'adminpass') correctPassword = true;
+    else if (foundUser.email === 'fernandopicardi@gmail.com' && password === 'adminpass') correctPassword = true;
+    else if (foundUser.email === 'naiara.nasmaste@gmail.com' && password === 'adminpass') correctPassword = true;
+    // Specific test user password
+    else if (foundUser.email === 'user@nugali.com' && password === 'userpass') correctPassword = true;
+    // Generic password for other mock customer users
+    else if (foundUser.role === 'customer' && password === 'password123') correctPassword = true;
 
 
     if (correctPassword) {
@@ -87,8 +86,9 @@ export async function signInWithEmail(email: string, password: string) {
   return { user: null, error: { message: 'Credenciais inválidas.' } };
 }
 
-export async function signUpWithEmail(email: string, password: string, displayName?: string, whatsapp?: string) {
+export async function signUpWithEmail(email: string, password: string, displayName?: string, whatsapp?: string): Promise<{ user: User | null, error: { message: string } | null }> {
   console.log('signUpWithEmail called with:', email, password, displayName, whatsapp);
+  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
   
   if (MOCK_USERS.find(u => u.email.toLowerCase() === email.toLowerCase())) {
     return { user: null, error: { message: 'Este email já está cadastrado.' }};
@@ -100,35 +100,66 @@ export async function signUpWithEmail(email: string, password: string, displayNa
     email,
     displayName: newDisplayName,
     whatsapp: whatsapp || undefined,
-    role: 'customer', // New sign-ups are always customers
+    role: 'customer', 
     createdAt: new Date().toISOString(),
   };
   MOCK_USERS.push(newUser);
-  // For mock purposes, log them in directly or require login after signup.
-  // Here, we won't log them in automatically to test the login flow separately.
+  // For mock purposes, after signup, we don't automatically log them in here.
+  // The AuthForm will call signInWithEmail separately if auto-login post-registration is desired.
   return { user: newUser, error: null };
 }
 
-export async function signOut() {
+export async function signOut(): Promise<{ error: { message: string } | null }> {
   console.log('signOut called');
+  await new Promise(resolve => setTimeout(resolve, 300)); // Simulate network delay
    if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('currentUser');
-      // Also clear cart on sign out for this mock, or handle cart persistence per user if needed later
-      // MOCK_CART_ITEMS = [];
-      // saveCartToLocalStorage();
-      // notifyCartUpdateListeners(); 
     }
   return { error: null };
 }
 
-export async function getCurrentUser(): Promise<User | null> {
+export async function getCurrentUser(): Promise<AppUser | null> {
+  // Simulate async fetching if needed, for now direct localStorage access
   if (typeof localStorage !== 'undefined') {
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
-      return JSON.parse(storedUser);
+      try {
+        return JSON.parse(storedUser);
+      } catch (e) {
+        console.error("Error parsing current user from localStorage", e);
+        localStorage.removeItem('currentUser'); // Clear corrupted data
+        return null;
+      }
     }
   }
   return null; 
+}
+
+export async function updateUserDetails(userId: string, data: Partial<Pick<User, 'displayName' | 'whatsapp'>>): Promise<{ user: User | null, error: { message: string } | null }> {
+  console.log('updateUserDetails called for userId:', userId, 'with data:', data);
+  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+
+  const userIndex = MOCK_USERS.findIndex(u => u.userId === userId);
+  if (userIndex === -1) {
+    return { user: null, error: { message: "Usuário não encontrado." } };
+  }
+
+  MOCK_USERS[userIndex] = {
+    ...MOCK_USERS[userIndex],
+    ...data,
+    displayName: data.displayName || MOCK_USERS[userIndex].displayName, // Ensure displayName is not cleared if not provided
+    whatsapp: data.whatsapp || undefined, // Allow clearing whatsapp if an empty string is passed
+  };
+  
+  // If the updated user is the current user, update localStorage
+  const currentUser = await getCurrentUser();
+  if (currentUser && currentUser.userId === userId) {
+     if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('currentUser', JSON.stringify(MOCK_USERS[userIndex]));
+      }
+  }
+
+  return { user: MOCK_USERS[userIndex], error: null };
 }
 
 
@@ -201,11 +232,13 @@ const MOCK_MASTER_PRODUCTS: Product[] = [
 
 export async function fetchAdminProducts(): Promise<Product[]> {
   console.log('fetchAdminProducts called');
+  await new Promise(resolve => setTimeout(resolve, 300)); // Simulate network delay
   return [...MOCK_MASTER_PRODUCTS];
 }
 
 export async function createProduct(productData: Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>): Promise<Product> {
   console.log('createProduct called with:', productData);
+  await new Promise(resolve => setTimeout(resolve, 500));
   const newProduct: Product = {
     ...productData,
     productId: `prod-${Date.now().toString()}`,
@@ -218,6 +251,7 @@ export async function createProduct(productData: Omit<Product, 'productId' | 'cr
 
 export async function updateProduct(productId: string, productData: Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>>): Promise<Product> {
   console.log('updateProduct called for ID', productId, 'with:', productData);
+  await new Promise(resolve => setTimeout(resolve, 500));
   const productIndex = MOCK_MASTER_PRODUCTS.findIndex(p => p.productId === productId);
   if (productIndex === -1) throw new Error("Product not found");
   MOCK_MASTER_PRODUCTS[productIndex] = {
@@ -230,6 +264,7 @@ export async function updateProduct(productId: string, productData: Partial<Omit
 
 export async function deleteProduct(productId: string): Promise<void> {
   console.log('deleteProduct called for ID:', productId);
+  await new Promise(resolve => setTimeout(resolve, 500));
   const index = MOCK_MASTER_PRODUCTS.findIndex(p => p.productId === productId);
   if (index > -1) MOCK_MASTER_PRODUCTS.splice(index, 1);
 }
@@ -243,12 +278,14 @@ const MOCK_PURCHASE_CYCLES: PurchaseCycle[] = [
 
 export async function fetchPurchaseCycles(): Promise<PurchaseCycle[]> {
   console.log('fetchPurchaseCycles called');
+  await new Promise(resolve => setTimeout(resolve, 300));
   return [...MOCK_PURCHASE_CYCLES].sort((a,b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
 }
 
 export async function createPurchaseCycle(cycleData: Omit<PurchaseCycle, 'cycleId' | 'createdAt'>): Promise<PurchaseCycle> {
   console.log('createPurchaseCycle called with:', cycleData);
-  if (cycleData.isActive) { // Ensure only one cycle is active
+  await new Promise(resolve => setTimeout(resolve, 500));
+  if (cycleData.isActive) { 
     MOCK_PURCHASE_CYCLES.forEach(c => c.isActive = false);
   }
   const newCycle: PurchaseCycle = {
@@ -262,10 +299,11 @@ export async function createPurchaseCycle(cycleData: Omit<PurchaseCycle, 'cycleI
 
 export async function updatePurchaseCycle(cycleId: string, cycleData: Partial<Omit<PurchaseCycle, 'cycleId' | 'createdAt'>>): Promise<PurchaseCycle> {
   console.log('updatePurchaseCycle called for ID', cycleId, 'with:', cycleData);
+  await new Promise(resolve => setTimeout(resolve, 500));
   const cycleIndex = MOCK_PURCHASE_CYCLES.findIndex(s => s.cycleId === cycleId);
   if (cycleIndex === -1) throw new Error("PurchaseCycle not found");
 
-  if (cycleData.isActive && MOCK_PURCHASE_CYCLES[cycleIndex].isActive === false) { // If activating this cycle
+  if (cycleData.isActive && MOCK_PURCHASE_CYCLES[cycleIndex].isActive === false) { 
     MOCK_PURCHASE_CYCLES.forEach(c => { if (c.cycleId !== cycleId) c.isActive = false; });
   }
 
@@ -275,13 +313,14 @@ export async function updatePurchaseCycle(cycleId: string, cycleData: Partial<Om
 
 export async function deletePurchaseCycle(cycleId: string): Promise<void> {
   console.log('deletePurchaseCycle called for ID:', cycleId);
+  await new Promise(resolve => setTimeout(resolve, 500));
    const index = MOCK_PURCHASE_CYCLES.findIndex(s => s.cycleId === cycleId);
   if (index > -1) MOCK_PURCHASE_CYCLES.splice(index, 1);
-  // Also remove associated cycle products
   MOCK_CYCLE_PRODUCTS = MOCK_CYCLE_PRODUCTS.filter(cp => cp.cycleId !== cycleId);
 }
 
 export async function fetchActivePurchaseCycleTitle(): Promise<string> {
+  await new Promise(resolve => setTimeout(resolve, 100));
   const activeCycles = MOCK_PURCHASE_CYCLES.filter(pc => pc.isActive);
   if (activeCycles.length > 0) return activeCycles[0].name;
   return "Nossos Chocolates";
@@ -302,11 +341,13 @@ let MOCK_CYCLE_PRODUCTS: CycleProduct[] = [
 
 export async function fetchCycleProducts(cycleId: string): Promise<CycleProduct[]> {
   console.log('fetchCycleProducts for cycleId:', cycleId);
+  await new Promise(resolve => setTimeout(resolve, 300));
   return MOCK_CYCLE_PRODUCTS.filter(cp => cp.cycleId === cycleId);
 }
 
 // DISPLAYABLE PRODUCTS FOR CLIENT HOMEPAGE
 export async function fetchActivePurchaseCycleProducts(): Promise<DisplayableProduct[]> {
+  await new Promise(resolve => setTimeout(resolve, 400));
   const activeCycle = MOCK_PURCHASE_CYCLES.find(pc => pc.isActive);
   if (!activeCycle) {
     return [];
@@ -341,14 +382,18 @@ export async function fetchActivePurchaseCycleProducts(): Promise<DisplayablePro
 
 
 // CART & ORDERS
+let MOCK_CART_ITEMS: CartItem[] = getCartFromLocalStorage();
+
 
 export async function fetchCartItems(): Promise<CartItem[]> {
-  notifyCartUpdateListeners(); // Ensure listeners are notified with the latest cart from LS
+  MOCK_CART_ITEMS = getCartFromLocalStorage(); // Ensure it's fresh on fetch
+  notifyCartUpdateListeners(); 
   return [...MOCK_CART_ITEMS];
 }
 
 export async function addToCart(product: DisplayableProduct, quantity: number): Promise<void> {
   console.log('addToCart called for product:', product.name, 'cycleProductId:', product.cycleProductId, 'quantity:', quantity);
+  MOCK_CART_ITEMS = getCartFromLocalStorage(); // Get latest cart
   const existingItemIndex = MOCK_CART_ITEMS.findIndex(item => item.cycleProductId === product.cycleProductId);
   if (existingItemIndex > -1) {
     MOCK_CART_ITEMS[existingItemIndex].quantity += quantity;
@@ -363,12 +408,13 @@ export async function addToCart(product: DisplayableProduct, quantity: number): 
       description: product.description.substring(0,50) + "...",
     });
   }
-  saveCartToLocalStorage();
+  saveCartToLocalStorage(MOCK_CART_ITEMS);
   notifyCartUpdateListeners();
 }
 
 export async function updateCartItemQuantity(cycleProductId: string, quantity: number): Promise<void> {
   console.log('updateCartItemQuantity called for cycleProductId:', cycleProductId, 'new quantity:', quantity);
+  MOCK_CART_ITEMS = getCartFromLocalStorage();
   const itemIndex = MOCK_CART_ITEMS.findIndex(item => item.cycleProductId === cycleProductId);
   if (itemIndex > -1) {
     if (quantity <= 0) {
@@ -377,14 +423,14 @@ export async function updateCartItemQuantity(cycleProductId: string, quantity: n
       MOCK_CART_ITEMS[itemIndex].quantity = quantity;
     }
   }
-  saveCartToLocalStorage();
+  saveCartToLocalStorage(MOCK_CART_ITEMS);
   notifyCartUpdateListeners();
 }
 
 export async function removeFromCart(cycleProductId: string): Promise<void> {
   console.log('removeFromCart called for cycleProductId:', cycleProductId);
-  MOCK_CART_ITEMS = MOCK_CART_ITEMS.filter(item => item.cycleProductId !== cycleProductId);
-  saveCartToLocalStorage();
+  MOCK_CART_ITEMS = getCartFromLocalStorage().filter(item => item.cycleProductId !== cycleProductId);
+  saveCartToLocalStorage(MOCK_CART_ITEMS);
   notifyCartUpdateListeners();
 }
 
@@ -438,6 +484,7 @@ const MOCK_ORDERS: Order[] = [
 
 export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
   console.log('processCheckout called with cart:', cartItems);
+  await new Promise(resolve => setTimeout(resolve, 700));
   const activeCycle = MOCK_PURCHASE_CYCLES.find(pc => pc.isActive);
   if (!activeCycle) throw new Error("No active purchase cycle found for checkout.");
 
@@ -464,34 +511,35 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
     cycleId: activeCycle.cycleId,
     items: orderItems,
     orderTotalAmount,
-    orderStatus: "Pending Payment", // Initial status
-    paymentStatus: "Unpaid",      // Initial status
+    orderStatus: "Pending Payment", 
+    paymentStatus: "Unpaid",      
     orderDate: new Date().toISOString(),
   };
   MOCK_ORDERS.push(newOrder);
   MOCK_CART_ITEMS = []; 
-  saveCartToLocalStorage();
+  saveCartToLocalStorage(MOCK_CART_ITEMS);
   notifyCartUpdateListeners(); 
   return newOrder;
 }
 
 export async function fetchAdminOrders(): Promise<Order[]> {
   console.log('fetchAdminOrders called');
+  await new Promise(resolve => setTimeout(resolve, 300));
   return [...MOCK_ORDERS];
 }
 
 
 export async function updateOrderStatus(orderId: string, newOrderStatus: Order['orderStatus'], newPaymentStatus?: Order['paymentStatus']): Promise<Order> {
   console.log('updateOrderStatus called for order ID:', orderId, 'new orderStatus:', newOrderStatus, 'new paymentStatus:', newPaymentStatus);
+  await new Promise(resolve => setTimeout(resolve, 500));
   const orderIndex = MOCK_ORDERS.findIndex(o => o.orderId === orderId);
   if (orderIndex === -1) throw new Error('Order not found');
 
   MOCK_ORDERS[orderIndex].orderStatus = newOrderStatus;
   
-  // If a specific payment status is provided, use it
   if (newPaymentStatus) {
     MOCK_ORDERS[orderIndex].paymentStatus = newPaymentStatus;
-  } else { // Otherwise, apply some default logic based on order status
+  } else { 
     if (newOrderStatus === "Payment Confirmed" || newOrderStatus === "Preparing" || newOrderStatus === "Ready for Pickup/Delivery" || newOrderStatus === "Completed") {
         if (MOCK_ORDERS[orderIndex].paymentStatus === "Unpaid") {
             MOCK_ORDERS[orderIndex].paymentStatus = "Paid";
@@ -501,7 +549,6 @@ export async function updateOrderStatus(orderId: string, newOrderStatus: Order['
             MOCK_ORDERS[orderIndex].paymentStatus = "Refunded";
         }
     } else if (newOrderStatus === "Pending Payment") {
-        // If moving back to Pending Payment, reset payment status unless it was already Refunded
         if (MOCK_ORDERS[orderIndex].paymentStatus !== "Refunded") {
             MOCK_ORDERS[orderIndex].paymentStatus = "Unpaid";
         }
@@ -514,6 +561,7 @@ export async function updateOrderStatus(orderId: string, newOrderStatus: Order['
 // --- Admin Dashboard Metrics ---
 export async function fetchActiveCycleMetrics(): Promise<{ activeCycle: PurchaseCycle | null; pendingOrdersCount: number; totalSalesActiveCycle: number; }> {
   console.log('fetchActiveCycleMetrics called');
+  await new Promise(resolve => setTimeout(resolve, 300));
   const activeCycle = MOCK_PURCHASE_CYCLES.find(pc => pc.isActive) || null;
   let pendingOrdersCount = 0;
   let totalSalesActiveCycle = 0;
@@ -532,7 +580,6 @@ export async function fetchActiveCycleMetrics(): Promise<{ activeCycle: Purchase
 // --- Placeholder for Customer Data Viewing (Admin) ---
 export async function fetchAdminUsers(): Promise<User[]> {
     console.log('fetchAdminUsers called');
+    await new Promise(resolve => setTimeout(resolve, 300));
     return MOCK_USERS.filter(user => user.role === 'customer');
 }
-
-    
