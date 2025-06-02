@@ -52,13 +52,13 @@ export function Header() {
             </Link>
             
             {currentUser && currentUser.role === 'admin' && (
-              <Link href="/admin" legacyBehavior passHref>
-                <Button variant="ghost" size="sm" className="text-sm md:text-base">
+              <Button asChild variant="ghost" size="sm" className="text-sm md:text-base">
+                <Link href="/admin">
                   <LayoutDashboard size={20} className="mr-1 md:mr-2" />
                   <span className="hidden md:inline">Admin</span>
                   <span className="md:hidden">Admin</span>
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             )}
 
             <Link href="/cart" className="relative flex items-center text-foreground hover:text-primary transition-colors p-2 rounded-md">
@@ -72,17 +72,17 @@ export function Header() {
             </Link>
 
             {currentUser ? (
-              <Link href="/account" legacyBehavior passHref>
-                 <Button variant="ghost" size="icon" aria-label="Minha Conta">
+              <Button asChild variant="ghost" size="icon" aria-label="Minha Conta">
+                 <Link href="/account">
                    <Settings size={24} />
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             ) : (
-              <Link href="/auth" legacyBehavior passHref>
-                <Button variant="ghost" size="icon" aria-label="Login ou Cadastro">
+              <Button asChild variant="ghost" size="icon" aria-label="Login ou Cadastro">
+                <Link href="/auth">
                    <User size={24} />
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             )}
           </nav>
         </div>
@@ -90,3 +90,4 @@ export function Header() {
     </header>
   );
 }
+
