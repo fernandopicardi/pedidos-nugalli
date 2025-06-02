@@ -14,12 +14,13 @@ import {
   SidebarFooter
 } from '@/components/ui/sidebar'; // Removed SidebarProvider from here
 import { Button } from '@/components/ui/button';
-import { Home, CalendarClock, Package, ShoppingBag, LogOut, Users, AlertCircle, Loader2, ExternalLink } from 'lucide-react'; // Added ExternalLink
+import { Home, CalendarClock, Package, ShoppingBag, LogOut, Users, AlertCircle, Loader2, ExternalLink, LayoutDashboard } from 'lucide-react'; // Added ExternalLink & LayoutDashboard
 import { signOut, checkAdminRole } from '@/lib/supabasePlaceholders';
 import { PageContainer } from '@/components/shared/page-container';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'; // SidebarProvider and SidebarInset are used in AdminLayoutWrapper
 
 const adminNavItems = [
+  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard }, // Added Dashboard link
   { href: '/admin/purchase-cycles', label: 'Ciclos de Compra', icon: CalendarClock },
   { href: '/admin/products', label: 'Produtos (Master)', icon: Package },
   { href: '/admin/orders', label: 'Pedidos', icon: ShoppingBag },
@@ -54,7 +55,7 @@ export function AdminSidebar() {
               <Link href={item.href} legacyBehavior passHref>
                 <SidebarMenuButton
                   asChild
-                  isActive={pathname.startsWith(item.href)}
+                  isActive={pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href))}
                   tooltip={{ children: item.label, side: "right", align:"center" }}
                 >
                   <a>
