@@ -40,16 +40,116 @@ export async function getCurrentUser(): Promise<User | null> {
 
 export async function checkAdminRole(): Promise<boolean> {
   console.log('checkAdminRole called');
-  return true; 
+  return true;
 }
 
 
 // MASTER PRODUCTS - For Admin CRUD
 const MOCK_MASTER_PRODUCTS: Product[] = [
-  { productId: 'prod-1', name: 'Ovo Praliné Amargo (Master)', description: 'Master description for Praliné. Crocante e intenso.', imageUrls: ['https://placehold.co/600x400.png?text=Master+P1+Img1', 'https://placehold.co/600x400.png?text=Master+P1+Img2'], attributes: {"peso": ["500g"], "cacau": ["70%"], "dietary": ["sem glúten"]}, isSeasonal: true, createdAt: '2023-01-01T00:00:00Z', updatedAt: '2023-01-05T00:00:00Z' },
-  { productId: 'prod-2', name: 'Caixa de Bombons Finos (Master)', description: 'Master description for Bombons. Uma seleção dos nossos melhores.', imageUrls: ['https://placehold.co/600x400.png?text=Master+P2+Img1'], attributes: {"unidades": ["12"], "sabor": ["sortidos"]}, isSeasonal: true, createdAt: '2023-01-02T00:00:00Z', updatedAt: '2023-01-02T00:00:00Z' },
-  { productId: 'prod-3', name: 'Panettone Trufado (Master)', description: 'Master description for Panettone. Ideal para o Natal.', imageUrls: ['https://placehold.co/600x400.png?text=Master+P3+Img1'], attributes: {"peso": ["750g"]}, isSeasonal: true, createdAt: '2023-01-03T00:00:00Z', updatedAt: '2023-01-03T00:00:00Z' },
-  { productId: 'prod-4', name: 'Tablete Ao Leite Clássico (Master)', description: 'Nosso chocolate ao leite tradicional, cremoso e delicioso.', imageUrls: ['https://placehold.co/600x400.png?text=Master+P4+Img1'], attributes: {"peso": ["100g"], "cacau": ["40%"]}, isSeasonal: false, createdAt: '2023-01-04T00:00:00Z', updatedAt: '2023-01-04T00:00:00Z' },
+  {
+    productId: 'prod-1',
+    name: 'Ovo Praliné Amargo (Master)',
+    description: 'Master description for Praliné. Crocante e intenso.',
+    imageUrls: ['https://placehold.co/600x400.png?text=Master+P1+Img1', 'https://placehold.co/600x400.png?text=Master+P1+Img2'],
+    attributes: {
+      "categoria": ["Recheado"],
+      "peso": ["500g"],
+      "cacau": ["70%"],
+      "dietary": ["sem glúten"]
+    },
+    isSeasonal: true,
+    createdAt: '2023-01-01T00:00:00Z',
+    updatedAt: '2023-01-05T00:00:00Z'
+  },
+  {
+    productId: 'prod-2',
+    name: 'Caixa de Bombons Finos (Master)',
+    description: 'Master description for Bombons. Uma seleção dos nossos melhores.',
+    imageUrls: ['https://placehold.co/600x400.png?text=Master+P2+Img1'],
+    attributes: {
+      "categoria": ["Recheado"],
+      "unidades": ["12"],
+      "sabor": ["sortidos"],
+      "peso": ["200g"],
+      "dietary": ["Kosher"]
+    },
+    isSeasonal: true,
+    createdAt: '2023-01-02T00:00:00Z',
+    updatedAt: '2023-01-02T00:00:00Z'
+  },
+  {
+    productId: 'prod-3',
+    name: 'Panettone Trufado (Master)',
+    description: 'Master description for Panettone. Ideal para o Natal.',
+    imageUrls: ['https://placehold.co/600x400.png?text=Master+P3+Img1'],
+    attributes: {
+      "categoria": ["Recheado"],
+      "peso": ["750g"],
+      "dietary": ["sem lactose"]
+    },
+    isSeasonal: true,
+    createdAt: '2023-01-03T00:00:00Z',
+    updatedAt: '2023-01-03T00:00:00Z'
+  },
+  {
+    productId: 'prod-4',
+    name: 'Tablete Ao Leite Clássico (Master)',
+    description: 'Nosso chocolate ao leite tradicional, cremoso e delicioso.',
+    imageUrls: ['https://placehold.co/600x400.png?text=Master+P4+Img1'],
+    attributes: {
+      "categoria": ["Tablete"],
+      "peso": ["100g"],
+      "cacau": ["45%"]
+    },
+    isSeasonal: false,
+    createdAt: '2023-01-04T00:00:00Z',
+    updatedAt: '2023-01-04T00:00:00Z'
+  },
+  {
+    productId: 'prod-5',
+    name: 'Barra Vegana 80% Cacau (Master)',
+    description: 'Intenso sabor de cacau, totalmente vegano.',
+    imageUrls: ['https://placehold.co/600x400.png?text=Master+P5+Img1'],
+    attributes: {
+      "categoria": ["Barra"],
+      "peso": ["85g"],
+      "cacau": ["80%"],
+      "dietary": ["Vegano", "sem lactose", "sem glúten"]
+    },
+    isSeasonal: false,
+    createdAt: '2023-01-05T00:00:00Z',
+    updatedAt: '2023-01-05T00:00:00Z'
+  },
+  {
+    productId: 'prod-6',
+    name: 'Gotas de Chocolate 63% (Master)',
+    description: 'Perfeitas para suas receitas, chocolate 63% em gotas.',
+    imageUrls: ['https://placehold.co/600x400.png?text=Master+P6+Img1'],
+    attributes: {
+      "categoria": ["Gotas"],
+      "peso": ["1kg"],
+      "cacau": ["63%"],
+      "dietary": ["sem glúten"]
+    },
+    isSeasonal: false,
+    createdAt: '2023-01-06T00:00:00Z',
+    updatedAt: '2023-01-06T00:00:00Z'
+  },
+   {
+    productId: 'prod-7',
+    name: 'Pastilhas de Chocolate Zero Açúcar (Master)',
+    description: 'Deliciosas pastilhas de chocolate, sem adição de açúcar.',
+    imageUrls: ['https://placehold.co/600x400.png?text=Master+P7+Img1'],
+    attributes: {
+      "categoria": ["Pastilhas"],
+      "peso": ["40g"],
+      "cacau": ["70%"],
+      "dietary": ["Zero açúcar", "sem glúten"]
+    },
+    isSeasonal: false,
+    createdAt: '2023-01-07T00:00:00Z',
+    updatedAt: '2023-01-07T00:00:00Z'
+  }
 ];
 
 export async function fetchAdminProducts(): Promise<Product[]> {
@@ -131,9 +231,13 @@ export async function fetchActivePurchaseCycleTitle(): Promise<string> {
 
 // CYCLE PRODUCTS - For associating Master Products with Purchase Cycles, defining price, availability
 const MOCK_CYCLE_PRODUCTS: CycleProduct[] = [
-  { cycleProductId: 'cp-easter-1', cycleId: 'cycle-easter-2025', productId: 'prod-1', productNameSnapshot: 'Ovo Praliné Amargo (Ed. Páscoa)', priceInCycle: 149.90, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/400x300.png?text=Ovo+Pascoa+25' },
-  { cycleProductId: 'cp-easter-2', cycleId: 'cycle-easter-2025', productId: 'prod-2', productNameSnapshot: 'Caixa de Bombons Finos (Seleção Páscoa)', priceInCycle: 109.50, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/400x300.png?text=Bombom+Pascoa+25' },
-  { cycleProductId: 'cp-easter-4', cycleId: 'cycle-easter-2025', productId: 'prod-4', productNameSnapshot: 'Tablete Ao Leite Clássico (Especial Páscoa)', priceInCycle: 29.90, isAvailableInCycle: false }, // Not available
+  { cycleProductId: 'cp-easter-1', cycleId: 'cycle-easter-2025', productId: 'prod-1', productNameSnapshot: 'Ovo Praliné Amargo (Ed. Páscoa)', priceInCycle: 149.90, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/400x300.png?text=Ovo+Praline' },
+  { cycleProductId: 'cp-easter-2', cycleId: 'cycle-easter-2025', productId: 'prod-2', productNameSnapshot: 'Caixa de Bombons Finos (Seleção Páscoa)', priceInCycle: 109.50, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/400x300.png?text=Bombons+Pascoa' },
+  { cycleProductId: 'cp-easter-4', cycleId: 'cycle-easter-2025', productId: 'prod-4', productNameSnapshot: 'Tablete Ao Leite Clássico (Especial Páscoa)', priceInCycle: 29.90, isAvailableInCycle: true },
+  { cycleProductId: 'cp-easter-5', cycleId: 'cycle-easter-2025', productId: 'prod-5', productNameSnapshot: 'Barra Vegana 80% Cacau (Ed. Páscoa)', priceInCycle: 35.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/400x300.png?text=Barra+Vegana' },
+  { cycleProductId: 'cp-easter-6', cycleId: 'cycle-easter-2025', productId: 'prod-6', productNameSnapshot: 'Gotas de Chocolate 63% (Especial Páscoa)', priceInCycle: 75.00, isAvailableInCycle: true },
+  { cycleProductId: 'cp-easter-7', cycleId: 'cycle-easter-2025', productId: 'prod-7', productNameSnapshot: 'Pastilhas Zero Açúcar (Ed. Páscoa)', priceInCycle: 19.99, isAvailableInCycle: true },
+
   { cycleProductId: 'cp-xmas-3', cycleId: 'cycle-xmas-2024', productId: 'prod-3', productNameSnapshot: 'Panettone Trufado (Natalino)', priceInCycle: 89.90, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/400x300.png?text=Panettone+Natal+24' },
   { cycleProductId: 'cp-xmas-4', cycleId: 'cycle-xmas-2024', productId: 'prod-4', productNameSnapshot: 'Tablete Ao Leite Clássico (Festivo)', priceInCycle: 25.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/400x300.png?text=Tablete+Natal+24' },
 ];
@@ -151,7 +255,7 @@ export async function fetchActivePurchaseCycleProducts(): Promise<DisplayablePro
     return [];
   }
 
-  const masterProducts = await fetchAdminProducts(); // Using this as the source of all master products
+  const masterProducts = await fetchAdminProducts();
   const cycleProductsForActiveCycle = MOCK_CYCLE_PRODUCTS.filter(
     cp => cp.cycleId === activeCycle.cycleId && cp.isAvailableInCycle
   );
@@ -159,9 +263,8 @@ export async function fetchActivePurchaseCycleProducts(): Promise<DisplayablePro
   const displayableProducts: DisplayableProduct[] = cycleProductsForActiveCycle.map(cp => {
     const masterProduct = masterProducts.find(mp => mp.productId === cp.productId);
     if (!masterProduct) {
-      // This case should ideally not happen if data is consistent
       console.warn(`Master product with ID ${cp.productId} not found for cycle product ${cp.cycleProductId}`);
-      return null; // Or handle as an error
+      return null;
     }
     return {
       cycleProductId: cp.cycleProductId,
@@ -171,11 +274,11 @@ export async function fetchActivePurchaseCycleProducts(): Promise<DisplayablePro
       description: masterProduct.description,
       price: cp.priceInCycle,
       imageUrl: cp.displayImageUrl || masterProduct.imageUrls[0] || 'https://placehold.co/400x300.png?text=Nugali',
-      attributes: masterProduct.attributes,
+      attributes: masterProduct.attributes || {}, // Ensure attributes is always an object
       isAvailableInCycle: cp.isAvailableInCycle,
     };
   }).filter(dp => dp !== null) as DisplayableProduct[];
-  
+
   return displayableProducts;
 }
 
@@ -204,7 +307,7 @@ export async function addToCart(product: DisplayableProduct, quantity: number): 
       price: product.price,
       quantity: quantity,
       imageUrl: product.imageUrl,
-      description: product.description.substring(0,50) + "...", // Shorten description for cart
+      description: product.description.substring(0,50) + "...",
     });
   }
 }
@@ -214,7 +317,7 @@ export async function updateCartItemQuantity(cycleProductId: string, quantity: n
   const itemIndex = MOCK_CART_ITEMS.findIndex(item => item.cycleProductId === cycleProductId);
   if (itemIndex > -1) {
     if (quantity <= 0) {
-      MOCK_CART_ITEMS.splice(itemIndex, 1); // Remove if quantity is 0 or less
+      MOCK_CART_ITEMS.splice(itemIndex, 1);
     } else {
       MOCK_CART_ITEMS[itemIndex].quantity = quantity;
     }
@@ -246,9 +349,9 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
   const newOrder: Order = {
     orderId: `order-${Date.now().toString()}`,
     orderNumber: `ORD-${Date.now().toString().slice(-5)}`,
-    userId: 'test-user', // Placeholder, replace with actual user ID
-    customerNameSnapshot: 'Cliente Teste Checkout', // Placeholder
-    customerWhatsappSnapshot: '55123456789', // Placeholder
+    userId: 'test-user',
+    customerNameSnapshot: 'Cliente Teste Checkout',
+    customerWhatsappSnapshot: '55123456789',
     cycleId: activeCycle.cycleId,
     items: orderItems,
     orderTotalAmount,
@@ -257,13 +360,12 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
     orderDate: new Date().toISOString(),
   };
   MOCK_ORDERS.push(newOrder);
-  MOCK_CART_ITEMS = []; // Clear cart after checkout
+  MOCK_CART_ITEMS = [];
   return newOrder;
 }
 
 export async function fetchAdminOrders(): Promise<Order[]> {
   console.log('fetchAdminOrders called');
-  // Simulate some existing orders if MOCK_ORDERS is empty for demo
   if (MOCK_ORDERS.length === 0) {
     const placeholderOrderItems: OrderItem[] = [
       { productId: 'prod-1', cycleProductId: 'cp-easter-1', productName: 'Ovo Praliné Amargo (Ed. Páscoa)', quantity: 1, priceAtPurchase: 149.90, lineItemTotal: 149.90 },
@@ -281,7 +383,7 @@ export async function updateOrderStatus(orderId: string, status: Order['orderSta
   console.log('updateOrderStatus called for order ID:', orderId, 'new orderStatus:', status, 'new paymentStatus:', paymentStatus);
   const orderIndex = MOCK_ORDERS.findIndex(o => o.orderId === orderId);
   if (orderIndex === -1) throw new Error('Order not found');
-  
+
   MOCK_ORDERS[orderIndex].orderStatus = status;
   if (paymentStatus) {
     MOCK_ORDERS[orderIndex].paymentStatus = paymentStatus;
@@ -317,3 +419,6 @@ export async function deleteSeason(seasonId: string): Promise<void> {
   const index = MOCK_SEASONS.findIndex(s => s.id === seasonId);
   if (index > -1) MOCK_SEASONS.splice(index, 1);
 }
+
+
+    
