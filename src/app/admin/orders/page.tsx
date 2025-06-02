@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -11,20 +12,22 @@ import { fetchAdminOrders, updateOrderStatus } from '@/lib/supabasePlaceholders'
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 
-const statusMapping: Record<Order['status'], string> = {
-  Pending: "Pendente",
-  Processing: "Processando",
-  Shipped: "Enviado",
-  Delivered: "Entregue",
-  Cancelled: "Cancelado"
+const statusMapping: Record<Order['orderStatus'], string> = {
+  "Pending Payment": "Pagamento Pendente",
+  "Payment Confirmed": "Pagamento Confirmado",
+  "Preparing": "Em Preparação",
+  "Ready for Pickup/Delivery": "Pronto para Retirada/Entrega",
+  "Completed": "Concluído",
+  "Cancelled": "Cancelado"
 };
 
-const statusColors: Record<Order['status'], "default" | "secondary" | "destructive"> = {
-  Pending: "secondary",
-  Processing: "default",
-  Shipped: "default",
-  Delivered: "default", // Should be a success variant if available
-  Cancelled: "destructive"
+const statusColors: Record<Order['orderStatus'], "default" | "secondary" | "destructive"> = {
+  "Pending Payment": "secondary",
+  "Payment Confirmed": "default",
+  "Preparing": "default",
+  "Ready for Pickup/Delivery": "default",
+  "Completed": "default", 
+  "Cancelled": "destructive"
 };
 
 
@@ -49,7 +52,7 @@ export default function OrderVisualizationPage() {
     loadOrders();
   }, []);
 
-  const handleStatusChange = async (orderId: string, newStatus: Order['status']) => {
+  const handleStatusChange = async (orderId: string, newStatus: Order['orderStatus']) => {
     try {
       await updateOrderStatus(orderId, newStatus);
       toast({ title: "Status Atualizado", description: `Status do pedido #${orderId} alterado para ${statusMapping[newStatus]}.` });
@@ -82,31 +85,31 @@ export default function OrderVisualizationPage() {
                 <TableHead>Data</TableHead>
                 <TableHead>Valor Total</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right w-[200px]">Alterar Status</TableHead>
+                <TableHead className="text-right w-[250px]">Alterar Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {orders.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-medium">{order.id}</TableCell>
-                  <TableCell>{order.customerName}</TableCell>
+                <TableRow key={order.orderId}>
+                  <TableCell className="font-medium">{order.orderNumber}</TableCell>
+                  <TableCell>{order.customerNameSnapshot}</TableCell>
                   <TableCell>{formatDate(order.orderDate)}</TableCell>
-                  <TableCell>R$ {order.totalValue.toFixed(2).replace('.', ',')}</TableCell>
+                  <TableCell>R$ {order.orderTotalAmount.toFixed(2).replace('.', ',')}</TableCell>
                   <TableCell>
-                     <Badge variant={statusColors[order.status] || 'default'}>
-                       {statusMapping[order.status] || order.status}
+                     <Badge variant={statusColors[order.orderStatus] || 'default'}>
+                       {statusMapping[order.orderStatus] || order.orderStatus}
                      </Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <Select
-                      value={order.status}
-                      onValueChange={(newStatus: Order['status']) => handleStatusChange(order.id, newStatus)}
+                      value={order.orderStatus}
+                      onValueChange={(newStatus: Order['orderStatus']) => handleStatusChange(order.orderId, newStatus)}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Alterar status" />
                       </SelectTrigger>
                       <SelectContent>
-                        {(Object.keys(statusMapping) as Array<Order['status']>).map(statusKey => (
+                        {(Object.keys(statusMapping) as Array<Order['orderStatus']>).map(statusKey => (
                            <SelectItem key={statusKey} value={statusKey}>
                              {statusMapping[statusKey]}
                            </SelectItem>
@@ -123,3 +126,4 @@ export default function OrderVisualizationPage() {
     </PageContainer>
   );
 }
+

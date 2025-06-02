@@ -13,7 +13,7 @@ export interface Product { // Represents Master Product List
   name: string;
   description: string;
   imageUrls: string[]; // array of strings
-  attributes: Record<string, string[]>; // e.g., { "dietary": ["vegano", "sem glúten"] }
+  attributes: Record<string, string[]>; // e.g., { "dietary": ["vegano", "sem glúten"], "categoria": ["Barra"], "peso": ["100g"], "cacau": ["70%"] }
   isSeasonal: boolean; // default true
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
@@ -80,3 +80,4 @@ export interface Order {
   orderDate: string; // ISO date string (timestamp)
   adminNotes?: string;
 }
+

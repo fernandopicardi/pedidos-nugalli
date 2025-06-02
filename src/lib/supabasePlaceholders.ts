@@ -44,12 +44,13 @@ export async function signInWithEmail(email: string, password: string) {
   return { user: null, error: { message: 'Invalid credentials' } };
 }
 
-export async function signUpWithEmail(email: string, password: string, displayName: string, whatsapp?: string) {
+export async function signUpWithEmail(email: string, password: string, displayName?: string, whatsapp?: string) {
   console.log('signUpWithEmail called with:', email, password, displayName, whatsapp);
+  const newDisplayName = displayName || email.split('@')[0];
   const newUser: User = {
     userId: `new-user-${Date.now()}`,
     email,
-    displayName,
+    displayName: newDisplayName,
     whatsapp: whatsapp || undefined,
     role: 'customer',
     createdAt: new Date().toISOString(),
@@ -64,12 +65,15 @@ export async function signOut() {
 
 export async function getCurrentUser(): Promise<User | null> {
   console.log('getCurrentUser called');
-  return true ? { userId: 'admin-user', email: 'admin@nugali.com', displayName: 'Admin User', role: 'admin', createdAt: new Date().toISOString() } : null;
+  // Simulate admin user for testing purposes
+  return { userId: 'admin-user', email: 'admin@nugali.com', displayName: 'Admin User', role: 'admin', createdAt: new Date().toISOString() };
+  // return null; // Simulate no user logged in
 }
 
 export async function checkAdminRole(): Promise<boolean> {
   console.log('checkAdminRole called');
-  return true;
+  const user = await getCurrentUser();
+  return user?.role === 'admin';
 }
 
 
@@ -100,7 +104,7 @@ const MOCK_MASTER_PRODUCTS: Product[] = [
       "unidades": ["12"],
       "sabor": ["sortidos"],
       "peso": ["200g"],
-      "dietary": ["Kosher"]
+      "dietary": ["Kosher", "sem glúten"]
     },
     isSeasonal: true,
     createdAt: '2023-01-02T00:00:00Z',
@@ -114,7 +118,8 @@ const MOCK_MASTER_PRODUCTS: Product[] = [
     attributes: {
       "categoria": ["Recheado"],
       "peso": ["750g"],
-      "dietary": ["sem lactose"] // Example, might not be true for typical panettone
+      "cacau": ["45%"], // Assuming ao leite for panettone
+      "dietary": ["sem lactose"] 
     },
     isSeasonal: true,
     createdAt: '2023-01-03T00:00:00Z',
@@ -451,6 +456,9 @@ export async function updateOrderStatus(orderId: string, newOrderStatus: Order['
 
 
 // Old Season functions (deprecated, effectively replaced by PurchaseCycle)
+// These can be removed if no longer referenced anywhere.
+// For now, keeping them commented out in case there's a missed reference.
+/*
 export interface Season { // This will be replaced by PurchaseCycle
   id: string;
   name: string;
@@ -478,3 +486,4 @@ export async function deleteSeason(seasonId: string): Promise<void> {
   const index = MOCK_SEASONS.findIndex(s => s.id === seasonId);
   if (index > -1) MOCK_SEASONS.splice(index, 1);
 }
+*/
