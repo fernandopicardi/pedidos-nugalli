@@ -49,29 +49,29 @@ function saveCartToLocalStorage(cart: CartItem[]) {
 
 // AUTH
 const MOCK_USERS: User[] = [
-    { 
+    {
       userId: 'admin-user', email: 'admin@nugali.com', displayName: 'Nugali Admin', role: 'admin', whatsapp: '5547900000001',
-      createdAt: new Date().toISOString() 
+      createdAt: new Date().toISOString()
     },
-    { 
+    {
       userId: 'fp-admin-user', email: 'fernandopicardi@gmail.com', displayName: 'Fernando Picardi', role: 'admin', whatsapp: '5547900000002',
-      createdAt: new Date().toISOString() 
+      createdAt: new Date().toISOString()
     },
-    { 
+    {
       userId: 'nn-admin-user', email: 'naiara.nasmaste@gmail.com', displayName: 'Naiara Nasmaste', role: 'admin', whatsapp: '5547900000003',
-      createdAt: new Date().toISOString() 
+      createdAt: new Date().toISOString()
     },
-    { 
+    {
       userId: 'test-user', email: 'user@nugali.com', displayName: 'Cliente Teste', role: 'customer', whatsapp: '5547999998888',
-      createdAt: new Date().toISOString() 
+      createdAt: new Date().toISOString()
     },
-    { 
+    {
       userId: 'user-ana', email: 'ana.silva@example.com', displayName: 'Ana Silva', role: 'customer', whatsapp: '5521987654321',
-      createdAt: '2023-10-15T00:00:00Z' 
+      createdAt: '2023-10-15T00:00:00Z'
     },
-    { 
+    {
       userId: 'user-carlos', email: 'carlos.pereira@example.com', displayName: 'Carlos Pereira', role: 'customer', whatsapp: '5511988887777',
-      createdAt: '2023-11-01T00:00:00Z' 
+      createdAt: '2023-11-01T00:00:00Z'
     },
 ];
 
@@ -97,25 +97,25 @@ export async function signInWithEmail(email: string, password: string): Promise<
       return { user: foundUser, error: null };
     }
   }
-  
+
   return { user: null, error: { message: 'Credenciais inválidas.' } };
 }
 
 export async function signUpWithEmail(email: string, password: string, displayName?: string, whatsapp?: string): Promise<{ user: User | null, error: { message: string } | null }> {
   console.log('signUpWithEmail called with:', email, password, displayName, whatsapp);
-  await new Promise(resolve => setTimeout(resolve, 500)); 
-  
+  await new Promise(resolve => setTimeout(resolve, 500));
+
   if (MOCK_USERS.find(u => u.email.toLowerCase() === email.toLowerCase())) {
     return { user: null, error: { message: 'Este email já está cadastrado.' }};
   }
-  
+
   const newDisplayName = displayName || email.split('@')[0];
   const newUser: User = {
     userId: `new-user-${Date.now()}`,
     email,
     displayName: newDisplayName,
     whatsapp: '', // Initialized as empty, Account page will enforce filling
-    role: 'customer', 
+    role: 'customer',
     createdAt: new Date().toISOString(),
   };
   MOCK_USERS.push(newUser);
@@ -124,7 +124,7 @@ export async function signUpWithEmail(email: string, password: string, displayNa
 
 export async function signOut(): Promise<{ error: { message: string } | null }> {
   console.log('signOut called');
-  await new Promise(resolve => setTimeout(resolve, 300)); 
+  await new Promise(resolve => setTimeout(resolve, 300));
    if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('currentUser');
     }
@@ -144,11 +144,11 @@ export async function getCurrentUser(): Promise<User | null> {
       }
     }
   }
-  return null; 
+  return null;
 }
 
 export async function updateUserDetails(
-  userId: string, 
+  userId: string,
   data: Partial<Pick<User, 'displayName' | 'whatsapp'>>
 ): Promise<{ user: User | null, error: { message: string } | null }> {
   console.log('updateUserDetails called for userId:', userId, 'with data:', data);
@@ -164,12 +164,12 @@ export async function updateUserDetails(
   if (data.displayName !== undefined) {
     updatedUser.displayName = data.displayName;
   }
-  if (data.whatsapp !== undefined) { 
+  if (data.whatsapp !== undefined) {
     updatedUser.whatsapp = data.whatsapp;
   }
-  
+
   MOCK_USERS[userIndex] = updatedUser;
-  
+
   const currentUser = await getCurrentUser();
   if (currentUser && currentUser.userId === userId) {
      if (typeof localStorage !== 'undefined') {
@@ -193,7 +193,7 @@ let MOCK_MASTER_PRODUCTS: Product[] = [
     productId: 'prod-new-1',
     name: 'Barra Chocolate Vegano 60% (Sem Glúten, Sem Lactose)',
     description: 'Deliciosa barra de chocolate 60% cacau, totalmente vegana, sem glúten e sem lactose. Perfeita para quem busca sabor intenso com ingredientes selecionados.',
-    imageUrls: ['https://placehold.co/600x400.png?text=Barra+Vegana+60'],
+    imageUrls: ['https://images.unsplash.com/photo-1519420573924-65fcd45245f8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080'],
     attributes: { "categoria": ["Barra"], "peso": ["500g"], "cacau": ["60%"], "dietary": ["sem glúten", "sem lactose", "vegano"], "unidade": ["barra"] },
     isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
@@ -201,7 +201,7 @@ let MOCK_MASTER_PRODUCTS: Product[] = [
     productId: 'prod-new-2',
     name: 'Barra de chocolate ao leite 45%',
     description: 'Clássica barra de chocolate ao leite com 45% de cacau, oferecendo cremosidade e sabor equilibrado. Ideal para toda a família.',
-    imageUrls: ['https://placehold.co/600x400.png?text=Barra+Ao+Leite+45'],
+    imageUrls: ['https://images.unsplash.com/photo-1519420573924-65fcd45245f8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080'],
     attributes: { "categoria": ["Barra"], "peso": ["500g"], "cacau": ["45%"], "dietary": [], "unidade": ["barra"] },
     isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
@@ -209,7 +209,7 @@ let MOCK_MASTER_PRODUCTS: Product[] = [
     productId: 'prod-new-3',
     name: 'Barra de chocolate 70% ZERO AÇÚCAR vegano',
     description: 'Chocolate intenso com 70% cacau, vegano e sem adição de açúcares. Uma opção saudável e saborosa para os amantes de chocolate amargo.',
-    imageUrls: ['https://placehold.co/600x400.png?text=Barra+70+Zero+Vegano'],
+    imageUrls: ['https://images.unsplash.com/photo-1705301698836-82acd5a5cb38?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080'],
     attributes: { "categoria": ["Barra"], "peso": ["500g"], "cacau": ["70%"], "dietary": ["ZERO AÇÚCAR", "vegano"], "unidade": ["barra"] },
     isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
@@ -217,7 +217,7 @@ let MOCK_MASTER_PRODUCTS: Product[] = [
     productId: 'prod-new-4',
     name: 'Pastilhas para Chocolate Quente - GRANEL Sem lactose',
     description: 'Pastilhas de chocolate sem lactose, perfeitas para preparar um chocolate quente cremoso e delicioso. Embalagem a granel de 1kg.',
-    imageUrls: ['https://placehold.co/600x400.png?text=Pastilhas+Choc+Quente'],
+    imageUrls: ['https://images.unsplash.com/photo-1584382213725-57fd7b14b424?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8Y2hvY29sYXRlJTIwcHJvZHVjdHxlbnwwfHx8fDE3NDg4MzQyMTh8MA&ixlib=rb-4.1.0&q=80&w=1080'],
     attributes: { "categoria": ["Pastilhas", "Granel"], "peso": ["1kg"], "dietary": ["sem lactose"], "unidade": ["pacote"] },
     isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
@@ -225,7 +225,7 @@ let MOCK_MASTER_PRODUCTS: Product[] = [
     productId: 'prod-new-5',
     name: 'Pastilhas para Capuchino - GRANEL Sem lactose',
     description: 'Pastilhas de chocolate sem lactose, ideais para adicionar um toque especial ao seu cappuccino. Embalagem a granel de 1kg.',
-    imageUrls: ['https://placehold.co/600x400.png?text=Pastilhas+Cappuccino'],
+    imageUrls: ['https://images.unsplash.com/photo-1705301698338-3a1fe206296e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080'],
     attributes: { "categoria": ["Pastilhas", "Granel"], "peso": ["1kg"], "dietary": ["sem lactose"], "unidade": ["pacote"] },
     isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
@@ -233,7 +233,7 @@ let MOCK_MASTER_PRODUCTS: Product[] = [
     productId: 'prod-new-6',
     name: 'Tablete Cacau em Flor 70% Cacau com Açaí - SEM LACTOSE/VEGANO',
     description: 'Tablete de chocolate 70% cacau da linha Cacau em Flor, com o toque exótico do açaí. Sem lactose e vegano.',
-    imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Acai+70'],
+    imageUrls: ['https://images.unsplash.com/photo-1705301698836-82acd5a5cb38?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080'],
     attributes: { "categoria": ["Tablete"], "sabor": ["Açaí"], "peso": ["100g"], "cacau": ["70%"], "dietary": ["SEM LACTOSE", "VEGANO"], "unidade": ["tablete"] },
     isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
@@ -241,7 +241,7 @@ let MOCK_MASTER_PRODUCTS: Product[] = [
     productId: 'prod-new-7',
     name: 'Tablete Cacau em Flor 63% Cacau com Cupuaçu - SEM LACTOSE/VEGANO',
     description: 'Tablete de chocolate 63% cacau da linha Cacau em Flor, enriquecido com o sabor tropical do cupuaçu. Sem lactose e vegano.',
-    imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Cupuacu+63'],
+    imageUrls: ['https://images.unsplash.com/photo-1743181872572-e0fad511f3ca?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080'],
     attributes: { "categoria": ["Tablete"], "sabor": ["Cupuaçu"], "peso": ["100g"], "cacau": ["63%"], "dietary": ["SEM LACTOSE", "VEGANO"], "unidade": ["tablete"] },
     isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
@@ -249,7 +249,7 @@ let MOCK_MASTER_PRODUCTS: Product[] = [
     productId: 'prod-new-8',
     name: 'Tablete Cacau em Flor 63% Cacau com Pimenta Rosa - SEM LACTOSE/VEGANO/KOSHER',
     description: 'Tablete de chocolate 63% cacau da linha Cacau em Flor, com um toque picante e aromático da pimenta rosa. Sem lactose, vegano e Kosher.',
-    imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Pimenta+Rosa'],
+    imageUrls: ['https://images.unsplash.com/photo-1584382213725-57fd7b14b424?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8Y2hvY29sYXRlJTIwcHJvZHVjdHxlbnwwfHx8fDE3NDg4MzQyMTh8MA&ixlib=rb-4.1.0&q=80&w=1080'],
     attributes: { "categoria": ["Tablete"], "sabor": ["Pimenta Rosa"], "peso": ["85g"], "cacau": ["63%"], "dietary": ["SEM LACTOSE", "VEGANO", "KOSHER"], "unidade": ["tablete"] },
     isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
@@ -257,7 +257,7 @@ let MOCK_MASTER_PRODUCTS: Product[] = [
     productId: 'prod-new-9',
     name: 'Tablete Serra do Conduru 80% Cacau - SEM LACTOSE/VEGANO/KOSHER',
     description: 'Chocolate intenso da linha Serra do Conduru, com 80% de cacau de origem. Sem lactose, vegano e Kosher.',
-    imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Conduru+80'],
+    imageUrls: ['https://images.unsplash.com/photo-1584382213725-57fd7b14b424?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8Y2hvY29sYXRlJTIwcHJvZHVjdHxlbnwwfHx8fDE3NDg4MzQyMTh8MA&ixlib=rb-4.1.0&q=80&w=1080'],
     attributes: { "categoria": ["Tablete"], "peso": ["85g"], "cacau": ["80%"], "dietary": ["SEM LACTOSE", "VEGANO", "KOSHER"], "unidade": ["tablete"] },
     isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
@@ -265,7 +265,7 @@ let MOCK_MASTER_PRODUCTS: Product[] = [
     productId: 'prod-new-10',
     name: 'Tablete Gianduia - Chocolate ao leite refinado com avelãs - KOSHER',
     description: 'Clássico tablete Gianduia, combinando chocolate ao leite refinado com pasta de avelãs. Certificado Kosher.',
-    imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Gianduia'],
+    imageUrls: ['https://images.unsplash.com/photo-1563398643312-ae05ad974668?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080'],
     attributes: { "categoria": ["Tablete", "Recheado"], "sabor": ["Avelã"], "peso": ["85g"], "dietary": ["KOSHER"], "unidade": ["tablete"] },
     isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
@@ -273,7 +273,7 @@ let MOCK_MASTER_PRODUCTS: Product[] = [
     productId: 'prod-new-11',
     name: 'Tablete ao Leite com recheio de Caramelo',
     description: 'Delicioso tablete de chocolate ao leite com um recheio cremoso de caramelo. Perfeito para uma pausa doce.',
-    imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Caramelo'],
+    imageUrls: ['https://images.unsplash.com/photo-1576618148423-df549bcb6972?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080'],
     attributes: { "categoria": ["Tablete", "Recheado"], "sabor": ["Caramelo"], "peso": ["40g"], "dietary": [], "unidade": ["tablete"] },
     isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
@@ -281,7 +281,7 @@ let MOCK_MASTER_PRODUCTS: Product[] = [
     productId: 'prod-new-12',
     name: 'Tablete ao Leite com recheio de Ganashe',
     description: 'Tablete de chocolate ao leite com um recheio suave de ganache. Uma combinação clássica e irresistível.',
-    imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Ganache'],
+    imageUrls: ['https://images.unsplash.com/photo-1493925410384-84f842e616fb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080'],
     attributes: { "categoria": ["Tablete", "Recheado"], "sabor": ["Ganache"], "peso": ["40g"], "dietary": [], "unidade": ["tablete"] },
     isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
@@ -289,7 +289,7 @@ let MOCK_MASTER_PRODUCTS: Product[] = [
     productId: 'prod-new-13',
     name: 'Gotas Chocolate Amargo 70% Cacau - SEM LACTOSE/VEGANO/KOSHER',
     description: 'Gotas de chocolate amargo 70% cacau, ideais para culinária ou para saborear puras. Sem lactose, veganas e Kosher.',
-    imageUrls: ['https://placehold.co/600x400.png?text=Gotas+Amargo+70'],
+    imageUrls: ['https://images.unsplash.com/photo-1743181872572-e0fad511f3ca?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080'],
     attributes: { "categoria": ["Gotas"], "peso": ["450g"], "cacau": ["70%"], "dietary": ["SEM LACTOSE", "VEGANO", "KOSHER"], "unidade": ["pacote"] },
     isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   }
@@ -353,7 +353,7 @@ export async function fetchPurchaseCycles(): Promise<PurchaseCycle[]> {
 export async function createPurchaseCycle(cycleData: Omit<PurchaseCycle, 'cycleId' | 'createdAt'>): Promise<PurchaseCycle> {
   console.log('createPurchaseCycle called with:', cycleData);
   await new Promise(resolve => setTimeout(resolve, 500));
-  if (cycleData.isActive) { 
+  if (cycleData.isActive) {
     MOCK_PURCHASE_CYCLES.forEach(c => c.isActive = false);
   }
   const newCycle: PurchaseCycle = {
@@ -371,7 +371,7 @@ export async function updatePurchaseCycle(cycleId: string, cycleData: Partial<Om
   const cycleIndex = MOCK_PURCHASE_CYCLES.findIndex(s => s.cycleId === cycleId);
   if (cycleIndex === -1) throw new Error("PurchaseCycle not found");
 
-  if (cycleData.isActive && MOCK_PURCHASE_CYCLES[cycleIndex].isActive === false) { 
+  if (cycleData.isActive && MOCK_PURCHASE_CYCLES[cycleIndex].isActive === false) {
     MOCK_PURCHASE_CYCLES.forEach(c => { if (c.cycleId !== cycleId) c.isActive = false; });
   }
 
@@ -396,20 +396,20 @@ export async function fetchActivePurchaseCycleTitle(): Promise<string> {
 
 // CYCLE PRODUCTS - For associating Master Products with Purchase Cycles, defining price, availability
 let MOCK_CYCLE_PRODUCTS: CycleProduct[] = [
-  { cycleProductId: 'cp-easter-new-1', cycleId: 'cycle-easter-2025', productId: 'prod-new-1', productNameSnapshot: 'Barra Chocolate Vegano 60% (Sem Glúten, Sem Lactose)', priceInCycle: 88.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Barra+Vegana+60' },
-  { cycleProductId: 'cp-easter-new-2', cycleId: 'cycle-easter-2025', productId: 'prod-new-2', productNameSnapshot: 'Barra de chocolate ao leite 45%', priceInCycle: 88.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Barra+Ao+Leite+45' },
-  { cycleProductId: 'cp-easter-new-3', cycleId: 'cycle-easter-2025', productId: 'prod-new-3', productNameSnapshot: 'Barra de chocolate 70% ZERO AÇÚCAR vegano', priceInCycle: 100.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Barra+70+Zero+Vegano' },
-  { cycleProductId: 'cp-easter-new-4', cycleId: 'cycle-easter-2025', productId: 'prod-new-4', productNameSnapshot: 'Pastilhas para Chocolate Quente - GRANEL Sem lactose', priceInCycle: 144.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Pastilhas+Choc+Quente' },
-  { cycleProductId: 'cp-easter-new-5', cycleId: 'cycle-easter-2025', productId: 'prod-new-5', productNameSnapshot: 'Pastilhas para Capuchino - GRANEL Sem lactose', priceInCycle: 144.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Pastilhas+Cappuccino' },
-  { cycleProductId: 'cp-easter-new-6', cycleId: 'cycle-easter-2025', productId: 'prod-new-6', productNameSnapshot: 'Tablete Cacau em Flor 70% Cacau com Açaí - SEM LACTOSE/VEGANO', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Acai+70' },
-  { cycleProductId: 'cp-easter-new-7', cycleId: 'cycle-easter-2025', productId: 'prod-new-7', productNameSnapshot: 'Tablete Cacau em Flor 63% Cacau com Cupuaçu - SEM LACTOSE/VEGANO', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Cupuacu+63' },
-  { cycleProductId: 'cp-easter-new-8', cycleId: 'cycle-easter-2025', productId: 'prod-new-8', productNameSnapshot: 'Tablete Cacau em Flor 63% Cacau com Pimenta Rosa - SEM LACTOSE/VEGANO/KOSHER', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Pimenta+Rosa' },
-  { cycleProductId: 'cp-easter-new-9', cycleId: 'cycle-easter-2025', productId: 'prod-new-9', productNameSnapshot: 'Tablete Serra do Conduru 80% Cacau - SEM LACTOSE/VEGANO/KOSHER', priceInCycle: 23.25, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Conduru+80' },
-  { cycleProductId: 'cp-easter-new-10', cycleId: 'cycle-easter-2025', productId: 'prod-new-10', productNameSnapshot: 'Tablete Gianduia - Chocolate ao leite refinado com avelãs - KOSHER', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Gianduia' },
-  { cycleProductId: 'cp-easter-new-11', cycleId: 'cycle-easter-2025', productId: 'prod-new-11', productNameSnapshot: 'Tablete ao Leite com recheio de Caramelo', priceInCycle: 11.24, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Caramelo' },
-  { cycleProductId: 'cp-easter-new-12', cycleId: 'cycle-easter-2025', productId: 'prod-new-12', productNameSnapshot: 'Tablete ao Leite com recheio de Ganashe', priceInCycle: 11.24, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Ganache' },
-  { cycleProductId: 'cp-easter-new-13', cycleId: 'cycle-easter-2025', productId: 'prod-new-13', productNameSnapshot: 'Gotas Chocolate Amargo 70% Cacau - SEM LACTOSE/VEGANO/KOSHER', priceInCycle: 81.75, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Gotas+Amargo+70' },
-  { cycleProductId: 'cp-xmas-new-1', cycleId: 'cycle-xmas-2024', productId: 'prod-new-2', productNameSnapshot: 'Barra Chocolate Ao Leite 45% (Especial Natal)', priceInCycle: 90.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Barra+Natal' },
+  { cycleProductId: 'cp-easter-new-1', cycleId: 'cycle-easter-2025', productId: 'prod-new-1', productNameSnapshot: 'Barra Chocolate Vegano 60% (Sem Glúten, Sem Lactose)', priceInCycle: 88.00, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1519420573924-65fcd45245f8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
+  { cycleProductId: 'cp-easter-new-2', cycleId: 'cycle-easter-2025', productId: 'prod-new-2', productNameSnapshot: 'Barra de chocolate ao leite 45%', priceInCycle: 88.00, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1519420573924-65fcd45245f8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
+  { cycleProductId: 'cp-easter-new-3', cycleId: 'cycle-easter-2025', productId: 'prod-new-3', productNameSnapshot: 'Barra de chocolate 70% ZERO AÇÚCAR vegano', priceInCycle: 100.00, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1705301698836-82acd5a5cb38?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
+  { cycleProductId: 'cp-easter-new-4', cycleId: 'cycle-easter-2025', productId: 'prod-new-4', productNameSnapshot: 'Pastilhas para Chocolate Quente - GRANEL Sem lactose', priceInCycle: 144.00, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1584382213725-57fd7b14b424?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8Y2hvY29sYXRlJTIwcHJvZHVjdHxlbnwwfHx8fDE3NDg4MzQyMTh8MA&ixlib=rb-4.1.0&q=80&w=1080' },
+  { cycleProductId: 'cp-easter-new-5', cycleId: 'cycle-easter-2025', productId: 'prod-new-5', productNameSnapshot: 'Pastilhas para Capuchino - GRANEL Sem lactose', priceInCycle: 144.00, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1705301698338-3a1fe206296e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
+  { cycleProductId: 'cp-easter-new-6', cycleId: 'cycle-easter-2025', productId: 'prod-new-6', productNameSnapshot: 'Tablete Cacau em Flor 70% Cacau com Açaí - SEM LACTOSE/VEGANO', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1705301698836-82acd5a5cb38?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
+  { cycleProductId: 'cp-easter-new-7', cycleId: 'cycle-easter-2025', productId: 'prod-new-7', productNameSnapshot: 'Tablete Cacau em Flor 63% Cacau com Cupuaçu - SEM LACTOSE/VEGANO', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1743181872572-e0fad511f3ca?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
+  { cycleProductId: 'cp-easter-new-8', cycleId: 'cycle-easter-2025', productId: 'prod-new-8', productNameSnapshot: 'Tablete Cacau em Flor 63% Cacau com Pimenta Rosa - SEM LACTOSE/VEGANO/KOSHER', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1584382213725-57fd7b14b424?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8Y2hvY29sYXRlJTIwcHJvZHVjdHxlbnwwfHx8fDE3NDg4MzQyMTh8MA&ixlib=rb-4.1.0&q=80&w=1080' },
+  { cycleProductId: 'cp-easter-new-9', cycleId: 'cycle-easter-2025', productId: 'prod-new-9', productNameSnapshot: 'Tablete Serra do Conduru 80% Cacau - SEM LACTOSE/VEGANO/KOSHER', priceInCycle: 23.25, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1584382213725-57fd7b14b424?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8Y2hvY29sYXRlJTIwcHJvZHVjdHxlbnwwfHx8fDE3NDg4MzQyMTh8MA&ixlib=rb-4.1.0&q=80&w=1080' },
+  { cycleProductId: 'cp-easter-new-10', cycleId: 'cycle-easter-2025', productId: 'prod-new-10', productNameSnapshot: 'Tablete Gianduia - Chocolate ao leite refinado com avelãs - KOSHER', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1563398643312-ae05ad974668?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
+  { cycleProductId: 'cp-easter-new-11', cycleId: 'cycle-easter-2025', productId: 'prod-new-11', productNameSnapshot: 'Tablete ao Leite com recheio de Caramelo', priceInCycle: 11.24, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1576618148423-df549bcb6972?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
+  { cycleProductId: 'cp-easter-new-12', cycleId: 'cycle-easter-2025', productId: 'prod-new-12', productNameSnapshot: 'Tablete ao Leite com recheio de Ganashe', priceInCycle: 11.24, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1493925410384-84f842e616fb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
+  { cycleProductId: 'cp-easter-new-13', cycleId: 'cycle-easter-2025', productId: 'prod-new-13', productNameSnapshot: 'Gotas Chocolate Amargo 70% Cacau - SEM LACTOSE/VEGANO/KOSHER', priceInCycle: 81.75, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1743181872572-e0fad511f3ca?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
+  { cycleProductId: 'cp-xmas-new-1', cycleId: 'cycle-xmas-2024', productId: 'prod-new-2', productNameSnapshot: 'Barra Chocolate Ao Leite 45% (Especial Natal)', priceInCycle: 90.00, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1519420573924-65fcd45245f8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
 ];
 
 export async function fetchCycleProducts(cycleId: string): Promise<CycleProduct[]> {
@@ -447,7 +447,10 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
 
   if (cycleProductIndex > -1) {
     MOCK_CYCLE_PRODUCTS[cycleProductIndex].isAvailableInCycle = isAvailable;
-    console.log(`Availability for ${productId} in cycle ${activeCycle.cycleId} set to ${isAvailable}`);
+    // Update displayImageUrl in MOCK_CYCLE_PRODUCTS as well
+    MOCK_CYCLE_PRODUCTS[cycleProductIndex].displayImageUrl = masterProduct.imageUrls[0] || 'https://placehold.co/400x300.png?text=Nugali';
+
+    console.log(`Availability and image for ${productId} in cycle ${activeCycle.cycleId} set to ${isAvailable}`);
   } else {
     // If the CycleProduct doesn't exist for this master product in the active cycle, create it.
     // This is important for newly created master products.
@@ -463,7 +466,7 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
       displayImageUrl: masterProduct.imageUrls[0] || 'https://placehold.co/400x300.png?text=Nugali',
     };
     MOCK_CYCLE_PRODUCTS.push(newCycleProduct);
-    console.log(`New CycleProduct created for ${productId} in cycle ${activeCycle.cycleId}, availability set to ${isAvailable}`);
+    console.log(`New CycleProduct created for ${productId} in cycle ${activeCycle.cycleId}, availability and image set.`);
   }
 }
 
@@ -476,7 +479,8 @@ export async function fetchActivePurchaseCycleProducts(): Promise<DisplayablePro
     return [];
   }
 
-  const masterProducts = await fetchAdminProducts(); 
+  // Ensure MOCK_MASTER_PRODUCTS has the latest image URLs before creating DisplayableProduct
+  const masterProducts = await fetchAdminProducts();
   const cycleProductsForActiveCycle = MOCK_CYCLE_PRODUCTS.filter(
     cp => cp.cycleId === activeCycle.cycleId && cp.isAvailableInCycle // This filter is key
   );
@@ -487,16 +491,28 @@ export async function fetchActivePurchaseCycleProducts(): Promise<DisplayablePro
       console.warn(`Master product with ID ${cp.productId} not found for cycle product ${cp.cycleProductId}`);
       return null;
     }
+    // Ensure CycleProduct's displayImageUrl is up-to-date with masterProduct's first image
+    // This is crucial if masterProduct's image was updated but cycleProduct was not.
+    const currentDisplayImageUrl = masterProduct.imageUrls[0] || 'https://placehold.co/400x300.png?text=Nugali';
+    // If cp.displayImageUrl is outdated or missing, update it (in memory for this mock)
+    if (cp.displayImageUrl !== currentDisplayImageUrl) {
+        const cpIndex = MOCK_CYCLE_PRODUCTS.findIndex(item => item.cycleProductId === cp.cycleProductId);
+        if (cpIndex !== -1) {
+            MOCK_CYCLE_PRODUCTS[cpIndex].displayImageUrl = currentDisplayImageUrl;
+        }
+    }
+
     return {
       cycleProductId: cp.cycleProductId,
-      productId: cp.productId, 
-      cycleId: cp.cycleId, 
-      name: cp.productNameSnapshot, 
-      description: masterProduct.description, 
-      price: cp.priceInCycle, 
-      imageUrl: cp.displayImageUrl || masterProduct.imageUrls[0] || 'https://placehold.co/400x300.png?text=Nugali', 
+      productId: cp.productId,
+      cycleId: cp.cycleId,
+      name: cp.productNameSnapshot,
+      description: masterProduct.description,
+      price: cp.priceInCycle,
+      // Use the potentially updated displayImageUrl from cycleProduct, or fallback to master
+      imageUrl: cp.displayImageUrl || currentDisplayImageUrl,
       attributes: masterProduct.attributes || {},
-      isAvailableInCycle: cp.isAvailableInCycle, 
+      isAvailableInCycle: cp.isAvailableInCycle,
     };
   }).filter(dp => dp !== null) as DisplayableProduct[];
 
@@ -509,14 +525,14 @@ let MOCK_CART_ITEMS: CartItem[] = getCartFromLocalStorage();
 
 
 export async function fetchCartItems(): Promise<CartItem[]> {
-  MOCK_CART_ITEMS = getCartFromLocalStorage(); 
-  notifyCartUpdateListeners(); 
+  MOCK_CART_ITEMS = getCartFromLocalStorage();
+  notifyCartUpdateListeners();
   return [...MOCK_CART_ITEMS];
 }
 
 export async function addToCart(product: DisplayableProduct, quantity: number): Promise<void> {
   console.log('addToCart called for product:', product.name, 'cycleProductId:', product.cycleProductId, 'quantity:', quantity);
-  MOCK_CART_ITEMS = getCartFromLocalStorage(); 
+  MOCK_CART_ITEMS = getCartFromLocalStorage();
   const existingItemIndex = MOCK_CART_ITEMS.findIndex(item => item.cycleProductId === product.cycleProductId);
   if (existingItemIndex > -1) {
     MOCK_CART_ITEMS[existingItemIndex].quantity += quantity;
@@ -527,7 +543,7 @@ export async function addToCart(product: DisplayableProduct, quantity: number): 
       name: product.name,
       price: product.price,
       quantity: quantity,
-      imageUrl: product.imageUrl,
+      imageUrl: product.imageUrl, // This will now be the Unsplash URL
       description: product.description.substring(0,50) + "...",
     });
   }
@@ -558,49 +574,49 @@ export async function removeFromCart(cycleProductId: string): Promise<void> {
 }
 
 const MOCK_ORDERS: Order[] = [
-  { 
-    orderId: 'order-mock-1', 
-    orderNumber: 'ORD-00123', 
-    userId: 'user-ana', 
-    customerNameSnapshot: 'Ana Silva Exemplo', 
-    customerWhatsappSnapshot: '5521987654321', 
-    cycleId: 'cycle-easter-2025', 
+  {
+    orderId: 'order-mock-1',
+    orderNumber: 'ORD-00123',
+    userId: 'user-ana',
+    customerNameSnapshot: 'Ana Silva Exemplo',
+    customerWhatsappSnapshot: '5521987654321',
+    cycleId: 'cycle-easter-2025',
     items: [
       { productId: 'prod-new-1', cycleProductId: 'cp-easter-new-1', productName: 'Barra Chocolate Vegano 60%', quantity: 1, priceAtPurchase: 88.00, lineItemTotal: 88.00 },
       { productId: 'prod-new-6', cycleProductId: 'cp-easter-new-6', productName: 'Tablete Cacau em Flor 70% com Açaí', quantity: 2, priceAtPurchase: 20.66, lineItemTotal: 41.32 },
-    ], 
-    orderTotalAmount: 129.32, 
-    orderStatus: 'Pending Payment', 
-    paymentStatus: 'Unpaid', 
-    orderDate: '2024-05-20T10:30:00Z' 
+    ],
+    orderTotalAmount: 129.32,
+    orderStatus: 'Pending Payment',
+    paymentStatus: 'Unpaid',
+    orderDate: '2024-05-20T10:30:00Z'
   },
-  { 
-    orderId: 'order-mock-2', 
-    orderNumber: 'ORD-00124', 
-    userId: 'user-carlos', 
-    customerNameSnapshot: 'Carlos Pereira Exemplo', 
-    customerWhatsappSnapshot: '5511998877665', 
-    cycleId: 'cycle-easter-2025', 
+  {
+    orderId: 'order-mock-2',
+    orderNumber: 'ORD-00124',
+    userId: 'user-carlos',
+    customerNameSnapshot: 'Carlos Pereira Exemplo',
+    customerWhatsappSnapshot: '5511998877665',
+    cycleId: 'cycle-easter-2025',
     items: [
       { productId: 'prod-new-3', cycleProductId: 'cp-easter-new-3', productName: 'Barra de chocolate 70% ZERO AÇÚCAR vegano', quantity: 1, priceAtPurchase: 100.00, lineItemTotal: 100.00 },
-    ], 
-    orderTotalAmount: 100.00, 
-    orderStatus: 'Preparing', 
-    paymentStatus: 'Paid', 
-    orderDate: '2024-05-19T15:00:00Z' 
+    ],
+    orderTotalAmount: 100.00,
+    orderStatus: 'Preparing',
+    paymentStatus: 'Paid',
+    orderDate: '2024-05-19T15:00:00Z'
   },
-  { 
-    orderId: 'order-mock-3', 
-    orderNumber: 'ORD-00125', 
-    userId: 'user-ana', 
-    customerNameSnapshot: 'Ana Silva Exemplo', 
-    customerWhatsappSnapshot: '5521987654321', 
-    cycleId: 'cycle-xmas-2024', 
-    items: [{productId: 'prod-new-2', cycleProductId: 'cp-xmas-new-1', productName: 'Barra Chocolate Ao Leite 45% (Especial Natal)', quantity: 1, priceAtPurchase: 90.00, lineItemTotal: 90.00 }], 
-    orderTotalAmount: 90.00, 
-    orderStatus: 'Completed', 
-    paymentStatus: 'Paid', 
-    orderDate: '2023-12-15T11:00:00Z' 
+  {
+    orderId: 'order-mock-3',
+    orderNumber: 'ORD-00125',
+    userId: 'user-ana',
+    customerNameSnapshot: 'Ana Silva Exemplo',
+    customerWhatsappSnapshot: '5521987654321',
+    cycleId: 'cycle-xmas-2024',
+    items: [{productId: 'prod-new-2', cycleProductId: 'cp-xmas-new-1', productName: 'Barra Chocolate Ao Leite 45% (Especial Natal)', quantity: 1, priceAtPurchase: 90.00, lineItemTotal: 90.00 }],
+    orderTotalAmount: 90.00,
+    orderStatus: 'Completed',
+    paymentStatus: 'Paid',
+    orderDate: '2023-12-15T11:00:00Z'
   }
 ];
 
@@ -628,20 +644,20 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
   const newOrder: Order = {
     orderId: `order-${Date.now().toString()}`,
     orderNumber: `ORD-${Date.now().toString().slice(-5)}`,
-    userId: currentUser.userId, 
-    customerNameSnapshot: currentUser.displayName, 
+    userId: currentUser.userId,
+    customerNameSnapshot: currentUser.displayName,
     customerWhatsappSnapshot: currentUser.whatsapp || '',
     cycleId: activeCycle.cycleId,
     items: orderItems,
     orderTotalAmount,
-    orderStatus: "Pending Payment", 
-    paymentStatus: "Unpaid",      
+    orderStatus: "Pending Payment",
+    paymentStatus: "Unpaid",
     orderDate: new Date().toISOString(),
   };
   MOCK_ORDERS.push(newOrder);
-  MOCK_CART_ITEMS = []; 
+  MOCK_CART_ITEMS = [];
   saveCartToLocalStorage(MOCK_CART_ITEMS);
-  notifyCartUpdateListeners(); 
+  notifyCartUpdateListeners();
   return newOrder;
 }
 
@@ -659,10 +675,10 @@ export async function updateOrderStatus(orderId: string, newOrderStatus: Order['
   if (orderIndex === -1) throw new Error('Order not found');
 
   MOCK_ORDERS[orderIndex].orderStatus = newOrderStatus;
-  
+
   if (newPaymentStatus) {
     MOCK_ORDERS[orderIndex].paymentStatus = newPaymentStatus;
-  } else { 
+  } else {
     if (newOrderStatus === "Payment Confirmed" || newOrderStatus === "Preparing" || newOrderStatus === "Pronto para Retirada" || newOrderStatus === "Completed") {
         if (MOCK_ORDERS[orderIndex].paymentStatus === "Unpaid") {
             MOCK_ORDERS[orderIndex].paymentStatus = "Paid";
@@ -677,7 +693,7 @@ export async function updateOrderStatus(orderId: string, newOrderStatus: Order['
         }
     }
   }
-  
+
   return MOCK_ORDERS[orderIndex];
 }
 
@@ -696,7 +712,7 @@ export async function fetchActiveCycleMetrics(): Promise<{ activeCycle: Purchase
       .filter(order => order.paymentStatus === "Paid")
       .reduce((sum, order) => sum + order.orderTotalAmount, 0);
   }
-  
+
   return { activeCycle, pendingOrdersCount, totalSalesActiveCycle };
 }
 
@@ -706,3 +722,50 @@ export async function fetchAdminUsers(): Promise<User[]> {
     await new Promise(resolve => setTimeout(resolve, 300));
     return MOCK_USERS.filter(user => user.role === 'customer');
 }
+
+// --- Seasons (Legacy, to be removed or refactored if not used by Purchase Cycles) ---
+export interface Season {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+}
+const MOCK_SEASONS: Season[] = [
+  { id: 'season-1', name: 'Páscoa 2024', startDate: '2024-03-01T00:00:00Z', endDate: '2024-04-20T00:00:00Z', isActive: false },
+  { id: 'season-2', name: 'Inverno Quente 2024', startDate: '2024-06-01T00:00:00Z', endDate: '2024-08-31T00:00:00Z', isActive: true },
+];
+
+export async function fetchSeasons(): Promise<Season[]> {
+  await new Promise(resolve => setTimeout(resolve, 300));
+  return [...MOCK_SEASONS];
+}
+
+export async function createSeason(seasonData: Omit<Season, 'id'>): Promise<Season> {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  const newSeason: Season = { ...seasonData, id: `season-${Date.now()}` };
+  MOCK_SEASONS.push(newSeason);
+  return newSeason;
+}
+
+export async function updateSeason(seasonId: string, seasonData: Partial<Omit<Season, 'id'>>): Promise<Season> {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  const seasonIndex = MOCK_SEASONS.findIndex(s => s.id === seasonId);
+  if (seasonIndex === -1) throw new Error("Season not found");
+  MOCK_SEASONS[seasonIndex] = { ...MOCK_SEASONS[seasonIndex], ...seasonData };
+  return MOCK_SEASONS[seasonIndex];
+}
+
+export async function deleteSeason(seasonId: string): Promise<void> {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  const index = MOCK_SEASONS.findIndex(s => s.id === seasonId);
+  if (index > -1) MOCK_SEASONS.splice(index, 1);
+}
+
+// Ensure this matches the new Unsplash URLs for mock cycle products
+MOCK_CYCLE_PRODUCTS.forEach(cp => {
+    const master = MOCK_MASTER_PRODUCTS.find(mp => mp.productId === cp.productId);
+    if (master && master.imageUrls.length > 0) {
+        cp.displayImageUrl = master.imageUrls[0];
+    }
+});
