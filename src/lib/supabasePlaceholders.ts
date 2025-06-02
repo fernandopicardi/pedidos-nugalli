@@ -172,60 +172,108 @@ export async function checkAdminRole(): Promise<boolean> {
 // MASTER PRODUCTS - For Admin CRUD
 const MOCK_MASTER_PRODUCTS: Product[] = [
   {
-    productId: 'prod-1',
-    name: 'Ovo Praliné Amargo',
-    description: 'Crocante e intenso, com pedaços de avelã caramelizada e cobertura de chocolate amargo 70% cacau. Uma experiência única para os amantes de sabores marcantes.',
-    imageUrls: ['https://placehold.co/600x400.png?text=Ovo+Praline', 'https://placehold.co/600x400.png?text=Praline+Detail'],
-    attributes: { "categoria": ["Recheado"], "peso": ["500g"], "cacau": ["70%"], "dietary": ["sem glúten"], "unidade": ["unidade"] },
-    isSeasonal: true, createdAt: '2023-01-01T00:00:00Z', updatedAt: '2023-01-05T00:00:00Z'
+    productId: 'prod-new-1',
+    name: 'Barra Chocolate Vegano 60% (Sem Glúten, Sem Lactose)',
+    description: 'Deliciosa barra de chocolate 60% cacau, totalmente vegana, sem glúten e sem lactose. Perfeita para quem busca sabor intenso com ingredientes selecionados.',
+    imageUrls: ['https://placehold.co/600x400.png?text=Barra+Vegana+60'],
+    attributes: { "categoria": ["Barra"], "peso": ["500g"], "cacau": ["60%"], "dietary": ["sem glúten", "sem lactose", "vegano"], "unidade": ["barra"] },
+    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
   {
-    productId: 'prod-2',
-    name: 'Caixa de Bombons Finos',
-    description: 'Uma seleção dos nossos melhores bombons artesanais, com recheios variados como ganache de maracujá, trufa clássica e caramelo salgado. Perfeito para presentear.',
-    imageUrls: ['https://placehold.co/600x400.png?text=Bombons+Finos'],
-    attributes: { "categoria": ["Recheado"], "peso": ["200g"], "unidades": ["12"], "sabor": ["sortidos"], "dietary": ["Kosher", "sem glúten"], "unidade": ["caixa"] },
-    isSeasonal: true, createdAt: '2023-01-02T00:00:00Z', updatedAt: '2023-01-02T00:00:00Z'
+    productId: 'prod-new-2',
+    name: 'Barra Chocolate Ao Leite 45%',
+    description: 'Clássica barra de chocolate ao leite com 45% de cacau, oferecendo cremosidade e sabor equilibrado. Ideal para toda a família.',
+    imageUrls: ['https://placehold.co/600x400.png?text=Barra+Ao+Leite+45'],
+    attributes: { "categoria": ["Barra"], "peso": ["500g"], "cacau": ["45%"], "dietary": [], "unidade": ["barra"] },
+    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
   {
-    productId: 'prod-3',
-    name: 'Panettone Trufado',
-    description: 'Com massa de fermentação natural e generoso recheio de trufa de chocolate ao leite, coberto com chocolate Nugali. Ideal para o Natal.',
-    imageUrls: ['https://placehold.co/600x400.png?text=Panettone+Trufado'],
-    attributes: { "categoria": ["Recheado"], "peso": ["750g"], "cacau": ["45%"], "dietary": ["sem lactose"], "unidade": ["unidade"] },
-    isSeasonal: true, createdAt: '2023-01-03T00:00:00Z', updatedAt: '2023-01-03T00:00:00Z'
+    productId: 'prod-new-3',
+    name: 'Barra Chocolate 70% Vegano Zero Açúcar',
+    description: 'Chocolate intenso com 70% cacau, vegano e sem adição de açúcares. Uma opção saudável e saborosa para os amantes de chocolate amargo.',
+    imageUrls: ['https://placehold.co/600x400.png?text=Barra+70+Zero+Vegano'],
+    attributes: { "categoria": ["Barra"], "peso": ["500g"], "cacau": ["70%"], "dietary": ["ZERO AÇÚCAR", "vegano"], "unidade": ["barra"] },
+    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
   {
-    productId: 'prod-4',
-    name: 'Tablete Ao Leite Clássico',
-    description: 'Nosso chocolate ao leite tradicional, com 45% de cacau, cremoso e com dulçor equilibrado. Uma receita consagrada da Nugali.',
-    imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Ao+Leite'],
-    attributes: { "categoria": ["Tablete"], "peso": ["100g"], "cacau": ["45%"], "dietary": ["sem glúten"], "unidade": ["tablete"] },
-    isSeasonal: false, createdAt: '2023-01-04T00:00:00Z', updatedAt: '2023-01-04T00:00:00Z'
+    productId: 'prod-new-4',
+    name: 'Pastilhas para Chocolate Quente (Granel, Sem Lactose)',
+    description: 'Pastilhas de chocolate sem lactose, perfeitas para preparar um chocolate quente cremoso e delicioso. Embalagem a granel de 1kg.',
+    imageUrls: ['https://placehold.co/600x400.png?text=Pastilhas+Choc+Quente'],
+    attributes: { "categoria": ["Pastilhas", "Granel"], "peso": ["1kg"], "dietary": ["sem lactose"], "unidade": ["pacote"] },
+    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
   {
-    productId: 'prod-5',
-    name: 'Barra Vegana 80% Cacau',
-    description: 'Intenso sabor de cacau de origem única, esta barra com 80% de sólidos de cacau é totalmente vegana, sem lactose e sem glúten. Para paladares exigentes.',
-    imageUrls: ['https://placehold.co/600x400.png?text=Barra+Vegana+80'],
-    attributes: { "categoria": ["Barra"], "peso": ["85g"], "cacau": ["80%"], "dietary": ["Vegano", "sem lactose", "sem glúten"], "unidade": ["barra"] },
-    isSeasonal: false, createdAt: '2023-01-05T00:00:00Z', updatedAt: '2023-01-05T00:00:00Z'
+    productId: 'prod-new-5',
+    name: 'Pastilhas para Cappuccino (Granel, Sem Lactose)',
+    description: 'Pastilhas de chocolate sem lactose, ideais para adicionar um toque especial ao seu cappuccino. Embalagem a granel de 1kg.',
+    imageUrls: ['https://placehold.co/600x400.png?text=Pastilhas+Cappuccino'],
+    attributes: { "categoria": ["Pastilhas", "Granel"], "peso": ["1kg"], "dietary": ["sem lactose"], "unidade": ["pacote"] },
+    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
   {
-    productId: 'prod-6',
-    name: 'Gotas de Chocolate 63%',
-    description: 'Perfeitas para suas receitas de confeitaria, nosso chocolate 63% cacau em formato de gotas garante derretimento uniforme e sabor autêntico.',
-    imageUrls: ['https://placehold.co/600x400.png?text=Gotas+63'],
-    attributes: { "categoria": ["Gotas"], "peso": ["1kg"], "cacau": ["63%"], "dietary": ["sem glúten"], "unidade": ["pacote"] },
-    isSeasonal: false, createdAt: '2023-01-06T00:00:00Z', updatedAt: '2023-01-06T00:00:00Z'
+    productId: 'prod-new-6',
+    name: 'Tablete Cacau em Flor 70% com Açaí (Vegano)',
+    description: 'Tablete de chocolate 70% cacau da linha Cacau em Flor, com o toque exótico do açaí. Sem lactose e vegano.',
+    imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Acai+70'],
+    attributes: { "categoria": ["Tablete"], "peso": ["100g"], "cacau": ["70%"], "dietary": ["SEM LACTOSE", "VEGANO"], "unidade": ["tablete"] },
+    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
-   {
-    productId: 'prod-7',
-    name: 'Pastilhas de Chocolate Zero Açúcar',
-    description: 'Deliciosas pastilhas de chocolate 70% cacau, sem adição de açúcar, adoçadas com maltitol. Sabor intenso com menos culpa.',
-    imageUrls: ['https://placehold.co/600x400.png?text=Pastilhas+Zero'],
-    attributes: { "categoria": ["Pastilhas"], "peso": ["40g"], "cacau": ["70%"], "dietary": ["Zero açúcar", "sem glúten"], "unidade": ["pacote"] },
-    isSeasonal: false, createdAt: '2023-01-07T00:00:00Z', updatedAt: '2023-01-07T00:00:00Z'
+  {
+    productId: 'prod-new-7',
+    name: 'Tablete Cacau em Flor 63% com Cupuaçu (Vegano)',
+    description: 'Tablete de chocolate 63% cacau da linha Cacau em Flor, enriquecido com o sabor tropical do cupuaçu. Sem lactose e vegano.',
+    imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Cupuacu+63'],
+    attributes: { "categoria": ["Tablete"], "peso": ["100g"], "cacau": ["63%"], "dietary": ["SEM LACTOSE", "VEGANO"], "unidade": ["tablete"] },
+    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
+  },
+  {
+    productId: 'prod-new-8',
+    name: 'Tablete Cacau em Flor 63% com Pimenta Rosa (Vegano, Kosher)',
+    description: 'Tablete de chocolate 63% cacau da linha Cacau em Flor, com um toque picante e aromático da pimenta rosa. Sem lactose, vegano e Kosher.',
+    imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Pimenta+Rosa'],
+    attributes: { "categoria": ["Tablete"], "peso": ["85g"], "cacau": ["63%"], "dietary": ["SEM LACTOSE", "VEGANO", "KOSHER"], "unidade": ["tablete"] },
+    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
+  },
+  {
+    productId: 'prod-new-9',
+    name: 'Tablete Serra do Conduru 80% Cacau (Vegano, Kosher)',
+    description: 'Chocolate intenso da linha Serra do Conduru, com 80% de cacau de origem. Sem lactose, vegano e Kosher.',
+    imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Conduru+80'],
+    attributes: { "categoria": ["Tablete"], "peso": ["85g"], "cacau": ["80%"], "dietary": ["SEM LACTOSE", "VEGANO", "KOSHER"], "unidade": ["tablete"] },
+    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
+  },
+  {
+    productId: 'prod-new-10',
+    name: 'Tablete Gianduia com Avelãs (Kosher)',
+    description: 'Clássico tablete Gianduia, combinando chocolate ao leite refinado com pasta de avelãs. Certificado Kosher.',
+    imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Gianduia'],
+    attributes: { "categoria": ["Tablete", "Recheado"], "peso": ["85g"], "dietary": ["KOSHER"], "unidade": ["tablete"] },
+    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
+  },
+  {
+    productId: 'prod-new-11',
+    name: 'Tablete Ao Leite Recheio Caramelo',
+    description: 'Delicioso tablete de chocolate ao leite com um recheio cremoso de caramelo. Perfeito para uma pausa doce.',
+    imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Caramelo'],
+    attributes: { "categoria": ["Tablete", "Recheado"], "peso": ["40g"], "dietary": [], "unidade": ["tablete"] },
+    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
+  },
+  {
+    productId: 'prod-new-12',
+    name: 'Tablete Ao Leite Recheio Ganache',
+    description: 'Tablete de chocolate ao leite com um recheio suave de ganache. Uma combinação clássica e irresistível.',
+    imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Ganache'],
+    attributes: { "categoria": ["Tablete", "Recheado"], "peso": ["40g"], "dietary": [], "unidade": ["tablete"] },
+    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
+  },
+  {
+    productId: 'prod-new-13',
+    name: 'Gotas Chocolate Amargo 70% (Vegano, Kosher)',
+    description: 'Gotas de chocolate amargo 70% cacau, ideais para culinária ou para saborear puras. Sem lactose, veganas e Kosher.',
+    imageUrls: ['https://placehold.co/600x400.png?text=Gotas+Amargo+70'],
+    attributes: { "categoria": ["Gotas"], "peso": ["450g"], "cacau": ["70%"], "dietary": ["SEM LACTOSE", "VEGANO", "KOSHER"], "unidade": ["pacote"] },
+    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   }
 ];
 
@@ -328,15 +376,23 @@ export async function fetchActivePurchaseCycleTitle(): Promise<string> {
 
 // CYCLE PRODUCTS - For associating Master Products with Purchase Cycles, defining price, availability
 let MOCK_CYCLE_PRODUCTS: CycleProduct[] = [
-  { cycleProductId: 'cp-easter-1', cycleId: 'cycle-easter-2025', productId: 'prod-1', productNameSnapshot: 'Ovo Praliné Amargo (Ed. Páscoa)', priceInCycle: 149.90, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/400x300.png?text=Ovo+Praline' },
-  { cycleProductId: 'cp-easter-2', cycleId: 'cycle-easter-2025', productId: 'prod-2', productNameSnapshot: 'Caixa de Bombons Finos (Seleção Páscoa)', priceInCycle: 109.50, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/400x300.png?text=Bombons+Pascoa' },
-  { cycleProductId: 'cp-easter-4', cycleId: 'cycle-easter-2025', productId: 'prod-4', productNameSnapshot: 'Tablete Ao Leite Clássico (Especial Páscoa)', priceInCycle: 29.90, isAvailableInCycle: true },
-  { cycleProductId: 'cp-easter-5', cycleId: 'cycle-easter-2025', productId: 'prod-5', productNameSnapshot: 'Barra Vegana 80% Cacau (Ed. Páscoa)', priceInCycle: 35.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/400x300.png?text=Barra+Vegana' },
-  { cycleProductId: 'cp-easter-6', cycleId: 'cycle-easter-2025', productId: 'prod-6', productNameSnapshot: 'Gotas de Chocolate 63% (Especial Páscoa)', priceInCycle: 75.00, isAvailableInCycle: true },
-  { cycleProductId: 'cp-easter-7', cycleId: 'cycle-easter-2025', productId: 'prod-7', productNameSnapshot: 'Pastilhas Zero Açúcar (Ed. Páscoa)', priceInCycle: 19.99, isAvailableInCycle: true },
+  // Cycle Products for 'cycle-easter-2025' (active cycle)
+  { cycleProductId: 'cp-easter-new-1', cycleId: 'cycle-easter-2025', productId: 'prod-new-1', productNameSnapshot: 'Barra Chocolate Vegano 60% (Sem Glúten, Sem Lactose)', priceInCycle: 88.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Barra+Vegana+60' },
+  { cycleProductId: 'cp-easter-new-2', cycleId: 'cycle-easter-2025', productId: 'prod-new-2', productNameSnapshot: 'Barra Chocolate Ao Leite 45%', priceInCycle: 88.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Barra+Ao+Leite+45' },
+  { cycleProductId: 'cp-easter-new-3', cycleId: 'cycle-easter-2025', productId: 'prod-new-3', productNameSnapshot: 'Barra Chocolate 70% Vegano Zero Açúcar', priceInCycle: 100.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Barra+70+Zero+Vegano' },
+  { cycleProductId: 'cp-easter-new-4', cycleId: 'cycle-easter-2025', productId: 'prod-new-4', productNameSnapshot: 'Pastilhas para Chocolate Quente (Granel, Sem Lactose)', priceInCycle: 144.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Pastilhas+Choc+Quente' },
+  { cycleProductId: 'cp-easter-new-5', cycleId: 'cycle-easter-2025', productId: 'prod-new-5', productNameSnapshot: 'Pastilhas para Cappuccino (Granel, Sem Lactose)', priceInCycle: 144.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Pastilhas+Cappuccino' },
+  { cycleProductId: 'cp-easter-new-6', cycleId: 'cycle-easter-2025', productId: 'prod-new-6', productNameSnapshot: 'Tablete Cacau em Flor 70% com Açaí (Vegano)', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Acai+70' },
+  { cycleProductId: 'cp-easter-new-7', cycleId: 'cycle-easter-2025', productId: 'prod-new-7', productNameSnapshot: 'Tablete Cacau em Flor 63% com Cupuaçu (Vegano)', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Cupuacu+63' },
+  { cycleProductId: 'cp-easter-new-8', cycleId: 'cycle-easter-2025', productId: 'prod-new-8', productNameSnapshot: 'Tablete Cacau em Flor 63% com Pimenta Rosa (Vegano, Kosher)', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Pimenta+Rosa' },
+  { cycleProductId: 'cp-easter-new-9', cycleId: 'cycle-easter-2025', productId: 'prod-new-9', productNameSnapshot: 'Tablete Serra do Conduru 80% Cacau (Vegano, Kosher)', priceInCycle: 23.25, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Conduru+80' },
+  { cycleProductId: 'cp-easter-new-10', cycleId: 'cycle-easter-2025', productId: 'prod-new-10', productNameSnapshot: 'Tablete Gianduia com Avelãs (Kosher)', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Gianduia' },
+  { cycleProductId: 'cp-easter-new-11', cycleId: 'cycle-easter-2025', productId: 'prod-new-11', productNameSnapshot: 'Tablete Ao Leite Recheio Caramelo', priceInCycle: 11.24, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Caramelo' },
+  { cycleProductId: 'cp-easter-new-12', cycleId: 'cycle-easter-2025', productId: 'prod-new-12', productNameSnapshot: 'Tablete Ao Leite Recheio Ganache', priceInCycle: 11.24, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Ganache' },
+  { cycleProductId: 'cp-easter-new-13', cycleId: 'cycle-easter-2025', productId: 'prod-new-13', productNameSnapshot: 'Gotas Chocolate Amargo 70% (Vegano, Kosher)', priceInCycle: 81.75, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Gotas+Amargo+70' },
 
-  { cycleProductId: 'cp-xmas-3', cycleId: 'cycle-xmas-2024', productId: 'prod-3', productNameSnapshot: 'Panettone Trufado (Natalino)', priceInCycle: 89.90, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/400x300.png?text=Panettone+Natal+24' },
-  { cycleProductId: 'cp-xmas-4', cycleId: 'cycle-xmas-2024', productId: 'prod-4', productNameSnapshot: 'Tablete Ao Leite Clássico (Festivo)', priceInCycle: 25.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/400x300.png?text=Tablete+Natal+24' },
+  // Example for a different cycle (Natal 2024 - inactive) - can be expanded if needed
+  { cycleProductId: 'cp-xmas-new-1', cycleId: 'cycle-xmas-2024', productId: 'prod-new-2', productNameSnapshot: 'Barra Chocolate Ao Leite 45% (Especial Natal)', priceInCycle: 90.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Barra+Natal' },
 ];
 
 export async function fetchCycleProducts(cycleId: string): Promise<CycleProduct[]> {
@@ -443,10 +499,10 @@ const MOCK_ORDERS: Order[] = [
     customerWhatsappSnapshot: '5521987654321', 
     cycleId: 'cycle-easter-2025', 
     items: [
-      { productId: 'prod-1', cycleProductId: 'cp-easter-1', productName: 'Ovo Praliné Amargo (Ed. Páscoa)', quantity: 1, priceAtPurchase: 149.90, lineItemTotal: 149.90 },
-      { productId: 'prod-2', cycleProductId: 'cp-easter-2', productName: 'Caixa de Bombons Finos (Seleção Páscoa)', quantity: 2, priceAtPurchase: 109.50, lineItemTotal: 219.00 },
+      { productId: 'prod-new-1', cycleProductId: 'cp-easter-new-1', productName: 'Barra Chocolate Vegano 60%', quantity: 1, priceAtPurchase: 88.00, lineItemTotal: 88.00 },
+      { productId: 'prod-new-6', cycleProductId: 'cp-easter-new-6', productName: 'Tablete Cacau em Flor 70% com Açaí', quantity: 2, priceAtPurchase: 20.66, lineItemTotal: 41.32 },
     ], 
-    orderTotalAmount: 368.90, 
+    orderTotalAmount: 129.32, 
     orderStatus: 'Pending Payment', 
     paymentStatus: 'Unpaid', 
     orderDate: '2024-05-20T10:30:00Z' 
@@ -459,9 +515,9 @@ const MOCK_ORDERS: Order[] = [
     customerWhatsappSnapshot: '5511998877665', 
     cycleId: 'cycle-easter-2025', 
     items: [
-      { productId: 'prod-5', cycleProductId: 'cp-easter-5', productName: 'Barra Vegana 80% Cacau (Ed. Páscoa)', quantity: 3, priceAtPurchase: 35.00, lineItemTotal: 105.00 },
+      { productId: 'prod-new-3', cycleProductId: 'cp-easter-new-3', productName: 'Barra Chocolate 70% Vegano Zero Açúcar', quantity: 1, priceAtPurchase: 100.00, lineItemTotal: 100.00 },
     ], 
-    orderTotalAmount: 105.00, 
+    orderTotalAmount: 100.00, 
     orderStatus: 'Preparing', 
     paymentStatus: 'Paid', 
     orderDate: '2024-05-19T15:00:00Z' 
@@ -472,9 +528,9 @@ const MOCK_ORDERS: Order[] = [
     userId: 'user-ana', 
     customerNameSnapshot: 'Ana Silva Exemplo', 
     customerWhatsappSnapshot: '5521987654321', 
-    cycleId: 'cycle-xmas-2024', 
-    items: [{productId: 'prod-3', cycleProductId: 'cp-xmas-3', productName: 'Panettone Trufado (Natalino)', quantity: 1, priceAtPurchase: 89.90, lineItemTotal: 89.90 }], 
-    orderTotalAmount: 89.90, 
+    cycleId: 'cycle-xmas-2024', // Example of an order in an inactive cycle
+    items: [{productId: 'prod-new-2', cycleProductId: 'cp-xmas-new-1', productName: 'Barra Chocolate Ao Leite 45% (Especial Natal)', quantity: 1, priceAtPurchase: 90.00, lineItemTotal: 90.00 }], 
+    orderTotalAmount: 90.00, 
     orderStatus: 'Completed', 
     paymentStatus: 'Paid', 
     orderDate: '2023-12-15T11:00:00Z' 
