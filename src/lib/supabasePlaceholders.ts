@@ -51,27 +51,27 @@ function saveCartToLocalStorage(cart: CartItem[]) {
 const MOCK_USERS: User[] = [
     {
       userId: 'admin-user', email: 'admin@nugali.com', displayName: 'Nugali Admin', role: 'admin', whatsapp: '5547900000001',
-      createdAt: '2023-01-01T00:00:00Z'
+      createdAt: '2023-01-01T00:00:00Z', addressStreet: 'Rua dos Chocolates', addressNumber: '100', addressNeighborhood: 'Centro', addressCity: 'Pomerode', addressState: 'SC', addressZip: '89107-000'
     },
     {
       userId: 'fp-admin-user', email: 'fernandopicardi@gmail.com', displayName: 'Fernando Picardi', role: 'admin', whatsapp: '5547900000002',
-      createdAt: '2023-01-02T00:00:00Z'
+      createdAt: '2023-01-02T00:00:00Z', addressStreet: 'Av Brasil', addressNumber: '123', addressCity: 'São Paulo', addressState: 'SP', addressZip: '01000-000'
     },
     {
       userId: 'nn-admin-user', email: 'naiara.nasmaste@gmail.com', displayName: 'Naiara Nasmaste', role: 'admin', whatsapp: '5547900000003',
-      createdAt: '2023-01-03T00:00:00Z'
+      createdAt: '2023-01-03T00:00:00Z', addressCity: 'Blumenau', addressState: 'SC'
     },
     {
       userId: 'test-user', email: 'user@nugali.com', displayName: 'Cliente Teste', role: 'customer', whatsapp: '5547999998888',
-      createdAt: '2023-02-10T00:00:00Z'
+      createdAt: '2023-02-10T00:00:00Z', addressStreet: 'Rua dos Testes', addressNumber: '42', addressComplement: 'Ap 101', addressNeighborhood: 'Teste Bairro', addressCity: 'Testelândia', addressState: 'TS', addressZip: '99999-000'
     },
     {
       userId: 'user-ana', email: 'ana.silva@example.com', displayName: 'Ana Silva', role: 'customer', whatsapp: '5521987654321',
-      createdAt: '2023-10-15T00:00:00Z'
+      createdAt: '2023-10-15T00:00:00Z' // No address info for Ana initially
     },
     {
       userId: 'user-carlos', email: 'carlos.pereira@example.com', displayName: 'Carlos Pereira', role: 'customer', whatsapp: '5511988887777',
-      createdAt: '2023-11-01T00:00:00Z'
+      createdAt: '2023-11-01T00:00:00Z', addressStreet: 'Alameda dos Jacarandás', addressNumber: '789', addressCity: 'Rio de Janeiro', addressState: 'RJ', addressZip: '20000-000'
     },
 ];
 
@@ -131,7 +131,7 @@ export async function signOut(): Promise<{ error: { message: string } | null }> 
   return { error: null };
 }
 
-export async function getCurrentUser(): Promise<AppUser | null> {
+export async function getCurrentUser(): Promise<User | null> {
   if (typeof localStorage !== 'undefined') {
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
@@ -149,7 +149,7 @@ export async function getCurrentUser(): Promise<AppUser | null> {
 
 export async function updateUserDetails(
   userId: string,
-  data: Partial<Pick<User, 'displayName' | 'whatsapp'>>
+  data: Partial<Pick<User, 'displayName' | 'whatsapp' | 'addressStreet' | 'addressNumber' | 'addressComplement' | 'addressNeighborhood' | 'addressCity' | 'addressState' | 'addressZip'>>
 ): Promise<{ user: User | null, error: { message: string } | null }> {
   console.log('updateUserDetails called for userId:', userId, 'with data:', data);
   await new Promise(resolve => setTimeout(resolve, 500));
@@ -159,15 +159,19 @@ export async function updateUserDetails(
     return { user: null, error: { message: "Usuário não encontrado." } };
   }
 
+  // Create a new object to avoid direct mutation of the MOCK_USERS array elements if they are frozen or observed
   let updatedUser = { ...MOCK_USERS[userIndex] };
 
-  if (data.displayName !== undefined) {
-    updatedUser.displayName = data.displayName;
-  }
-  if (data.whatsapp !== undefined) {
-    updatedUser.whatsapp = data.whatsapp;
-  }
-
+  if (data.displayName !== undefined) updatedUser.displayName = data.displayName;
+  if (data.whatsapp !== undefined) updatedUser.whatsapp = data.whatsapp;
+  if (data.addressStreet !== undefined) updatedUser.addressStreet = data.addressStreet;
+  if (data.addressNumber !== undefined) updatedUser.addressNumber = data.addressNumber;
+  if (data.addressComplement !== undefined) updatedUser.addressComplement = data.addressComplement;
+  if (data.addressNeighborhood !== undefined) updatedUser.addressNeighborhood = data.addressNeighborhood;
+  if (data.addressCity !== undefined) updatedUser.addressCity = data.addressCity;
+  if (data.addressState !== undefined) updatedUser.addressState = data.addressState;
+  if (data.addressZip !== undefined) updatedUser.addressZip = data.addressZip;
+  
   MOCK_USERS[userIndex] = updatedUser;
 
   const currentUser = await getCurrentUser();
@@ -726,7 +730,11 @@ export async function fetchActiveCycleMetrics(): Promise<{ activeCycle: Purchase
 export async function fetchAdminUsers(): Promise<User[]> {
     console.log('fetchAdminUsers called');
     await new Promise(resolve => setTimeout(resolve, 300));
-    return MOCK_USERS.filter(user => user.role === 'customer');
+    // Return all users, not just customers, so admins can see other admins if needed,
+    // but the new admin/customers page will filter or display roles.
+    // Or, specifically filter for customers if the page is *only* for customers.
+    // For now, returning all users. The new page can handle the display logic.
+    return [...MOCK_USERS].filter(user => user.role === 'customer');
 }
 
 // --- Seasons (Legacy, to be removed or refactored if not used by Purchase Cycles) ---
@@ -789,4 +797,3 @@ MOCK_ORDERS.forEach(order => {
         order.customerWhatsappSnapshot = user.whatsapp;
     }
 });
-

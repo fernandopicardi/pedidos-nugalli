@@ -3,9 +3,16 @@ export interface User {
   userId: string; // Auth UID
   email: string;
   displayName: string;
-  whatsapp: string; 
+  whatsapp: string;
   role: 'customer' | 'admin';
   createdAt: string; // ISO date string
+  addressStreet?: string;
+  addressNumber?: string;
+  addressComplement?: string;
+  addressNeighborhood?: string;
+  addressCity?: string;
+  addressState?: string; // UF (e.g., SP, RJ)
+  addressZip?: string;   // CEP
 }
 
 export interface Product { // Represents Master Product List

@@ -136,7 +136,6 @@ export default function AdminDashboardPage() {
               </CardContent>
             </Card>
           </Link>
-          {/* TODO: Add Customer Data Viewing link here
           <Link href="/admin/customers" className="block hover:shadow-lg transition-shadow rounded-lg">
             <Card className="h-full">
               <CardHeader>
@@ -145,11 +144,10 @@ export default function AdminDashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground text-sm">Consulte a lista de clientes cadastrados.</p>
+                <p className="text-muted-foreground text-sm">Consulte a lista de clientes cadastrados e seus dados.</p>
               </CardContent>
             </Card>
           </Link>
-          */}
         </div>
       </section>
     </PageContainer>

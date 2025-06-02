@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getCurrentUser, updateUserDetails, signOut, fetchUserOrders } from '@/lib/supabasePlaceholders';
 import type { User as AppUser, Order } from '@/types';
 import { useRouter } from 'next/navigation';
-import { Loader2, LogOut, ShoppingBag, CalendarDays, Info } from 'lucide-react';
+import { Loader2, LogOut, ShoppingBag, CalendarDays, Info, Home, MapPin, UserCircle, Phone } from 'lucide-react'; // Added Home, MapPin for address
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 
@@ -57,6 +57,14 @@ export default function AccountPage() {
   const [user, setUser] = useState<AppUser | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
+  const [addressStreet, setAddressStreet] = useState('');
+  const [addressNumber, setAddressNumber] = useState('');
+  const [addressComplement, setAddressComplement] = useState('');
+  const [addressNeighborhood, setAddressNeighborhood] = useState('');
+  const [addressCity, setAddressCity] = useState('');
+  const [addressState, setAddressState] = useState('');
+  const [addressZip, setAddressZip] = useState('');
+
   const [orders, setOrders] = useState<Order[]>([]);
 
   const [isLoadingUser, setIsLoadingUser] = useState(true);
@@ -73,6 +81,13 @@ export default function AccountPage() {
         setUser(currentUser);
         setDisplayName(currentUser.displayName);
         setWhatsapp(currentUser.whatsapp || '');
+        setAddressStreet(currentUser.addressStreet || '');
+        setAddressNumber(currentUser.addressNumber || '');
+        setAddressComplement(currentUser.addressComplement || '');
+        setAddressNeighborhood(currentUser.addressNeighborhood || '');
+        setAddressCity(currentUser.addressCity || '');
+        setAddressState(currentUser.addressState || '');
+        setAddressZip(currentUser.addressZip || '');
         
         setIsLoadingOrders(true);
         try {
@@ -102,6 +117,13 @@ export default function AccountPage() {
     const { error, user: updatedUser } = await updateUserDetails(user.userId, { 
       displayName, 
       whatsapp,
+      addressStreet,
+      addressNumber,
+      addressComplement,
+      addressNeighborhood,
+      addressCity,
+      addressState,
+      addressZip,
     });
     setIsSubmitting(false);
 
@@ -141,8 +163,6 @@ export default function AccountPage() {
   }
 
   if (!user) {
-    // This case should ideally be handled by the redirect in useEffect,
-    // but it's good practice to keep a fallback.
     return (
       <PageContainer className="text-center py-12">
         <p>Você precisa estar logado para acessar esta página.</p>
@@ -155,70 +175,76 @@ export default function AccountPage() {
     <PageContainer className="max-w-3xl mx-auto my-8 md:my-12">
       <Card className="shadow-xl mb-12">
         <CardHeader>
-          <CardTitle className="font-headline text-3xl text-center">Minhas Informações</CardTitle>
-          <CardDescription className="text-center">Gerencie seus dados pessoais e de contato.</CardDescription>
+          <CardTitle className="font-headline text-3xl text-center">Minha Conta</CardTitle>
+          <CardDescription className="text-center">Gerencie seus dados pessoais, de contato e endereço.</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={user.email}
-                  readOnly
-                  className="bg-muted cursor-not-allowed"
-                />
+          <CardContent className="space-y-8">
+            {/* Dados Pessoais e de Contato */}
+            <section>
+              <h3 className="text-xl font-semibold mb-4 flex items-center"><UserCircle size={22} className="mr-2 text-primary"/>Dados Pessoais e Contato</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" type="email" value={user.email} readOnly className="bg-muted cursor-not-allowed" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="memberSince">Membro desde</Label>
+                  <Input id="memberSince" type="text" value={formatDate(user.createdAt)} readOnly className="bg-muted cursor-not-allowed" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="role">Tipo de Conta</Label>
+                  <Input id="role" type="text" value={user.role === 'admin' ? 'Administrador' : 'Cliente'} readOnly className="bg-muted cursor-not-allowed" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="displayName">Nome de Exibição</Label>
+                  <Input id="displayName" type="text" placeholder="Seu nome completo" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
+                </div>
+                <div className="space-y-2 md:col-span-2"> {/* WhatsApp span 2 cols on md+ */}
+                  <Label htmlFor="whatsapp">WhatsApp</Label>
+                  <Input id="whatsapp" type="tel" placeholder="Ex: 5511999998888" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} required />
+                  <p className="text-xs text-muted-foreground">Inclua o código do país (ex: 55 para Brasil). Obrigatório.</p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="memberSince">Membro desde</Label>
-                <Input
-                  id="memberSince"
-                  type="text"
-                  value={formatDate(user.createdAt)}
-                  readOnly
-                  className="bg-muted cursor-not-allowed"
-                />
-              </div>
-            </div>
+            </section>
 
-            <div className="space-y-2">
-              <Label htmlFor="role">Tipo de Conta</Label>
-              <Input
-                id="role"
-                type="text"
-                value={user.role === 'admin' ? 'Administrador' : 'Cliente'}
-                readOnly
-                className="bg-muted cursor-not-allowed"
-              />
-            </div>
-            
             <Separator />
 
-            <div className="space-y-2">
-              <Label htmlFor="displayName">Nome de Exibição</Label>
-              <Input
-                id="displayName"
-                type="text"
-                placeholder="Seu nome completo"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="whatsapp">WhatsApp</Label>
-              <Input
-                id="whatsapp"
-                type="tel"
-                placeholder="Ex: 5511999998888"
-                value={whatsapp}
-                onChange={(e) => setWhatsapp(e.target.value)}
-                required
-              />
-               <p className="text-xs text-muted-foreground">Inclua o código do país (ex: 55 para Brasil). Obrigatório.</p>
-            </div>
+            {/* Endereço */}
+            <section>
+              <h3 className="text-xl font-semibold mb-4 flex items-center"><Home size={22} className="mr-2 text-primary"/>Endereço</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="addressStreet">Logradouro (Rua, Avenida)</Label>
+                  <Input id="addressStreet" placeholder="Ex: Rua das Palmeiras" value={addressStreet} onChange={(e) => setAddressStreet(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="addressNumber">Número</Label>
+                  <Input id="addressNumber" placeholder="Ex: 123" value={addressNumber} onChange={(e) => setAddressNumber(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="addressComplement">Complemento</Label>
+                  <Input id="addressComplement" placeholder="Ex: Apto 101, Bloco B" value={addressComplement} onChange={(e) => setAddressComplement(e.target.value)} />
+                </div>
+                 <div className="space-y-2">
+                  <Label htmlFor="addressNeighborhood">Bairro</Label>
+                  <Input id="addressNeighborhood" placeholder="Ex: Centro" value={addressNeighborhood} onChange={(e) => setAddressNeighborhood(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="addressCity">Cidade</Label>
+                  <Input id="addressCity" placeholder="Ex: São Paulo" value={addressCity} onChange={(e) => setAddressCity(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="addressState">Estado (UF)</Label>
+                  <Input id="addressState" placeholder="Ex: SP" value={addressState} onChange={(e) => setAddressState(e.target.value)} maxLength={2} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="addressZip">CEP</Label>
+                  <Input id="addressZip" placeholder="Ex: 01000-000" value={addressZip} onChange={(e) => setAddressZip(e.target.value)} />
+                </div>
+              </div>
+               <p className="text-xs text-muted-foreground mt-2">O endereço é opcional e utilizado apenas para referência interna, não para entregas.</p>
+            </section>
 
           </CardContent>
           <CardFooter className="flex flex-col sm:flex-row justify-between gap-4 pt-6">
@@ -298,11 +324,6 @@ export default function AccountPage() {
                         ))}
                     </ul>
                 </CardContent>
-                {/* 
-                <CardFooter>
-                  <Button variant="outline" size="sm" disabled>Ver Detalhes</Button> 
-                </CardFooter>
-                */}
               </Card>
             ))}
           </div>

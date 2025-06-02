@@ -24,8 +24,7 @@ const adminNavItems = [
   { href: '/admin/purchase-cycles', label: 'Ciclos de Compra', icon: CalendarClock },
   { href: '/admin/products', label: 'Produtos (Master)', icon: Package },
   { href: '/admin/orders', label: 'Pedidos', icon: ShoppingBag },
-  // TODO: Add link for Customer Data Viewing
-  // { href: '/admin/customers', label: 'Clientes', icon: Users },
+  { href: '/admin/customers', label: 'Clientes', icon: Users },
 ];
 
 export function AdminSidebar() {
