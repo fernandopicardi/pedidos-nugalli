@@ -1,5 +1,5 @@
 
-import type { Product, PurchaseCycle, Order, CartItem, CycleProduct, User, DisplayableProduct, OrderItem } from '@/types';
+import type { Product, PurchaseCycle, Order, CartItem, CycleProduct, User, DisplayableProduct, OrderItem, Address } from '@/types';
 
 // --- Cart Update Listener System ---
 let cartUpdateListeners: Array<(cartItems: CartItem[]) => void> = [];
@@ -49,12 +49,36 @@ function saveCartToLocalStorage(cart: CartItem[]) {
 
 // AUTH
 const MOCK_USERS: User[] = [
-    { userId: 'admin-user', email: 'admin@nugali.com', displayName: 'Nugali Admin', role: 'admin', createdAt: new Date().toISOString() },
-    { userId: 'fp-admin-user', email: 'fernandopicardi@gmail.com', displayName: 'Fernando Picardi', role: 'admin', createdAt: new Date().toISOString() },
-    { userId: 'nn-admin-user', email: 'naiara.nasmaste@gmail.com', displayName: 'Naiara Nasmaste', role: 'admin', createdAt: new Date().toISOString() },
-    { userId: 'test-user', email: 'user@nugali.com', displayName: 'Cliente Teste', role: 'customer', whatsapp: '5547999998888', createdAt: new Date().toISOString() },
-    { userId: 'user-ana', email: 'ana.silva@example.com', displayName: 'Ana Silva', role: 'customer', whatsapp: '5521987654321', createdAt: '2023-10-15T00:00:00Z' },
-    { userId: 'user-carlos', email: 'carlos.pereira@example.com', displayName: 'Carlos Pereira', role: 'customer', createdAt: '2023-11-01T00:00:00Z' },
+    { 
+      userId: 'admin-user', email: 'admin@nugali.com', displayName: 'Nugali Admin', role: 'admin', whatsapp: '5547900000001',
+      address: { street: 'Rua Admin', number: '10', neighborhood: 'Centro Admin', city: 'Cidade Admin', state: 'AS', zipCode: '10000-001' },
+      createdAt: new Date().toISOString() 
+    },
+    { 
+      userId: 'fp-admin-user', email: 'fernandopicardi@gmail.com', displayName: 'Fernando Picardi', role: 'admin', whatsapp: '5547900000002',
+      address: { street: 'Rua Fernando', number: '20', neighborhood: 'Bairro FP', city: 'Cidade FP', state: 'FS', zipCode: '20000-002' },
+      createdAt: new Date().toISOString() 
+    },
+    { 
+      userId: 'nn-admin-user', email: 'naiara.nasmaste@gmail.com', displayName: 'Naiara Nasmaste', role: 'admin', whatsapp: '5547900000003',
+      address: { street: 'Rua Naiara', number: '30', neighborhood: 'Bairro NN', city: 'Cidade NN', state: 'NS', zipCode: '30000-003' },
+      createdAt: new Date().toISOString() 
+    },
+    { 
+      userId: 'test-user', email: 'user@nugali.com', displayName: 'Cliente Teste', role: 'customer', whatsapp: '5547999998888',
+      address: { street: 'Rua Cliente Teste', number: '123', complement: 'Casa', neighborhood: 'Vila Teste', city: 'Testópolis', state: 'TS', zipCode: '89123-000' },
+      createdAt: new Date().toISOString() 
+    },
+    { 
+      userId: 'user-ana', email: 'ana.silva@example.com', displayName: 'Ana Silva', role: 'customer', whatsapp: '5521987654321',
+      address: { street: 'Avenida Copacabana', number: '1000', neighborhood: 'Copacabana', city: 'Rio de Janeiro', state: 'RJ', zipCode: '22000-001' },
+      createdAt: '2023-10-15T00:00:00Z' 
+    },
+    { 
+      userId: 'user-carlos', email: 'carlos.pereira@example.com', displayName: 'Carlos Pereira', role: 'customer', whatsapp: '5511988887777', // Added WhatsApp
+      address: { street: 'Rua Augusta', number: '500', neighborhood: 'Consolação', city: 'São Paulo', state: 'SP', zipCode: '01305-000' },
+      createdAt: '2023-11-01T00:00:00Z' 
+    },
 ];
 
 export async function signInWithEmail(email: string, password: string): Promise<{ user: User | null, error: { message: string } | null }> {
@@ -99,13 +123,12 @@ export async function signUpWithEmail(email: string, password: string, displayNa
     userId: `new-user-${Date.now()}`,
     email,
     displayName: newDisplayName,
-    whatsapp: whatsapp || undefined,
+    whatsapp: whatsapp || '', // Initialize as empty, Account page will enforce filling
+    // Address is not collected at signup in this version
     role: 'customer', 
     createdAt: new Date().toISOString(),
   };
   MOCK_USERS.push(newUser);
-  // For mock purposes, after signup, we don't automatically log them in here.
-  // The AuthForm will call signInWithEmail separately if auto-login post-registration is desired.
   return { user: newUser, error: null };
 }
 
@@ -118,8 +141,7 @@ export async function signOut(): Promise<{ error: { message: string } | null }> 
   return { error: null };
 }
 
-export async function getCurrentUser(): Promise<AppUser | null> {
-  // Simulate async fetching if needed, for now direct localStorage access
+export async function getCurrentUser(): Promise<User | null> {
   if (typeof localStorage !== 'undefined') {
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
@@ -127,7 +149,7 @@ export async function getCurrentUser(): Promise<AppUser | null> {
         return JSON.parse(storedUser);
       } catch (e) {
         console.error("Error parsing current user from localStorage", e);
-        localStorage.removeItem('currentUser'); // Clear corrupted data
+        localStorage.removeItem('currentUser');
         return null;
       }
     }
@@ -135,31 +157,41 @@ export async function getCurrentUser(): Promise<AppUser | null> {
   return null; 
 }
 
-export async function updateUserDetails(userId: string, data: Partial<Pick<User, 'displayName' | 'whatsapp'>>): Promise<{ user: User | null, error: { message: string } | null }> {
+export async function updateUserDetails(
+  userId: string, 
+  data: Partial<Pick<User, 'displayName' | 'whatsapp' | 'address'>>
+): Promise<{ user: User | null, error: { message: string } | null }> {
   console.log('updateUserDetails called for userId:', userId, 'with data:', data);
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+  await new Promise(resolve => setTimeout(resolve, 500));
 
   const userIndex = MOCK_USERS.findIndex(u => u.userId === userId);
   if (userIndex === -1) {
     return { user: null, error: { message: "Usuário não encontrado." } };
   }
 
-  MOCK_USERS[userIndex] = {
-    ...MOCK_USERS[userIndex],
-    ...data,
-    displayName: data.displayName || MOCK_USERS[userIndex].displayName, // Ensure displayName is not cleared if not provided
-    whatsapp: data.whatsapp || undefined, // Allow clearing whatsapp if an empty string is passed
-  };
+  // Create a copy to modify
+  let updatedUser = { ...MOCK_USERS[userIndex] };
+
+  if (data.displayName !== undefined) {
+    updatedUser.displayName = data.displayName;
+  }
+  if (data.whatsapp !== undefined) { // WhatsApp can be updated, ensure it's not empty if form requires
+    updatedUser.whatsapp = data.whatsapp;
+  }
+  if (data.address !== undefined) {
+    updatedUser.address = { ...(updatedUser.address || {}), ...data.address } as Address;
+  }
   
-  // If the updated user is the current user, update localStorage
+  MOCK_USERS[userIndex] = updatedUser;
+  
   const currentUser = await getCurrentUser();
   if (currentUser && currentUser.userId === userId) {
      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('currentUser', JSON.stringify(MOCK_USERS[userIndex]));
+        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
       }
   }
 
-  return { user: MOCK_USERS[userIndex], error: null };
+  return { user: updatedUser, error: null };
 }
 
 
@@ -181,7 +213,7 @@ const MOCK_MASTER_PRODUCTS: Product[] = [
   },
   {
     productId: 'prod-new-2',
-    name: 'Barra Chocolate Ao Leite 45%',
+    name: 'Barra de chocolate ao leite 45%',
     description: 'Clássica barra de chocolate ao leite com 45% de cacau, oferecendo cremosidade e sabor equilibrado. Ideal para toda a família.',
     imageUrls: ['https://placehold.co/600x400.png?text=Barra+Ao+Leite+45'],
     attributes: { "categoria": ["Barra"], "peso": ["500g"], "cacau": ["45%"], "dietary": [], "unidade": ["barra"] },
@@ -189,7 +221,7 @@ const MOCK_MASTER_PRODUCTS: Product[] = [
   },
   {
     productId: 'prod-new-3',
-    name: 'Barra Chocolate 70% Vegano Zero Açúcar',
+    name: 'Barra de chocolate 70% ZERO AÇÚCAR vegano',
     description: 'Chocolate intenso com 70% cacau, vegano e sem adição de açúcares. Uma opção saudável e saborosa para os amantes de chocolate amargo.',
     imageUrls: ['https://placehold.co/600x400.png?text=Barra+70+Zero+Vegano'],
     attributes: { "categoria": ["Barra"], "peso": ["500g"], "cacau": ["70%"], "dietary": ["ZERO AÇÚCAR", "vegano"], "unidade": ["barra"] },
@@ -197,7 +229,7 @@ const MOCK_MASTER_PRODUCTS: Product[] = [
   },
   {
     productId: 'prod-new-4',
-    name: 'Pastilhas para Chocolate Quente (Granel, Sem Lactose)',
+    name: 'Pastilhas para Chocolate Quente - GRANEL Sem lactose',
     description: 'Pastilhas de chocolate sem lactose, perfeitas para preparar um chocolate quente cremoso e delicioso. Embalagem a granel de 1kg.',
     imageUrls: ['https://placehold.co/600x400.png?text=Pastilhas+Choc+Quente'],
     attributes: { "categoria": ["Pastilhas", "Granel"], "peso": ["1kg"], "dietary": ["sem lactose"], "unidade": ["pacote"] },
@@ -205,7 +237,7 @@ const MOCK_MASTER_PRODUCTS: Product[] = [
   },
   {
     productId: 'prod-new-5',
-    name: 'Pastilhas para Cappuccino (Granel, Sem Lactose)',
+    name: 'Pastilhas para Capuchino - GRANEL Sem lactose',
     description: 'Pastilhas de chocolate sem lactose, ideais para adicionar um toque especial ao seu cappuccino. Embalagem a granel de 1kg.',
     imageUrls: ['https://placehold.co/600x400.png?text=Pastilhas+Cappuccino'],
     attributes: { "categoria": ["Pastilhas", "Granel"], "peso": ["1kg"], "dietary": ["sem lactose"], "unidade": ["pacote"] },
@@ -213,31 +245,31 @@ const MOCK_MASTER_PRODUCTS: Product[] = [
   },
   {
     productId: 'prod-new-6',
-    name: 'Tablete Cacau em Flor 70% com Açaí (Vegano)',
+    name: 'Tablete Cacau em Flor 70% Cacau com Açaí - SEM LACTOSE/VEGANO',
     description: 'Tablete de chocolate 70% cacau da linha Cacau em Flor, com o toque exótico do açaí. Sem lactose e vegano.',
     imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Acai+70'],
-    attributes: { "categoria": ["Tablete"], "peso": ["100g"], "cacau": ["70%"], "dietary": ["SEM LACTOSE", "VEGANO"], "unidade": ["tablete"] },
+    attributes: { "categoria": ["Tablete"], "sabor": ["Açaí"], "peso": ["100g"], "cacau": ["70%"], "dietary": ["SEM LACTOSE", "VEGANO"], "unidade": ["tablete"] },
     isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
   {
     productId: 'prod-new-7',
-    name: 'Tablete Cacau em Flor 63% com Cupuaçu (Vegano)',
+    name: 'Tablete Cacau em Flor 63% Cacau com Cupuaçu - SEM LACTOSE/VEGANO',
     description: 'Tablete de chocolate 63% cacau da linha Cacau em Flor, enriquecido com o sabor tropical do cupuaçu. Sem lactose e vegano.',
     imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Cupuacu+63'],
-    attributes: { "categoria": ["Tablete"], "peso": ["100g"], "cacau": ["63%"], "dietary": ["SEM LACTOSE", "VEGANO"], "unidade": ["tablete"] },
+    attributes: { "categoria": ["Tablete"], "sabor": ["Cupuaçu"], "peso": ["100g"], "cacau": ["63%"], "dietary": ["SEM LACTOSE", "VEGANO"], "unidade": ["tablete"] },
     isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
   {
     productId: 'prod-new-8',
-    name: 'Tablete Cacau em Flor 63% com Pimenta Rosa (Vegano, Kosher)',
+    name: 'Tablete Cacau em Flor 63% Cacau com Pimenta Rosa - SEM LACTOSE/VEGANO/KOSHER',
     description: 'Tablete de chocolate 63% cacau da linha Cacau em Flor, com um toque picante e aromático da pimenta rosa. Sem lactose, vegano e Kosher.',
     imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Pimenta+Rosa'],
-    attributes: { "categoria": ["Tablete"], "peso": ["85g"], "cacau": ["63%"], "dietary": ["SEM LACTOSE", "VEGANO", "KOSHER"], "unidade": ["tablete"] },
+    attributes: { "categoria": ["Tablete"], "sabor": ["Pimenta Rosa"], "peso": ["85g"], "cacau": ["63%"], "dietary": ["SEM LACTOSE", "VEGANO", "KOSHER"], "unidade": ["tablete"] },
     isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
   {
     productId: 'prod-new-9',
-    name: 'Tablete Serra do Conduru 80% Cacau (Vegano, Kosher)',
+    name: 'Tablete Serra do Conduru 80% Cacau - SEM LACTOSE/VEGANO/KOSHER',
     description: 'Chocolate intenso da linha Serra do Conduru, com 80% de cacau de origem. Sem lactose, vegano e Kosher.',
     imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Conduru+80'],
     attributes: { "categoria": ["Tablete"], "peso": ["85g"], "cacau": ["80%"], "dietary": ["SEM LACTOSE", "VEGANO", "KOSHER"], "unidade": ["tablete"] },
@@ -245,31 +277,31 @@ const MOCK_MASTER_PRODUCTS: Product[] = [
   },
   {
     productId: 'prod-new-10',
-    name: 'Tablete Gianduia com Avelãs (Kosher)',
+    name: 'Tablete Gianduia - Chocolate ao leite refinado com avelãs - KOSHER',
     description: 'Clássico tablete Gianduia, combinando chocolate ao leite refinado com pasta de avelãs. Certificado Kosher.',
     imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Gianduia'],
-    attributes: { "categoria": ["Tablete", "Recheado"], "peso": ["85g"], "dietary": ["KOSHER"], "unidade": ["tablete"] },
+    attributes: { "categoria": ["Tablete", "Recheado"], "sabor": ["Avelã"], "peso": ["85g"], "dietary": ["KOSHER"], "unidade": ["tablete"] },
     isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
   {
     productId: 'prod-new-11',
-    name: 'Tablete Ao Leite Recheio Caramelo',
+    name: 'Tablete ao Leite com recheio de Caramelo',
     description: 'Delicioso tablete de chocolate ao leite com um recheio cremoso de caramelo. Perfeito para uma pausa doce.',
     imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Caramelo'],
-    attributes: { "categoria": ["Tablete", "Recheado"], "peso": ["40g"], "dietary": [], "unidade": ["tablete"] },
+    attributes: { "categoria": ["Tablete", "Recheado"], "sabor": ["Caramelo"], "peso": ["40g"], "dietary": [], "unidade": ["tablete"] },
     isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
   {
     productId: 'prod-new-12',
-    name: 'Tablete Ao Leite Recheio Ganache',
+    name: 'Tablete ao Leite com recheio de Ganashe',
     description: 'Tablete de chocolate ao leite com um recheio suave de ganache. Uma combinação clássica e irresistível.',
     imageUrls: ['https://placehold.co/600x400.png?text=Tablete+Ganache'],
-    attributes: { "categoria": ["Tablete", "Recheado"], "peso": ["40g"], "dietary": [], "unidade": ["tablete"] },
+    attributes: { "categoria": ["Tablete", "Recheado"], "sabor": ["Ganache"], "peso": ["40g"], "dietary": [], "unidade": ["tablete"] },
     isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
   },
   {
     productId: 'prod-new-13',
-    name: 'Gotas Chocolate Amargo 70% (Vegano, Kosher)',
+    name: 'Gotas Chocolate Amargo 70% Cacau - SEM LACTOSE/VEGANO/KOSHER',
     description: 'Gotas de chocolate amargo 70% cacau, ideais para culinária ou para saborear puras. Sem lactose, veganas e Kosher.',
     imageUrls: ['https://placehold.co/600x400.png?text=Gotas+Amargo+70'],
     attributes: { "categoria": ["Gotas"], "peso": ["450g"], "cacau": ["70%"], "dietary": ["SEM LACTOSE", "VEGANO", "KOSHER"], "unidade": ["pacote"] },
@@ -378,18 +410,18 @@ export async function fetchActivePurchaseCycleTitle(): Promise<string> {
 let MOCK_CYCLE_PRODUCTS: CycleProduct[] = [
   // Cycle Products for 'cycle-easter-2025' (active cycle)
   { cycleProductId: 'cp-easter-new-1', cycleId: 'cycle-easter-2025', productId: 'prod-new-1', productNameSnapshot: 'Barra Chocolate Vegano 60% (Sem Glúten, Sem Lactose)', priceInCycle: 88.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Barra+Vegana+60' },
-  { cycleProductId: 'cp-easter-new-2', cycleId: 'cycle-easter-2025', productId: 'prod-new-2', productNameSnapshot: 'Barra Chocolate Ao Leite 45%', priceInCycle: 88.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Barra+Ao+Leite+45' },
-  { cycleProductId: 'cp-easter-new-3', cycleId: 'cycle-easter-2025', productId: 'prod-new-3', productNameSnapshot: 'Barra Chocolate 70% Vegano Zero Açúcar', priceInCycle: 100.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Barra+70+Zero+Vegano' },
-  { cycleProductId: 'cp-easter-new-4', cycleId: 'cycle-easter-2025', productId: 'prod-new-4', productNameSnapshot: 'Pastilhas para Chocolate Quente (Granel, Sem Lactose)', priceInCycle: 144.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Pastilhas+Choc+Quente' },
-  { cycleProductId: 'cp-easter-new-5', cycleId: 'cycle-easter-2025', productId: 'prod-new-5', productNameSnapshot: 'Pastilhas para Cappuccino (Granel, Sem Lactose)', priceInCycle: 144.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Pastilhas+Cappuccino' },
-  { cycleProductId: 'cp-easter-new-6', cycleId: 'cycle-easter-2025', productId: 'prod-new-6', productNameSnapshot: 'Tablete Cacau em Flor 70% com Açaí (Vegano)', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Acai+70' },
-  { cycleProductId: 'cp-easter-new-7', cycleId: 'cycle-easter-2025', productId: 'prod-new-7', productNameSnapshot: 'Tablete Cacau em Flor 63% com Cupuaçu (Vegano)', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Cupuacu+63' },
-  { cycleProductId: 'cp-easter-new-8', cycleId: 'cycle-easter-2025', productId: 'prod-new-8', productNameSnapshot: 'Tablete Cacau em Flor 63% com Pimenta Rosa (Vegano, Kosher)', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Pimenta+Rosa' },
-  { cycleProductId: 'cp-easter-new-9', cycleId: 'cycle-easter-2025', productId: 'prod-new-9', productNameSnapshot: 'Tablete Serra do Conduru 80% Cacau (Vegano, Kosher)', priceInCycle: 23.25, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Conduru+80' },
-  { cycleProductId: 'cp-easter-new-10', cycleId: 'cycle-easter-2025', productId: 'prod-new-10', productNameSnapshot: 'Tablete Gianduia com Avelãs (Kosher)', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Gianduia' },
-  { cycleProductId: 'cp-easter-new-11', cycleId: 'cycle-easter-2025', productId: 'prod-new-11', productNameSnapshot: 'Tablete Ao Leite Recheio Caramelo', priceInCycle: 11.24, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Caramelo' },
-  { cycleProductId: 'cp-easter-new-12', cycleId: 'cycle-easter-2025', productId: 'prod-new-12', productNameSnapshot: 'Tablete Ao Leite Recheio Ganache', priceInCycle: 11.24, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Ganache' },
-  { cycleProductId: 'cp-easter-new-13', cycleId: 'cycle-easter-2025', productId: 'prod-new-13', productNameSnapshot: 'Gotas Chocolate Amargo 70% (Vegano, Kosher)', priceInCycle: 81.75, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Gotas+Amargo+70' },
+  { cycleProductId: 'cp-easter-new-2', cycleId: 'cycle-easter-2025', productId: 'prod-new-2', productNameSnapshot: 'Barra de chocolate ao leite 45%', priceInCycle: 88.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Barra+Ao+Leite+45' },
+  { cycleProductId: 'cp-easter-new-3', cycleId: 'cycle-easter-2025', productId: 'prod-new-3', productNameSnapshot: 'Barra de chocolate 70% ZERO AÇÚCAR vegano', priceInCycle: 100.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Barra+70+Zero+Vegano' },
+  { cycleProductId: 'cp-easter-new-4', cycleId: 'cycle-easter-2025', productId: 'prod-new-4', productNameSnapshot: 'Pastilhas para Chocolate Quente - GRANEL Sem lactose', priceInCycle: 144.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Pastilhas+Choc+Quente' },
+  { cycleProductId: 'cp-easter-new-5', cycleId: 'cycle-easter-2025', productId: 'prod-new-5', productNameSnapshot: 'Pastilhas para Capuchino - GRANEL Sem lactose', priceInCycle: 144.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Pastilhas+Cappuccino' },
+  { cycleProductId: 'cp-easter-new-6', cycleId: 'cycle-easter-2025', productId: 'prod-new-6', productNameSnapshot: 'Tablete Cacau em Flor 70% Cacau com Açaí - SEM LACTOSE/VEGANO', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Acai+70' },
+  { cycleProductId: 'cp-easter-new-7', cycleId: 'cycle-easter-2025', productId: 'prod-new-7', productNameSnapshot: 'Tablete Cacau em Flor 63% Cacau com Cupuaçu - SEM LACTOSE/VEGANO', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Cupuacu+63' },
+  { cycleProductId: 'cp-easter-new-8', cycleId: 'cycle-easter-2025', productId: 'prod-new-8', productNameSnapshot: 'Tablete Cacau em Flor 63% Cacau com Pimenta Rosa - SEM LACTOSE/VEGANO/KOSHER', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Pimenta+Rosa' },
+  { cycleProductId: 'cp-easter-new-9', cycleId: 'cycle-easter-2025', productId: 'prod-new-9', productNameSnapshot: 'Tablete Serra do Conduru 80% Cacau - SEM LACTOSE/VEGANO/KOSHER', priceInCycle: 23.25, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Conduru+80' },
+  { cycleProductId: 'cp-easter-new-10', cycleId: 'cycle-easter-2025', productId: 'prod-new-10', productNameSnapshot: 'Tablete Gianduia - Chocolate ao leite refinado com avelãs - KOSHER', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Gianduia' },
+  { cycleProductId: 'cp-easter-new-11', cycleId: 'cycle-easter-2025', productId: 'prod-new-11', productNameSnapshot: 'Tablete ao Leite com recheio de Caramelo', priceInCycle: 11.24, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Caramelo' },
+  { cycleProductId: 'cp-easter-new-12', cycleId: 'cycle-easter-2025', productId: 'prod-new-12', productNameSnapshot: 'Tablete ao Leite com recheio de Ganashe', priceInCycle: 11.24, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Tablete+Ganache' },
+  { cycleProductId: 'cp-easter-new-13', cycleId: 'cycle-easter-2025', productId: 'prod-new-13', productNameSnapshot: 'Gotas Chocolate Amargo 70% Cacau - SEM LACTOSE/VEGANO/KOSHER', priceInCycle: 81.75, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Gotas+Amargo+70' },
 
   // Example for a different cycle (Natal 2024 - inactive) - can be expanded if needed
   { cycleProductId: 'cp-xmas-new-1', cycleId: 'cycle-xmas-2024', productId: 'prod-new-2', productNameSnapshot: 'Barra Chocolate Ao Leite 45% (Especial Natal)', priceInCycle: 90.00, isAvailableInCycle: true, displayImageUrl: 'https://placehold.co/600x400.png?text=Barra+Natal' },
@@ -515,7 +547,7 @@ const MOCK_ORDERS: Order[] = [
     customerWhatsappSnapshot: '5511998877665', 
     cycleId: 'cycle-easter-2025', 
     items: [
-      { productId: 'prod-new-3', cycleProductId: 'cp-easter-new-3', productName: 'Barra Chocolate 70% Vegano Zero Açúcar', quantity: 1, priceAtPurchase: 100.00, lineItemTotal: 100.00 },
+      { productId: 'prod-new-3', cycleProductId: 'cp-easter-new-3', productName: 'Barra de chocolate 70% ZERO AÇÚCAR vegano', quantity: 1, priceAtPurchase: 100.00, lineItemTotal: 100.00 },
     ], 
     orderTotalAmount: 100.00, 
     orderStatus: 'Preparing', 
@@ -639,3 +671,4 @@ export async function fetchAdminUsers(): Promise<User[]> {
     await new Promise(resolve => setTimeout(resolve, 300));
     return MOCK_USERS.filter(user => user.role === 'customer');
 }
+

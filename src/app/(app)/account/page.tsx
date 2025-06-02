@@ -9,14 +9,25 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUser, updateUserDetails, signOut } from '@/lib/supabasePlaceholders';
-import type { User as AppUser } from '@/types';
+import type { User as AppUser, Address } from '@/types';
 import { useRouter } from 'next/navigation';
 import { Loader2, LogOut } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 
 export default function AccountPage() {
   const [user, setUser] = useState<AppUser | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
+
+  // Address state
+  const [street, setStreet] = useState('');
+  const [number, setNumber] = useState('');
+  const [complement, setComplement] = useState('');
+  const [neighborhood, setNeighborhood] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [zipCode, setZipCode] = useState('');
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -29,9 +40,18 @@ export default function AccountPage() {
       if (currentUser) {
         setUser(currentUser);
         setDisplayName(currentUser.displayName);
-        setWhatsapp(currentUser.whatsapp || '');
+        setWhatsapp(currentUser.whatsapp || ''); // Ensure WhatsApp is populated, even if empty for now
+        
+        // Populate address fields
+        setStreet(currentUser.address?.street || '');
+        setNumber(currentUser.address?.number || '');
+        setComplement(currentUser.address?.complement || '');
+        setNeighborhood(currentUser.address?.neighborhood || '');
+        setCity(currentUser.address?.city || '');
+        setState(currentUser.address?.state || '');
+        setZipCode(currentUser.address?.zipCode || '');
+
       } else {
-        // If no user, redirect to auth page
         router.push('/auth');
       }
       setIsLoading(false);
@@ -44,22 +64,37 @@ export default function AccountPage() {
     if (!user) return;
 
     setIsSubmitting(true);
-    const { error, user: updatedUser } = await updateUserDetails(user.userId, { displayName, whatsapp });
+
+    const updatedAddress: Address = {
+      street,
+      number,
+      complement,
+      neighborhood,
+      city,
+      state,
+      zipCode,
+    };
+
+    const { error, user: updatedUser } = await updateUserDetails(user.userId, { 
+      displayName, 
+      whatsapp,
+      address: updatedAddress 
+    });
     setIsSubmitting(false);
 
     if (error) {
       toast({ title: "Erro ao Atualizar", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Dados Atualizados", description: "Suas informações foram salvas com sucesso." });
-      if (updatedUser) setUser(updatedUser); // Update local state with fresh user data
+      if (updatedUser) setUser(updatedUser); 
     }
   };
 
   const handleSignOut = async () => {
     await signOut();
     toast({ title: "Logout Efetuado", description: "Você foi desconectado." });
-    setUser(null); // Clear user state locally
-    router.push('/'); // Redirect to home page
+    setUser(null); 
+    router.push('/'); 
   };
 
 
@@ -73,8 +108,6 @@ export default function AccountPage() {
   }
 
   if (!user) {
-     // This case should ideally be handled by the redirect in useEffect,
-     // but as a fallback:
     return (
       <PageContainer className="text-center py-12">
         <p>Você precisa estar logado para acessar esta página.</p>
@@ -88,7 +121,7 @@ export default function AccountPage() {
       <Card className="shadow-xl">
         <CardHeader>
           <CardTitle className="font-headline text-3xl text-center">Minha Conta</CardTitle>
-          <CardDescription className="text-center">Gerencie suas informações pessoais e preferências.</CardDescription>
+          <CardDescription className="text-center">Gerencie suas informações pessoais e de entrega.</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-6">
@@ -107,23 +140,66 @@ export default function AccountPage() {
               <Input
                 id="displayName"
                 type="text"
-                placeholder="Seu nome"
+                placeholder="Seu nome completo"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="whatsapp">WhatsApp (opcional)</Label>
+              <Label htmlFor="whatsapp">WhatsApp</Label>
               <Input
                 id="whatsapp"
                 type="tel"
                 placeholder="Ex: 5511999998888"
                 value={whatsapp}
                 onChange={(e) => setWhatsapp(e.target.value)}
+                required
               />
-               <p className="text-xs text-muted-foreground">Inclua o código do país (ex: 55 para Brasil).</p>
+               <p className="text-xs text-muted-foreground">Inclua o código do país (ex: 55 para Brasil). Obrigatório.</p>
             </div>
+
+            <Separator className="my-6" />
+            <h3 className="text-xl font-headline text-foreground">Endereço de Entrega</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2 space-y-2">
+                <Label htmlFor="street">Logradouro (Rua/Avenida)</Label>
+                <Input id="street" placeholder="Ex: Rua das Flores" value={street} onChange={(e) => setStreet(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="number">Número</Label>
+                <Input id="number" placeholder="Ex: 123" value={number} onChange={(e) => setNumber(e.target.value)} required />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="complement">Complemento (Opcional)</Label>
+                <Input id="complement" placeholder="Ex: Apto 101, Bloco B" value={complement} onChange={(e) => setComplement(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="neighborhood">Bairro</Label>
+                <Input id="neighborhood" placeholder="Ex: Centro" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} required />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2 space-y-2">
+                <Label htmlFor="city">Cidade</Label>
+                <Input id="city" placeholder="Ex: São Paulo" value={city} onChange={(e) => setCity(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="state">Estado</Label>
+                <Input id="state" placeholder="Ex: SP" value={state} onChange={(e) => setState(e.target.value)} required />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="zipCode">CEP</Label>
+              <Input id="zipCode" placeholder="Ex: 01000-000" value={zipCode} onChange={(e) => setZipCode(e.target.value)} required />
+            </div>
+
           </CardContent>
           <CardFooter className="flex flex-col sm:flex-row justify-between gap-4 pt-6">
             <Button type="button" variant="outline" onClick={handleSignOut} className="w-full sm:w-auto">

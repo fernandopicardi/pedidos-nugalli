@@ -1,9 +1,20 @@
 
+export interface Address {
+  street: string;
+  number: string;
+  complement?: string;
+  neighborhood: string;
+  city: string;
+  state: string; // Could be an enum/select in a real app
+  zipCode: string;
+}
+
 export interface User {
   userId: string; // Auth UID
   email: string;
   displayName: string;
-  whatsapp?: string;
+  whatsapp: string; // No longer optional
+  address?: Address; // Address object is optional at user level
   role: 'customer' | 'admin';
   createdAt: string; // ISO date string
 }
@@ -80,4 +91,3 @@ export interface Order {
   orderDate: string; // ISO date string (timestamp)
   adminNotes?: string;
 }
-
