@@ -17,10 +17,6 @@ export interface Product { // Represents Master Product List
   isSeasonal: boolean; // default true
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
-  // Deprecating old fields, will be removed in subsequent steps
-  // price?: number; // Base price, may be superseded by priceInCycle
-  // imageUrl?: string; // Superseded by imageUrls
-  // seasonId?: string; // Superseded by CycleProducts
 }
 
 export interface PurchaseCycle {
@@ -39,25 +35,32 @@ export interface CycleProduct { // Product offering within a specific cycle
   productNameSnapshot: string; // for historical display
   priceInCycle: number; // specific price for this product in this cycle
   isAvailableInCycle: boolean;
-  // Storing a primary image for easier display in cart/order summaries
   displayImageUrl?: string; // Typically the first from Product.imageUrls or a specific one for the cycle
 }
 
+// New type for product data displayed in the ProductCard and ProductGrid
+export interface DisplayableProduct extends Omit<CycleProduct, 'productNameSnapshot' | 'priceInCycle' | 'displayImageUrl'> {
+  name: string; // From CycleProduct.productNameSnapshot
+  description: string; // From master Product.description
+  price: number; // From CycleProduct.priceInCycle
+  imageUrl: string; // From CycleProduct.displayImageUrl or a fallback
+  attributes: Record<string, string[]>; // From master Product.attributes
+}
+
 export interface CartItem {
-  // cartItemId: string; // Or use cycleProductId if items are always from a cycle
   cycleProductId: string; // References the specific offering in a cycle
   productId: string; // Master product ID
-  name: string; // Snapshot of product name (from CycleProduct or Product)
-  price: number; // Price in cycle
+  name: string; // Snapshot of product name
+  price: number; // Price in cycle at time of adding to cart
   quantity: number;
   imageUrl: string; // Display image for cart
-  description?: string; // Optional: short description if needed
+  description?: string; // Optional: short description
 }
 
 export interface OrderItem {
-  productId: string;
-  cycleProductId: string;
-  productName: string;
+  productId: string; // Master product ID
+  cycleProductId: string; // Specific cycle offering ID
+  productName: string; // Name snapshot at time of purchase
   quantity: number;
   priceAtPurchase: number; // Price from CycleProduct at the time of order
   lineItemTotal: number;
@@ -76,8 +79,4 @@ export interface Order {
   paymentStatus: "Unpaid" | "Paid" | "Refunded";
   orderDate: string; // ISO date string (timestamp)
   adminNotes?: string;
-  // Deprecating old fields
-  // customerName?: string;
-  // totalValue?: number;
-  // status?: 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
 }

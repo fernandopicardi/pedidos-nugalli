@@ -1,7 +1,8 @@
+
 "use client";
 
 import Image from 'next/image';
-import type { Product } from '@/types';
+import type { DisplayableProduct } from '@/types'; // Updated to use DisplayableProduct
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ShoppingCart } from 'lucide-react';
@@ -9,16 +10,15 @@ import { useToast } from "@/hooks/use-toast";
 import { addToCart } from '@/lib/supabasePlaceholders';
 
 interface ProductCardProps {
-  product: Product;
+  product: DisplayableProduct; // Updated prop type
 }
 
 export function ProductCard({ product }: ProductCardProps) {
   const { toast } = useToast();
 
   const handleAddToCart = async () => {
-    // TODO: Implement Supabase add to cart logic
-    console.log('Adding to cart:', product.name);
-    await addToCart(product, 1); // Assuming quantity 1 for now
+    console.log('Adding to cart:', product.name, product.cycleProductId);
+    await addToCart(product, 1); // Pass the DisplayableProduct, quantity 1
     toast({
       title: `${product.name} adicionado!`,
       description: "Continue comprando ou finalize seu pedido.",
@@ -30,7 +30,7 @@ export function ProductCard({ product }: ProductCardProps) {
       <CardHeader className="p-0">
         <div className="aspect-square w-full relative">
           <Image
-            src={product.imageUrl}
+            src={product.imageUrl} // Use imageUrl from DisplayableProduct
             alt={product.name}
             layout="fill"
             objectFit="cover"
@@ -46,7 +46,7 @@ export function ProductCard({ product }: ProductCardProps) {
           </CardDescription>
         )}
         <p className="text-2xl font-semibold text-primary">
-          R$ {product.price.toFixed(2).replace('.', ',')}
+          R$ {product.price.toFixed(2).replace('.', ',')} {/* Use price from DisplayableProduct */}
         </p>
       </CardContent>
       <CardFooter className="p-4 pt-0">
