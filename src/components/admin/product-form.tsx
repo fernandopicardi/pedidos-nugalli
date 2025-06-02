@@ -9,9 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-
-// This form now manages master Product details.
-// Linking products to PurchaseCycles (CycleProducts) will be handled elsewhere.
+import { Separator } from '@/components/ui/separator';
 
 interface ProductFormProps {
   initialData?: Product | null;
@@ -19,15 +17,25 @@ interface ProductFormProps {
   onClose: () => void;
 }
 
+const CATEGORIA_OPTIONS = ["Barra", "Tablete", "Pastilhas", "Granel", "Gotas", "Recheado"];
+const DIETARY_OPTIONS = ["vegano", "sem glúten", "sem lactose", "KOSHER", "ZERO AÇÚCAR"];
+
+
 export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [imageUrls, setImageUrls] = useState<string[]>(['']); // Start with one empty URL field
-  // Attributes are a Record<string, string[]>, e.g., { "dietary": ["vegano", "sem glúten"] }
-  // For simplicity in this MVP form, we'll handle attributes as a JSON string textarea.
-  const [attributesString, setAttributesString] = useState('{}');
+  const [imageUrls, setImageUrls] = useState<string[]>(['']);
   const [isSeasonal, setIsSeasonal] = useState(true);
   
+  // New state for specific attributes
+  const [selectedCategorias, setSelectedCategorias] = useState<string[]>([]);
+  const [selectedDietary, setSelectedDietary] = useState<string[]>([]);
+  const [productPeso, setProductPeso] = useState('');
+  const [productCacau, setProductCacau] = useState('');
+  const [productUnidade, setProductUnidade] = useState('');
+  // Add other common attributes as needed, e.g., sabor: string[]
+  const [productSabor, setProductSabor] = useState(''); // Example for an attribute like 'sabor'
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -36,15 +44,27 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       setName(initialData.name);
       setDescription(initialData.description);
       setImageUrls(initialData.imageUrls && initialData.imageUrls.length > 0 ? initialData.imageUrls : ['']);
-      setAttributesString(JSON.stringify(initialData.attributes || {}, null, 2));
       setIsSeasonal(initialData.isSeasonal);
+
+      // Populate specific attribute states
+      setSelectedCategorias(initialData.attributes?.categoria || []);
+      setSelectedDietary(initialData.attributes?.dietary || []);
+      setProductPeso(initialData.attributes?.peso?.[0] || '');
+      setProductCacau(initialData.attributes?.cacau?.[0] || '');
+      setProductUnidade(initialData.attributes?.unidade?.[0] || '');
+      setProductSabor(initialData.attributes?.sabor?.[0] || '');
     } else {
       // Defaults for new product
       setName('');
       setDescription('');
       setImageUrls(['']);
-      setAttributesString('{}');
       setIsSeasonal(true);
+      setSelectedCategorias([]);
+      setSelectedDietary([]);
+      setProductPeso('');
+      setProductCacau('');
+      setProductUnidade('');
+      setProductSabor('');
     }
   }, [initialData]);
 
@@ -63,23 +83,19 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       const newImageUrls = imageUrls.filter((_, i) => i !== index);
       setImageUrls(newImageUrls);
     } else {
-      // If only one field left, clear it instead of removing
       setImageUrls(['']);
     }
+  };
+
+  const handleCheckboxChange = (setter: React.Dispatch<React.SetStateAction<string[]>>, option: string) => {
+    setter(prev => 
+      prev.includes(option) ? prev.filter(item => item !== option) : [...prev, option]
+    );
   };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setIsSubmitting(true);
-
-    let parsedAttributes: Record<string, string[]>;
-    try {
-      parsedAttributes = JSON.parse(attributesString);
-    } catch (e) {
-      toast({ title: "Erro de Validação", description: "Formato JSON inválido para atributos.", variant: "destructive" });
-      setIsSubmitting(false);
-      return;
-    }
 
     if (!name.trim()) {
       toast({ title: "Erro de Validação", description: "Nome do produto é obrigatório.", variant: "destructive" });
@@ -92,13 +108,22 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         finalImageUrls.push('https://placehold.co/400x300.png?text=Produto');
     }
 
+    // Construct attributes object
+    const newAttributes: Record<string, string[]> = {};
+    if (selectedCategorias.length > 0) newAttributes.categoria = selectedCategorias;
+    if (selectedDietary.length > 0) newAttributes.dietary = selectedDietary;
+    if (productPeso.trim()) newAttributes.peso = [productPeso.trim()];
+    if (productCacau.trim()) newAttributes.cacau = [productCacau.trim()];
+    if (productUnidade.trim()) newAttributes.unidade = [productUnidade.trim()];
+    if (productSabor.trim()) newAttributes.sabor = [productSabor.trim()];
+
 
     try {
       const productData = { 
         name, 
         description,
         imageUrls: finalImageUrls,
-        attributes: parsedAttributes,
+        attributes: newAttributes,
         isSeasonal,
       };
 
@@ -119,7 +144,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-h-[70vh] overflow-y-auto p-1 pr-4">
+    <form onSubmit={handleSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto p-1 pr-4">
       <div>
         <Label htmlFor="product-name" className="font-semibold">Nome do Produto (Mestre)</Label>
         <Input id="product-name" value={name} onChange={(e) => setName(e.target.value)} required className="mt-1" />
@@ -148,23 +173,70 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         <Button type="button" variant="outline" size="sm" onClick={addImageUrlField} className="mt-2">
           Adicionar URL de Imagem
         </Button>
-        {imageUrls.filter(url => url.trim())[0] && <img src={imageUrls.filter(url => url.trim())[0]} alt="Preview" className="mt-2 h-24 w-24 object-cover rounded-md border" data-ai-hint="chocolate product"/>}
+        {imageUrls.filter(url => url.trim())[0] && <img src={imageUrls.filter(url => url.trim())[0]} data-ai-hint="chocolate product" alt="Preview" className="mt-2 h-24 w-24 object-cover rounded-md border"/>}
+      </div>
+
+      <Separator />
+      <p className="font-semibold text-lg">Atributos do Produto</p>
+
+      <div>
+        <Label className="font-semibold">Categorias</Label>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1">
+          {CATEGORIA_OPTIONS.map(option => (
+            <div key={option} className="flex items-center space-x-2">
+              <Checkbox
+                id={`cat-${option}`}
+                checked={selectedCategorias.includes(option)}
+                onCheckedChange={() => handleCheckboxChange(setSelectedCategorias, option)}
+              />
+              <Label htmlFor={`cat-${option}`} className="font-normal cursor-pointer">{option}</Label>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div>
-        <Label htmlFor="product-attributes" className="font-semibold">Atributos (JSON)</Label>
-        <Textarea 
-          id="product-attributes" 
-          value={attributesString} 
-          onChange={(e) => setAttributesString(e.target.value)} 
-          className="mt-1 font-mono" 
-          rows={5}
-          placeholder='{\n  "dietary": ["vegano", "sem glúten"],\n  "allergen": ["nozes"]\n}'
-        />
-        <p className="text-xs text-muted-foreground mt-1">Ex: {"{\"peso\": [\"500g\"], \"tipo\": [\"Amargo\"]}"}</p>
+        <Label className="font-semibold">Dietas e Restrições</Label>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1">
+          {DIETARY_OPTIONS.map(option => (
+            <div key={option} className="flex items-center space-x-2">
+              <Checkbox
+                id={`diet-${option}`}
+                checked={selectedDietary.includes(option)}
+                onCheckedChange={() => handleCheckboxChange(setSelectedDietary, option)}
+              />
+              <Label htmlFor={`diet-${option}`} className="font-normal cursor-pointer">{option}</Label>
+            </div>
+          ))}
+        </div>
       </div>
       
-      <div className="flex items-center space-x-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="product-peso" className="font-semibold">Peso do Produto</Label>
+          <Input id="product-peso" value={productPeso} onChange={(e) => setProductPeso(e.target.value)} className="mt-1" placeholder="Ex: 100g, 1kg"/>
+        </div>
+        <div>
+          <Label htmlFor="product-cacau" className="font-semibold">Teor de Cacau</Label>
+          <Input id="product-cacau" value={productCacau} onChange={(e) => setProductCacau(e.target.value)} className="mt-1" placeholder="Ex: 70%, 45%"/>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+         <div>
+          <Label htmlFor="product-unidade" className="font-semibold">Unidade de Venda</Label>
+          <Input id="product-unidade" value={productUnidade} onChange={(e) => setProductUnidade(e.target.value)} className="mt-1" placeholder="Ex: barra, tablete, kg"/>
+        </div>
+        <div>
+          <Label htmlFor="product-sabor" className="font-semibold">Sabor Principal (se houver)</Label>
+          <Input id="product-sabor" value={productSabor} onChange={(e) => setProductSabor(e.target.value)} className="mt-1" placeholder="Ex: Açaí, Cupuaçu, Caramelo"/>
+        </div>
+      </div>
+
+
+      <Separator />
+      
+      <div className="flex items-center space-x-2 pt-2">
         <Checkbox
           id="is-seasonal"
           checked={isSeasonal}
@@ -184,3 +256,4 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
     </form>
   );
 }
+
