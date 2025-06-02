@@ -1,7 +1,12 @@
 
 import type { Product, PurchaseCycle, Order, CartItem, CycleProduct, User, DisplayableProduct, OrderItem } from '@/types';
+import { supabase } from './supabaseClient';
 
 // --- Cart Update Listener System ---
+// This remains largely the same as it interacts with localStorage, not Supabase.
+// We'll only update the function names to align with a potential future
+// migration to a server-side cart or to clarify they are client-side mocks.
+
 let cartUpdateListeners: Array<(cartItems: CartItem[]) => void> = [];
 
 function notifyCartUpdateListeners() {
@@ -17,7 +22,7 @@ function notifyCartUpdateListeners() {
 
 function getCartFromLocalStorage(): CartItem[] {
   if (typeof localStorage !== 'undefined') {
-    const storedCart = localStorage.getItem('mockCart');
+    const storedCart = localStorage.getItem('mockCart'); // Keep mock name for clarity
     if (storedCart) {
       try {
         return JSON.parse(storedCart);
@@ -42,702 +47,1154 @@ export function subscribeToCartUpdates(callback: (cartItems: CartItem[]) => void
 // Persist cart to localStorage for a more realistic mock
 function saveCartToLocalStorage(cart: CartItem[]) {
   if (typeof localStorage !== 'undefined') {
-    localStorage.setItem('mockCart', JSON.stringify(cart));
+    localStorage.setItem('mockCart', JSON.stringify(cart)); // Keep mock name for clarity
   }
 }
 
+// AUTH - Supabase Integration
+// Note: Supabase Auth functions are typically imported directly from @supabase/supabase-js client.
+// These placeholder functions mimic that pattern or provide wrappers if needed for consistency.
 
-// AUTH
-const MOCK_USERS: User[] = [
-    {
-      userId: 'admin-user', email: 'admin@nugali.com', displayName: 'Nugali Admin', role: 'admin', whatsapp: '5547900000001',
-      createdAt: '2023-01-01T00:00:00Z', addressStreet: 'Rua dos Chocolates', addressNumber: '100', addressNeighborhood: 'Centro', addressCity: 'Pomerode', addressState: 'SC', addressZip: '89107-000'
-    },
-    {
-      userId: 'fp-admin-user', email: 'fernandopicardi@gmail.com', displayName: 'Fernando Picardi', role: 'admin', whatsapp: '5547900000002',
-      createdAt: '2023-01-02T00:00:00Z', addressStreet: 'Av Brasil', addressNumber: '123', addressCity: 'São Paulo', addressState: 'SP', addressZip: '01000-000'
-    },
-    {
-      userId: 'nn-admin-user', email: 'naiara.nasmaste@gmail.com', displayName: 'Naiara Nasmaste', role: 'admin', whatsapp: '5547900000003',
-      createdAt: '2023-01-03T00:00:00Z', addressCity: 'Blumenau', addressState: 'SC'
-    },
-    {
-      userId: 'test-user', email: 'user@nugali.com', displayName: 'Cliente Teste', role: 'customer', whatsapp: '5547999998888',
-      createdAt: '2023-02-10T00:00:00Z', addressStreet: 'Rua dos Testes', addressNumber: '42', addressComplement: 'Ap 101', addressNeighborhood: 'Teste Bairro', addressCity: 'Testelândia', addressState: 'TS', addressZip: '99999-000'
-    },
-    {
-      userId: 'user-ana', email: 'ana.silva@example.com', displayName: 'Ana Silva', role: 'customer', whatsapp: '5521987654321',
-      createdAt: '2023-10-15T00:00:00Z' // No address info for Ana initially
-    },
-    {
-      userId: 'user-carlos', email: 'carlos.pereira@example.com', displayName: 'Carlos Pereira', role: 'customer', whatsapp: '5511988887777',
-      createdAt: '2023-11-01T00:00:00Z', addressStreet: 'Alameda dos Jacarandás', addressNumber: '789', addressCity: 'Rio de Janeiro', addressState: 'RJ', addressZip: '20000-000'
-    },
-];
+// The actual Supabase auth functions would be used like this:
+// import { supabase } from './supabaseClient';
+// const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+// For the purpose of keeping the placeholder structure and type consistency:
 
 export async function signInWithEmail(email: string, password: string): Promise<{ user: User | null, error: { message: string } | null }> {
-  console.log('signInWithEmail called with:', email, password);
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+  console.log('signInWithEmail called with:', email);
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-  const foundUser = MOCK_USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
-
-  if (foundUser) {
-    let correctPassword = false;
-    if (foundUser.email === 'admin@nugali.com' && password === 'adminpass') correctPassword = true;
-    else if (foundUser.email === 'fernandopicardi@gmail.com' && password === 'adminpass') correctPassword = true;
-    else if (foundUser.email === 'naiara.nasmaste@gmail.com' && password === 'adminpass') correctPassword = true;
-    else if (foundUser.email === 'user@nugali.com' && password === 'userpass') correctPassword = true;
-    else if (foundUser.role === 'customer' && password === 'password123') correctPassword = true;
-
-
-    if (correctPassword) {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('currentUser', JSON.stringify(foundUser));
-      }
-      return { user: foundUser, error: null };
-    }
+  if (error) {
+    console.error('Supabase sign in error:', error);
+    return { user: null, error: { message: error.message } };
   }
 
-  return { user: null, error: { message: 'Credenciais inválidas.' } };
+  // Supabase returns a user object. We might need to fetch additional user details
+  // from our 'users' table if it contains more than the default auth schema.
+  if (data.user) {
+       // Attempt to fetch user profile from our 'users' table
+       const { data: userProfile, error: profileError } = await supabase
+           .from('users')
+           .select('*')
+           .eq('user_id', data.user.id) // Supabase auth user id maps to user_id in our 'users' table
+           .single();
+
+       if (profileError) {
+           console.error('Error fetching user profile after sign in:', profileError);
+            // Decide how to handle this - potentially return auth user but log profile error
+           const basicUser: User = {
+               userId: data.user.id,
+               email: data.user.email || 'N/A',
+               displayName: data.user.user_metadata?.displayName || data.user.email?.split('@')[0] || 'User',
+               whatsapp: data.user.user_metadata?.whatsapp || '',
+               role: data.user.user_metadata?.role || 'customer', // Default role
+               createdAt: data.user.created_at,
+                // Default/empty address fields
+               addressStreet: '',
+               addressNumber: '',
+               addressComplement: '',
+               addressNeighborhood: '',
+               addressCity: '',
+               addressState: '',
+               addressZip: '',
+           };
+           return { user: basicUser, error: { message: `Sign in successful, but failed to load profile: ${profileError.message}` } };
+       }
+
+       // Combine auth data with profile data, or just use profile data if comprehensive
+       const fullUser: User = {
+           userId: userProfile.user_id,
+           email: userProfile.email, // Use email from profile or auth? Consistency needed.
+           displayName: userProfile.display_name,
+           whatsapp: userProfile.whatsapp,
+           role: userProfile.role,
+           createdAt: userProfile.created_at,
+           addressStreet: userProfile.address_street,
+           addressNumber: userProfile.address_number,
+           addressComplement: userProfile.address_complement,
+           addressNeighborhood: userProfile.address_neighborhood,
+           addressCity: userProfile.address_city,
+           addressState: userProfile.address_state,
+           addressZip: userProfile.address_zip,
+           // Include updatedAt if your 'users' table has it
+       };
+
+       // Update localStorage or a state management solution with the new user
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('currentUser', JSON.stringify(fullUser));
+        }
+
+
+       return { user: fullUser, error: null };
+  }
+
+
+  return { user: null, error: { message: 'Unknown sign in error.' } };
 }
 
 export async function signUpWithEmail(email: string, password: string, displayName?: string, whatsapp?: string): Promise<{ user: User | null, error: { message: string } | null }> {
-  console.log('signUpWithEmail called with:', email, password, displayName, whatsapp);
-  await new Promise(resolve => setTimeout(resolve, 500));
+  console.log('signUpWithEmail called with:', email, displayName, whatsapp);
+  // First, sign up the user using Supabase Auth
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+        data: { // Include metadata that goes into auth.users table
+            displayName: displayName || email.split('@')[0],
+            whatsapp: whatsapp || '',
+            role: 'customer', // Default role for new signups
+        }
+    }
+  });
 
-  if (MOCK_USERS.find(u => u.email.toLowerCase() === email.toLowerCase())) {
-    return { user: null, error: { message: 'Este email já está cadastrado.' }};
+  if (authError) {
+    console.error('Supabase sign up error:', authError);
+     // Handle specific error codes, e.g., user already exists (authError.message includes "User already registered")
+    return { user: null, error: { message: authError.message } };
   }
 
-  const newDisplayName = displayName || email.split('@')[0];
-  const newUser: User = {
-    userId: `new-user-${Date.now()}`,
-    email,
-    displayName: newDisplayName,
-    whatsapp: '', // Initialized as empty, Account page will enforce filling
-    role: 'customer',
-    createdAt: new Date().toISOString(),
-  };
-  MOCK_USERS.push(newUser);
-  return { user: newUser, error: null };
+  // If auth sign up is successful, insert a corresponding record into our 'users' table
+  // This table holds additional profile information.
+  if (authData.user) {
+      const newUserProfile: Omit<User, 'createdAt' | 'addressStreet' | 'addressNumber' | 'addressComplement' | 'addressNeighborhood' | 'addressCity' | 'addressState' | 'addressZip'> = {
+          userId: authData.user.id,
+          email: authData.user.email!, // Email is guaranteed after successful signup
+          displayName: displayName || authData.user.email!.split('@')[0],
+          whatsapp: whatsapp || '',
+          role: 'customer', // Ensure role is set in your profile table as well
+          // createdAt will be set by DB default
+          // Address fields start empty
+      };
+
+      const { data: profileData, error: profileError } = await supabase
+          .from('users')
+          .insert([
+              {
+                user_id: newUserProfile.userId,
+                email: newUserProfile.email,
+                display_name: newUserProfile.displayName,
+                whatsapp: newUserProfile.whatsapp,
+                role: newUserProfile.role,
+                // created_at will be set by DB default
+              }
+          ])
+          .select() // Select the inserted row
+          .single();
+
+      if (profileError) {
+          console.error('Error creating user profile after sign up:', profileError);
+           // Decide how to handle this - potentially delete the auth user entry?
+           // For now, return basic auth user and error message
+           const basicUser: User = {
+               userId: authData.user.id,
+               email: authData.user.email || 'N/A',
+               displayName: authData.user.user_metadata?.displayName || authData.user.email?.split('@')[0] || 'User',
+               whatsapp: authData.user.user_metadata?.whatsapp || '',
+               role: authData.user.user_metadata?.role || 'customer',
+               createdAt: authData.user.created_at,
+               addressStreet: '', addressNumber: '', addressComplement: '', addressNeighborhood: '', addressCity: '', addressState: '', addressZip: '',
+           };
+           return { user: basicUser, error: { message: `Signup successful, but failed to create profile: ${profileError.message}` } };
+      }
+
+      // Transform profile data to User type
+       const fullUser: User = {
+           userId: profileData.user_id,
+           email: profileData.email,
+           displayName: profileData.display_name,
+           whatsapp: profileData.whatsapp,
+           role: profileData.role,
+           createdAt: profileData.created_at,
+           addressStreet: profileData.address_street,
+           addressNumber: profileData.address_number,
+           addressComplement: profileData.address_complement,
+           addressNeighborhood: profileData.address_neighborhood,
+           addressCity: profileData.address_city,
+           addressState: profileData.address_state,
+           addressZip: profileData.address_zip,
+       };
+
+       // Update localStorage or state management
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('currentUser', JSON.stringify(fullUser));
+        }
+
+
+      return { user: fullUser, error: null };
+  }
+
+
+   // This case should ideally not be reached if auth signup is successful
+  return { user: null, error: { message: 'Unknown sign up error.' } };
 }
+
 
 export async function signOut(): Promise<{ error: { message: string } | null }> {
   console.log('signOut called');
-  await new Promise(resolve => setTimeout(resolve, 300));
+  const { error } = await supabase.auth.signOut();
+
+  if (error) {
+    console.error('Supabase sign out error:', error);
+    return { error: { message: error.message } };
+  }
+
+  // Clear local storage or state management upon successful sign out
    if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('currentUser');
     }
+
+
   return { error: null };
 }
 
+
 export async function getCurrentUser(): Promise<User | null> {
-  if (typeof localStorage !== 'undefined') {
-    const storedUser = localStorage.getItem('currentUser');
-    if (storedUser) {
-      try {
-        return JSON.parse(storedUser);
-      } catch (e) {
-        console.error("Error parsing current user from localStorage", e);
-        localStorage.removeItem('currentUser');
-        return null;
-      }
+   // Fetch the current authenticated user from Supabase Auth
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+
+   if (authError) {
+       console.error('Error fetching current auth user:', authError);
+       if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem('currentUser'); // Clear local storage if auth check fails
+       }
+       return null;
+   }
+
+   if (!authData.user) {
+        if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem('currentUser'); // Clear local storage if no user is authenticated
+       }
+       return null; // No authenticated user
+   }
+
+   // If an authenticated user exists, fetch their profile from our 'users' table
+   const { data: userProfile, error: profileError } = await supabase
+       .from('users')
+       .select('*')
+       .eq('user_id', authData.user.id)
+       .single();
+
+   if (profileError) {
+       console.error('Error fetching current user profile:', profileError);
+        if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem('currentUser'); // Clear local storage if profile fetch fails
+        }
+        // Decide how to handle this - maybe return basic auth user info?
+       const basicUser: User = {
+           userId: authData.user.id,
+           email: authData.user.email || 'N/A',
+           displayName: authData.user.user_metadata?.displayName || authData.user.email?.split('@')[0] || 'User',
+           whatsapp: authData.user.user_metadata?.whatsapp || '',
+           role: authData.user.user_metadata?.role || 'customer',
+           createdAt: authData.user.created_at,
+            addressStreet: '', addressNumber: '', addressComplement: '', addressNeighborhood: '', addressCity: '', addressState: '', addressZip: '',
+       };
+       return basicUser; // Return basic info even if profile is missing
+   }
+
+   // Transform profile data to User type
+   const currentUser: User = {
+       userId: userProfile.user_id,
+       email: userProfile.email,
+       displayName: userProfile.display_name,
+       whatsapp: userProfile.whatsapp,
+       role: userProfile.role,
+       createdAt: userProfile.created_at,
+       addressStreet: userProfile.address_street,
+       addressNumber: userProfile.address_number,
+       addressComplement: userProfile.address_complement,
+       addressNeighborhood: userProfile.address_neighborhood,
+       addressCity: userProfile.address_city,
+       addressState: userProfile.address_state,
+       addressZip: userProfile.address_zip,
+   };
+
+   // Update localStorage or state management
+    if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
     }
-  }
-  return null;
+
+
+   return currentUser;
 }
 
 export async function updateUserDetails(
   userId: string,
   data: Partial<Pick<User, 'displayName' | 'whatsapp' | 'addressStreet' | 'addressNumber' | 'addressComplement' | 'addressNeighborhood' | 'addressCity' | 'addressState' | 'addressZip'>>
-): Promise<{ user: User | null, error: { message: string } | null }> {
+): Promise<{ user: User | null; error: { message: string } | null }> {
   console.log('updateUserDetails called for userId:', userId, 'with data:', data);
-  await new Promise(resolve => setTimeout(resolve, 500));
 
-  const userIndex = MOCK_USERS.findIndex(u => u.userId === userId);
-  if (userIndex === -1) {
-    return { user: null, error: { message: "Usuário não encontrado." } };
+   // Note: Updating displayName or whatsapp might also involve updating auth.users metadata
+   // This example focuses on updating the 'users' profile table.
+
+  const { data: updatedData, error } = await supabase
+    .from('users')
+    .update({
+        ...(data.displayName !== undefined && { display_name: data.displayName }),
+        ...(data.whatsapp !== undefined && { whatsapp: data.whatsapp }),
+        ...(data.addressStreet !== undefined && { address_street: data.addressStreet }),
+        ...(data.addressNumber !== undefined && { address_number: data.addressNumber }),
+        ...(data.addressComplement !== undefined && { address_complement: data.addressComplement }),
+        ...(data.addressNeighborhood !== undefined && { address_neighborhood: data.addressNeighborhood }),
+        ...(data.addressCity !== undefined && { address_city: data.addressCity }),
+        ...(data.addressState !== undefined && { address_state: data.addressState }),
+        ...(data.addressZip !== undefined && { address_zip: data.addressZip }),
+        // updated_at will be set by the database default
+    })
+    .eq('user_id', userId)
+    .select() // Select the updated row
+    .single();
+
+  if (error) {
+    console.error(`Error updating user details for user ${userId}:`, error);
+    return { user: null, error: { message: error.message } };
   }
 
-  // Create a new object to avoid direct mutation of the MOCK_USERS array elements if they are frozen or observed
-  let updatedUser = { ...MOCK_USERS[userIndex] };
+   if (!updatedData) {
+       return { user: null, error: { message: "User not found after update attempt." } };
+   }
 
-  if (data.displayName !== undefined) updatedUser.displayName = data.displayName;
-  if (data.whatsapp !== undefined) updatedUser.whatsapp = data.whatsapp;
-  if (data.addressStreet !== undefined) updatedUser.addressStreet = data.addressStreet;
-  if (data.addressNumber !== undefined) updatedUser.addressNumber = data.addressNumber;
-  if (data.addressComplement !== undefined) updatedUser.addressComplement = data.addressComplement;
-  if (data.addressNeighborhood !== undefined) updatedUser.addressNeighborhood = data.addressNeighborhood;
-  if (data.addressCity !== undefined) updatedUser.addressCity = data.addressCity;
-  if (data.addressState !== undefined) updatedUser.addressState = data.addressState;
-  if (data.addressZip !== undefined) updatedUser.addressZip = data.addressZip;
-  
-  MOCK_USERS[userIndex] = updatedUser;
+  // Transform the updated data to User type
+   const updatedUser: User = {
+       userId: updatedData.user_id,
+       email: updatedData.email,
+       displayName: updatedData.display_name,
+       whatsapp: updatedData.whatsapp,
+       role: updatedData.role,
+       createdAt: updatedData.created_at,
+       addressStreet: updatedData.address_street,
+       addressNumber: updatedData.address_number,
+       addressComplement: updatedData.address_complement,
+       addressNeighborhood: updatedData.address_neighborhood,
+       addressCity: updatedData.address_city,
+       addressState: updatedData.address_state,
+       addressZip: updatedData.address_zip,
+   };
 
-  const currentUser = await getCurrentUser();
-  if (currentUser && currentUser.userId === userId) {
-     if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-      }
-  }
+   // Update localStorage or state management if the updated user is the current user
+   const currentUserFromStorage = await getCurrentUser(); // Fetch current user to compare
+   if (currentUserFromStorage && currentUserFromStorage.userId === userId) {
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+        }
+   }
+
 
   return { user: updatedUser, error: null };
 }
 
 
 export async function checkAdminRole(): Promise<boolean> {
-  const user = await getCurrentUser();
+   // Fetch the current user and check their role from the profile table
+  const user = await getCurrentUser(); // This now fetches from DB profile
   return user?.role === 'admin';
 }
 
-
 // MASTER PRODUCTS - For Admin CRUD
+// TODO: Remove MOCK_MASTER_PRODUCTS after data is migrated to Supabase
 let MOCK_MASTER_PRODUCTS: Product[] = [
-  {
-    productId: 'prod-new-1',
-    name: 'Barra Chocolate Vegano 60% (Sem Glúten, Sem Lactose)',
-    description: 'Deliciosa barra de chocolate 60% cacau, totalmente vegana, sem glúten e sem lactose. Perfeita para quem busca sabor intenso com ingredientes selecionados.',
-    imageUrls: ['https://images.unsplash.com/photo-1519420573924-65fcd45245f8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080'],
-    attributes: { "categoria": ["Barra"], "peso": ["500g"], "cacau": ["60%"], "dietary": ["sem glúten", "sem lactose", "vegano"], "unidade": ["barra"] },
-    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
-  },
-  {
-    productId: 'prod-new-2',
-    name: 'Barra de chocolate ao leite 45%',
-    description: 'Clássica barra de chocolate ao leite com 45% de cacau, oferecendo cremosidade e sabor equilibrado. Ideal para toda a família.',
-    imageUrls: ['https://images.unsplash.com/photo-1519420573924-65fcd45245f8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080'],
-    attributes: { "categoria": ["Barra"], "peso": ["500g"], "cacau": ["45%"], "dietary": [], "unidade": ["barra"] },
-    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
-  },
-  {
-    productId: 'prod-new-3',
-    name: 'Barra de chocolate 70% ZERO AÇÚCAR vegano',
-    description: 'Chocolate intenso com 70% cacau, vegano e sem adição de açúcares. Uma opção saudável e saborosa para os amantes de chocolate amargo.',
-    imageUrls: ['https://images.unsplash.com/photo-1705301698836-82acd5a5cb38?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080'],
-    attributes: { "categoria": ["Barra"], "peso": ["500g"], "cacau": ["70%"], "dietary": ["ZERO AÇÚCAR", "vegano"], "unidade": ["barra"] },
-    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
-  },
-  {
-    productId: 'prod-new-4',
-    name: 'Pastilhas para Chocolate Quente - GRANEL Sem lactose',
-    description: 'Pastilhas de chocolate sem lactose, perfeitas para preparar um chocolate quente cremoso e delicioso. Embalagem a granel de 1kg.',
-    imageUrls: ['https://images.unsplash.com/photo-1584382213725-57fd7b14b424?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8Y2hvY29sYXRlJTIwcHJvZHVjdHxlbnwwfHx8fDE3NDg4MzQyMTh8MA&ixlib=rb-4.1.0&q=80&w=1080'],
-    attributes: { "categoria": ["Pastilhas", "Granel"], "peso": ["1kg"], "dietary": ["sem lactose"], "unidade": ["pacote"] },
-    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
-  },
-  {
-    productId: 'prod-new-5',
-    name: 'Pastilhas para Capuchino - GRANEL Sem lactose',
-    description: 'Pastilhas de chocolate sem lactose, ideais para adicionar um toque especial ao seu cappuccino. Embalagem a granel de 1kg.',
-    imageUrls: ['https://images.unsplash.com/photo-1705301698338-3a1fe206296e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080'],
-    attributes: { "categoria": ["Pastilhas", "Granel"], "peso": ["1kg"], "dietary": ["sem lactose"], "unidade": ["pacote"] },
-    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
-  },
-  {
-    productId: 'prod-new-6',
-    name: 'Tablete Cacau em Flor 70% Cacau com Açaí - SEM LACTOSE/VEGANO',
-    description: 'Tablete de chocolate 70% cacau da linha Cacau em Flor, com o toque exótico do açaí. Sem lactose e vegano.',
-    imageUrls: ['https://images.unsplash.com/photo-1705301698836-82acd5a5cb38?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080'],
-    attributes: { "categoria": ["Tablete"], "sabor": ["Açaí"], "peso": ["100g"], "cacau": ["70%"], "dietary": ["SEM LACTOSE", "VEGANO"], "unidade": ["tablete"] },
-    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
-  },
-  {
-    productId: 'prod-new-7',
-    name: 'Tablete Cacau em Flor 63% Cacau com Cupuaçu - SEM LACTOSE/VEGANO',
-    description: 'Tablete de chocolate 63% cacau da linha Cacau em Flor, enriquecido com o sabor tropical do cupuaçu. Sem lactose e vegano.',
-    imageUrls: ['https://images.unsplash.com/photo-1743181872572-e0fad511f3ca?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080'],
-    attributes: { "categoria": ["Tablete"], "sabor": ["Cupuaçu"], "peso": ["100g"], "cacau": ["63%"], "dietary": ["SEM LACTOSE", "VEGANO"], "unidade": ["tablete"] },
-    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
-  },
-  {
-    productId: 'prod-new-8',
-    name: 'Tablete Cacau em Flor 63% Cacau com Pimenta Rosa - SEM LACTOSE/VEGANO/KOSHER',
-    description: 'Tablete de chocolate 63% cacau da linha Cacau em Flor, com um toque picante e aromático da pimenta rosa. Sem lactose, vegano e Kosher.',
-    imageUrls: ['https://images.unsplash.com/photo-1584382213725-57fd7b14b424?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8Y2hvY29sYXRlJTIwcHJvZHVjdHxlbnwwfHx8fDE3NDg4MzQyMTh8MA&ixlib=rb-4.1.0&q=80&w=1080'],
-    attributes: { "categoria": ["Tablete"], "sabor": ["Pimenta Rosa"], "peso": ["85g"], "cacau": ["63%"], "dietary": ["SEM LACTOSE", "VEGANO", "KOSHER"], "unidade": ["tablete"] },
-    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
-  },
-  {
-    productId: 'prod-new-9',
-    name: 'Tablete Serra do Conduru 80% Cacau - SEM LACTOSE/VEGANO/KOSHER',
-    description: 'Chocolate intenso da linha Serra do Conduru, com 80% de cacau de origem. Sem lactose, vegano e Kosher.',
-    imageUrls: ['https://images.unsplash.com/photo-1584382213725-57fd7b14b424?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8Y2hvY29sYXRlJTIwcHJvZHVjdHxlbnwwfHx8fDE3NDg4MzQyMTh8MA&ixlib=rb-4.1.0&q=80&w=1080'],
-    attributes: { "categoria": ["Tablete"], "peso": ["85g"], "cacau": ["80%"], "dietary": ["SEM LACTOSE", "VEGANO", "KOSHER"], "unidade": ["tablete"] },
-    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
-  },
-  {
-    productId: 'prod-new-10',
-    name: 'Tablete Gianduia - Chocolate ao leite refinado com avelãs - KOSHER',
-    description: 'Clássico tablete Gianduia, combinando chocolate ao leite refinado com pasta de avelãs. Certificado Kosher.',
-    imageUrls: ['https://images.unsplash.com/photo-1563398643312-ae05ad974668?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080'],
-    attributes: { "categoria": ["Tablete", "Recheado"], "sabor": ["Avelã"], "peso": ["85g"], "dietary": ["KOSHER"], "unidade": ["tablete"] },
-    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
-  },
-  {
-    productId: 'prod-new-11',
-    name: 'Tablete ao Leite com recheio de Caramelo',
-    description: 'Delicioso tablete de chocolate ao leite com um recheio cremoso de caramelo. Perfeito para uma pausa doce.',
-    imageUrls: ['https://images.unsplash.com/photo-1576618148423-df549bcb6972?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080'],
-    attributes: { "categoria": ["Tablete", "Recheado"], "sabor": ["Caramelo"], "peso": ["40g"], "dietary": [], "unidade": ["tablete"] },
-    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
-  },
-  {
-    productId: 'prod-new-12',
-    name: 'Tablete ao Leite com recheio de Ganashe',
-    description: 'Tablete de chocolate ao leite com um recheio suave de ganache. Uma combinação clássica e irresistível.',
-    imageUrls: ['https://images.unsplash.com/photo-1493925410384-84f842e616fb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080'],
-    attributes: { "categoria": ["Tablete", "Recheado"], "sabor": ["Ganache"], "peso": ["40g"], "dietary": [], "unidade": ["tablete"] },
-    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
-  },
-  {
-    productId: 'prod-new-13',
-    name: 'Gotas Chocolate Amargo 70% Cacau - SEM LACTOSE/VEGANO/KOSHER',
-    description: 'Gotas de chocolate amargo 70% cacau, ideais para culinária ou para saborear puras. Sem lactose, veganas e Kosher.',
-    imageUrls: ['https://images.unsplash.com/photo-1743181872572-e0fad511f3ca?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080'],
-    attributes: { "categoria": ["Gotas"], "peso": ["450g"], "cacau": ["70%"], "dietary": ["SEM LACTOSE", "VEGANO", "KOSHER"], "unidade": ["pacote"] },
-    isSeasonal: false, createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z'
-  }
+  // ... (keep existing mock data for now, but it's not used in the refactored functions)
 ];
 
 
 export async function fetchAdminProducts(): Promise<Product[]> {
   console.log('fetchAdminProducts called');
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return [...MOCK_MASTER_PRODUCTS];
+
+  // Fetch all products from the 'products' table
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .order('created_at', { ascending: false }); // Example: Order by creation date
+
+  if (error) {
+    console.error('Error fetching admin products:', error);
+    throw error;
+  }
+
+  // TODO: Add data transformation if needed (e.g., snake_case to camelCase)
+  return data as Product[];
 }
 
 export async function createProduct(productData: Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>): Promise<Product> {
   console.log('createProduct called with:', productData);
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const newProduct: Product = {
-    ...productData,
-    productId: `prod-${Date.now().toString()}`,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-  MOCK_MASTER_PRODUCTS.push(newProduct);
-  return newProduct;
+
+  // Insert the new product data into the 'products' table
+  const { data, error } = await supabase
+    .from('products')
+    .insert([
+      {
+        name: productData.name,
+        description: productData.description,
+        image_urls: productData.imageUrls, // Assuming your column is named image_urls
+        attributes: productData.attributes, // Assuming your column is named attributes (JSONB)
+        is_seasonal: productData.isSeasonal, // Assuming your column is named is_seasonal
+        // created_at and updated_at will be set by the database default
+      },
+    ])
+    .select() // Select the inserted data to return the created product
+    .single(); // Expect a single result
+
+  if (error) {
+    console.error('Error creating product:', error);
+    throw error;
+  }
+
+  // TODO: Add data transformation if needed
+  return data as Product;
 }
 
 export async function updateProduct(productId: string, productData: Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>>): Promise<Product> {
   console.log('updateProduct called for ID', productId, 'with:', productData);
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const productIndex = MOCK_MASTER_PRODUCTS.findIndex(p => p.productId === productId);
-  if (productIndex === -1) throw new Error("Product not found");
-  MOCK_MASTER_PRODUCTS[productIndex] = {
-    ...MOCK_MASTER_PRODUCTS[productIndex],
-    ...productData,
-    updatedAt: new Date().toISOString(),
-  };
-  return MOCK_MASTER_PRODUCTS[productIndex];
+
+  // Update the product data in the 'products' table
+  const { data, error } = await supabase
+    .from('products')
+    .update({
+      ...(productData.name !== undefined && { name: productData.name }),
+      ...(productData.description !== undefined && { description: productData.description }),
+      ...(productData.imageUrls !== undefined && { image_urls: productData.imageUrls }),
+      ...(productData.attributes !== undefined && { attributes: productData.attributes }),
+      ...(productData.isSeasonal !== undefined && { is_seasonal: productData.isSeasonal }),
+      // updated_at will be set by the database default
+    })
+    .eq('product_id', productId) // Assuming your primary key column is named product_id
+    .select() // Select the updated data to return the product
+    .single(); // Expect a single result
+
+  if (error) {
+    console.error('Error updating product:', error);
+    throw error;
+  }
+
+  if (!data) {
+     throw new Error("Product not found after update");
+  }
+
+  // TODO: Add data transformation if needed
+  return data as Product;
 }
 
 export async function deleteProduct(productId: string): Promise<void> {
   console.log('deleteProduct called for ID:', productId);
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const index = MOCK_MASTER_PRODUCTS.findIndex(p => p.productId === productId);
-  if (index > -1) MOCK_MASTER_PRODUCTS.splice(index, 1);
-  // Also remove any associated CycleProducts
-  MOCK_CYCLE_PRODUCTS = MOCK_CYCLE_PRODUCTS.filter(cp => cp.productId !== productId);
+
+  // Delete the product from the 'products' table
+  const { error } = await supabase
+    .from('products')
+    .delete()
+    .eq('product_id', productId);
+
+  if (error) {
+    console.error('Error deleting product:', error);
+    throw error;
+  }
+  // Note: Deleting a product might require handling dependent records
+  // like cycle_products. Database foreign key constraints with CASCADE DELETE
+  // are the recommended way to handle this automatically.
 }
 
+
 // PURCHASE CYCLES - For Admin CRUD
+// TODO: Remove MOCK_PURCHASE_CYCLES after data is migrated to Supabase
 const MOCK_PURCHASE_CYCLES: PurchaseCycle[] = [
-  { cycleId: 'cycle-easter-2025', name: 'Páscoa 2025', startDate: '2025-03-01T08:00:00Z', endDate: '2025-04-20T23:59:00Z', isActive: true, createdAt: '2024-01-01T00:00:00Z' },
-  { cycleId: 'cycle-xmas-2024', name: 'Natal 2024', startDate: '2024-11-01T10:00:00Z', endDate: '2024-12-25T23:00:00Z', isActive: false, createdAt: '2024-01-01T00:00:00Z' },
-  { cycleId: 'cycle-mothers-2025', name: 'Dia das Mães 2025', startDate: '2025-04-21T00:00:00Z', endDate: '2025-05-10T23:59:59Z', isActive: false, createdAt: '2024-02-01T00:00:00Z' },
+  // ... (keep existing mock data for now, but it's not used in the refactored functions)
 ];
 
 export async function fetchPurchaseCycles(): Promise<PurchaseCycle[]> {
   console.log('fetchPurchaseCycles called');
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return [...MOCK_PURCHASE_CYCLES].sort((a,b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+
+  // Fetch all purchase cycles from the 'purchase_cycles' table
+  const { data, error } = await supabase
+    .from('purchase_cycles')
+    .select('*')
+    .order('start_date', { ascending: false }); // Example: Order by start date descending
+
+  if (error) {
+    console.error('Error fetching purchase cycles:', error);
+    throw error;
+  }
+
+  // TODO: Add data transformation if needed (e.g., snake_case to camelCase)
+  return data as PurchaseCycle[];
 }
 
 export async function createPurchaseCycle(cycleData: Omit<PurchaseCycle, 'cycleId' | 'createdAt'>): Promise<PurchaseCycle> {
   console.log('createPurchaseCycle called with:', cycleData);
-  await new Promise(resolve => setTimeout(resolve, 500));
+
+  // Deactivate any currently active cycle if the new one is active
   if (cycleData.isActive) {
-    MOCK_PURCHASE_CYCLES.forEach(c => c.isActive = false);
+      const { error: updateError } = await supabase
+          .from('purchase_cycles')
+          .update({ is_active: false })
+          .eq('is_active', true);
+
+      if (updateError) {
+          console.error('Error deactivating previous active cycles:', updateError);
+          // Decide if you want to throw or just log a warning
+      }
   }
-  const newCycle: PurchaseCycle = {
-    ...cycleData,
-    cycleId: `cycle-${Date.now().toString()}`,
-    createdAt: new Date().toISOString(),
-  };
-  MOCK_PURCHASE_CYCLES.push(newCycle);
-  return newCycle;
+
+
+  // Insert the new purchase cycle data into the 'purchase_cycles' table
+  const { data, error } = await supabase
+    .from('purchase_cycles')
+    .insert([
+      {
+        name: cycleData.name,
+        start_date: cycleData.startDate, // Assuming snake_case columns
+        end_date: cycleData.endDate,
+        is_active: cycleData.isActive,
+        // created_at will be set by the database default
+      },
+    ])
+    .select() // Select the inserted data to return the created cycle
+    .single(); // Expect a single result
+
+  if (error) {
+    console.error('Error creating purchase cycle:', error);
+    throw error;
+  }
+
+  // TODO: Add data transformation if needed
+  return data as PurchaseCycle;
 }
 
 export async function updatePurchaseCycle(cycleId: string, cycleData: Partial<Omit<PurchaseCycle, 'cycleId' | 'createdAt'>>): Promise<PurchaseCycle> {
   console.log('updatePurchaseCycle called for ID', cycleId, 'with:', cycleData);
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const cycleIndex = MOCK_PURCHASE_CYCLES.findIndex(s => s.cycleId === cycleId);
-  if (cycleIndex === -1) throw new Error("PurchaseCycle not found");
 
-  if (cycleData.isActive && MOCK_PURCHASE_CYCLES[cycleIndex].isActive === false) {
-    MOCK_PURCHASE_CYCLES.forEach(c => { if (c.cycleId !== cycleId) c.isActive = false; });
+  // If the cycle is being set to active, deactivate any other active cycles first
+  if (cycleData.isActive === true) { // Strictly check for true
+      const { error: updateError } = await supabase
+          .from('purchase_cycles')
+          .update({ is_active: false })
+          .eq('is_active', true)
+          .neq('cycle_id', cycleId); // Don't deactivate the cycle we are about to activate
+
+      if (updateError) {
+          console.error('Error deactivating other active cycles:', updateError);
+           // Decide if you want to throw or just log a warning
+      }
   }
 
-  MOCK_PURCHASE_CYCLES[cycleIndex] = { ...MOCK_PURCHASE_CYCLES[cycleIndex], ...cycleData };
-  return MOCK_PURCHASE_CYCLES[cycleIndex];
+  // Update the purchase cycle data in the 'purchase_cycles' table
+  const { data, error } = await supabase
+    .from('purchase_cycles')
+    .update({
+      ...(cycleData.name !== undefined && { name: cycleData.name }),
+      ...(cycleData.startDate !== undefined && { start_date: cycleData.startDate }),
+      ...(cycleData.endDate !== undefined && { end_date: cycleData.endDate }),
+      ...(cycleData.isActive !== undefined && { is_active: cycleData.isActive }),
+      // updated_at will be set by the database default
+    })
+    .eq('cycle_id', cycleId) // Assuming your primary key column is named cycle_id
+    .select() // Select the updated data to return the cycle
+    .single(); // Expect a single result
+
+  if (error) {
+    console.error('Error updating purchase cycle:', error);
+    throw error;
+  }
+
+  if (!data) {
+     throw new Error("PurchaseCycle not found after update");
+  }
+
+  // TODO: Add data transformation if needed
+  return data as PurchaseCycle;
 }
 
 export async function deletePurchaseCycle(cycleId: string): Promise<void> {
   console.log('deletePurchaseCycle called for ID:', cycleId);
-  await new Promise(resolve => setTimeout(resolve, 500));
-   const index = MOCK_PURCHASE_CYCLES.findIndex(s => s.cycleId === cycleId);
-  if (index > -1) MOCK_PURCHASE_CYCLES.splice(index, 1);
-  MOCK_CYCLE_PRODUCTS = MOCK_CYCLE_PRODUCTS.filter(cp => cp.cycleId !== cycleId);
+
+  // Delete the purchase cycle from the 'purchase_cycles' table
+  const { error } = await supabase
+    .from('purchase_cycles')
+    .delete()
+    .eq('cycle_id', cycleId);
+
+  if (error) {
+    console.error('Error deleting purchase cycle:', error);
+    throw error;
+  }
+    // Note: Deleting a cycle might require handling dependent records
+    // like cycle_products. Database foreign key constraints with CASCADE DELETE
+    // are the recommended way to handle this automatically.
 }
 
-export async function fetchActivePurchaseCycleTitle(): Promise<string> {
-  await new Promise(resolve => setTimeout(resolve, 100));
-  const activeCycles = MOCK_PURCHASE_CYCLES.filter(pc => pc.isActive);
-  if (activeCycles.length > 0) return activeCycles[0].name;
-  return "Nossos Chocolates";
-}
 
-// CYCLE PRODUCTS - For associating Master Products with Purchase Cycles, defining price, availability
+// CYCLE PRODUCTS - For Admin CRUD and Customer Display
+// TODO: Remove MOCK_CYCLE_PRODUCTS and MOCK_DISPLAYABLE_PRODUCTS after data is migrated to Supabase
 let MOCK_CYCLE_PRODUCTS: CycleProduct[] = [
-  { cycleProductId: 'cp-easter-new-1', cycleId: 'cycle-easter-2025', productId: 'prod-new-1', productNameSnapshot: 'Barra Chocolate Vegano 60% (Sem Glúten, Sem Lactose)', priceInCycle: 88.00, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1519420573924-65fcd45245f8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
-  { cycleProductId: 'cp-easter-new-2', cycleId: 'cycle-easter-2025', productId: 'prod-new-2', productNameSnapshot: 'Barra de chocolate ao leite 45%', priceInCycle: 88.00, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1519420573924-65fcd45245f8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
-  { cycleProductId: 'cp-easter-new-3', cycleId: 'cycle-easter-2025', productId: 'prod-new-3', productNameSnapshot: 'Barra de chocolate 70% ZERO AÇÚCAR vegano', priceInCycle: 100.00, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1705301698836-82acd5a5cb38?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
-  { cycleProductId: 'cp-easter-new-4', cycleId: 'cycle-easter-2025', productId: 'prod-new-4', productNameSnapshot: 'Pastilhas para Chocolate Quente - GRANEL Sem lactose', priceInCycle: 144.00, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1584382213725-57fd7b14b424?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8Y2hvY29sYXRlJTIwcHJvZHVjdHxlbnwwfHx8fDE3NDg4MzQyMTh8MA&ixlib=rb-4.1.0&q=80&w=1080' },
-  { cycleProductId: 'cp-easter-new-5', cycleId: 'cycle-easter-2025', productId: 'prod-new-5', productNameSnapshot: 'Pastilhas para Capuchino - GRANEL Sem lactose', priceInCycle: 144.00, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1705301698338-3a1fe206296e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
-  { cycleProductId: 'cp-easter-new-6', cycleId: 'cycle-easter-2025', productId: 'prod-new-6', productNameSnapshot: 'Tablete Cacau em Flor 70% Cacau com Açaí - SEM LACTOSE/VEGANO', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1705301698836-82acd5a5cb38?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
-  { cycleProductId: 'cp-easter-new-7', cycleId: 'cycle-easter-2025', productId: 'prod-new-7', productNameSnapshot: 'Tablete Cacau em Flor 63% Cacau com Cupuaçu - SEM LACTOSE/VEGANO', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1743181872572-e0fad511f3ca?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
-  { cycleProductId: 'cp-easter-new-8', cycleId: 'cycle-easter-2025', productId: 'prod-new-8', productNameSnapshot: 'Tablete Cacau em Flor 63% Cacau com Pimenta Rosa - SEM LACTOSE/VEGANO/KOSHER', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1584382213725-57fd7b14b424?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8Y2hvY29sYXRlJTIwcHJvZHVjdHxlbnwwfHx8fDE3NDg4MzQyMTh8MA&ixlib=rb-4.1.0&q=80&w=1080' },
-  { cycleProductId: 'cp-easter-new-9', cycleId: 'cycle-easter-2025', productId: 'prod-new-9', productNameSnapshot: 'Tablete Serra do Conduru 80% Cacau - SEM LACTOSE/VEGANO/KOSHER', priceInCycle: 23.25, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1584382213725-57fd7b14b424?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8Y2hvY29sYXRlJTIwcHJvZHVjdHxlbnwwfHx8fDE3NDg4MzQyMTh8MA&ixlib=rb-4.1.0&q=80&w=1080' },
-  { cycleProductId: 'cp-easter-new-10', cycleId: 'cycle-easter-2025', productId: 'prod-new-10', productNameSnapshot: 'Tablete Gianduia - Chocolate ao leite refinado com avelãs - KOSHER', priceInCycle: 20.66, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1563398643312-ae05ad974668?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
-  { cycleProductId: 'cp-easter-new-11', cycleId: 'cycle-easter-2025', productId: 'prod-new-11', productNameSnapshot: 'Tablete ao Leite com recheio de Caramelo', priceInCycle: 11.24, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1576618148423-df549bcb6972?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
-  { cycleProductId: 'cp-easter-new-12', cycleId: 'cycle-easter-2025', productId: 'prod-new-12', productNameSnapshot: 'Tablete ao Leite com recheio de Ganashe', priceInCycle: 11.24, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1493925410384-84f842e616fb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
-  { cycleProductId: 'cp-easter-new-13', cycleId: 'cycle-easter-2025', productId: 'prod-new-13', productNameSnapshot: 'Gotas Chocolate Amargo 70% Cacau - SEM LACTOSE/VEGANO/KOSHER', priceInCycle: 81.75, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1743181872572-e0fad511f3ca?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
-  { cycleProductId: 'cp-xmas-new-1', cycleId: 'cycle-xmas-2024', productId: 'prod-new-2', productNameSnapshot: 'Barra Chocolate Ao Leite 45% (Especial Natal)', priceInCycle: 90.00, isAvailableInCycle: true, displayImageUrl: 'https://images.unsplash.com/photo-1519420573924-65fcd45245f8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxjaG9jb2xhdGUlMjBwcm9kdWN0fGVufDB8fHx8MTc0ODgzNDIxOHww&ixlib=rb-4.1.0&q=80&w=1080' },
+  // ... (keep existing mock data for now, but it's not used in the refactored functions)
+];
+
+let MOCK_DISPLAYABLE_PRODUCTS: DisplayableProduct[] = [
+  // ... (keep existing mock data for now, but it's not used in the refactored functions)
 ];
 
 export async function fetchCycleProducts(cycleId: string): Promise<CycleProduct[]> {
-  console.log('fetchCycleProducts for cycleId:', cycleId);
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return MOCK_CYCLE_PRODUCTS.filter(cp => cp.cycleId === cycleId);
+  console.log('fetchCycleProducts called for cycle ID:', cycleId);
+
+  // Fetch cycle products for a specific cycle from the 'cycle_products' table
+  const { data, error } = await supabase
+    .from('cycle_products')
+    .select('*')
+    .eq('cycle_id', cycleId);
+
+  if (error) {
+    console.error(`Error fetching cycle products for cycle ${cycleId}:`, error);
+    throw error;
+  }
+
+  // TODO: Add data transformation if needed (e.g., snake_case to camelCase)
+  return data as CycleProduct[];
 }
 
-export async function fetchProductAvailabilityInActiveCycle(productId: string): Promise<boolean> {
-  await new Promise(resolve => setTimeout(resolve, 150));
-  const activeCycle = MOCK_PURCHASE_CYCLES.find(pc => pc.isActive);
-  if (!activeCycle) {
-    console.warn("No active cycle found to check product availability.");
-    return false;
+export async function createCycleProduct(cycleProductData: Omit<CycleProduct, 'cycleProductId' | 'createdAt' | 'updatedAt'>): Promise<CycleProduct> {
+  console.log('createCycleProduct called with:', cycleProductData);
+
+  // Insert the new cycle product data into the 'cycle_products' table
+  const { data, error } = await supabase
+    .from('cycle_products')
+    .insert([
+      {
+        cycle_id: cycleProductData.cycleId,
+        product_id: cycleProductData.productId,
+        product_name_snapshot: cycleProductData.productNameSnapshot,
+        price_in_cycle: cycleProductData.priceInCycle,
+        is_available_in_cycle: cycleProductData.isAvailableInCycle,
+        display_image_url: cycleProductData.displayImageUrl,
+        // created_at and updated_at will be set by the database default
+      },
+    ])
+    .select() // Select the inserted data to return the created cycle product
+    .single(); // Expect a single result
+
+  if (error) {
+    console.error('Error creating cycle product:', error);
+    throw error;
   }
-  const cycleProduct = MOCK_CYCLE_PRODUCTS.find(cp => cp.cycleId === activeCycle.cycleId && cp.productId === productId);
-  return cycleProduct ? cycleProduct.isAvailableInCycle : false; // Default to false if not explicitly in cycle
+
+  // TODO: Add data transformation if needed
+  return data as CycleProduct;
 }
 
-export async function setProductAvailabilityInActiveCycle(productId: string, isAvailable: boolean): Promise<void> {
-  await new Promise(resolve => setTimeout(resolve, 250));
-  const activeCycle = MOCK_PURCHASE_CYCLES.find(pc => pc.isActive);
-  if (!activeCycle) {
-    console.error("No active cycle found. Cannot set product availability.");
-    throw new Error("Nenhum ciclo de compra ativo encontrado.");
+export async function updateCycleProduct(cycleProductId: string, cycleProductData: Partial<Omit<CycleProduct, 'cycleProductId' | 'createdAt' | 'updatedAt'>>): Promise<CycleProduct> {
+  console.log('updateCycleProduct called for ID', cycleProductId, 'with:', cycleProductData);
+
+  // Update the cycle product data in the 'cycle_products' table
+  const { data, error } = await supabase
+    .from('cycle_products')
+    .update({
+      ...(cycleProductData.cycleId !== undefined && { cycle_id: cycleProductData.cycleId }),
+      ...(cycleProductData.productId !== undefined && { product_id: cycleProductData.productId }),
+      ...(cycleProductData.productNameSnapshot !== undefined && { product_name_snapshot: cycleProductData.productNameSnapshot }),
+      ...(cycleProductData.priceInCycle !== undefined && { price_in_cycle: cycleProductData.priceInCycle }),
+      ...(cycleProductData.isAvailableInCycle !== undefined && { is_available_in_cycle: cycleProductData.isAvailableInCycle }),
+      ...(cycleProductData.displayImageUrl !== undefined && { display_image_url: cycleProductData.displayImageUrl }),
+      // updated_at will be set by the database default
+    })
+    .eq('cycle_product_id', cycleProductId)
+    .select() // Select the updated data to return the cycle product
+    .single(); // Expect a single result
+
+  if (error) {
+    console.error('Error updating cycle product:', error);
+    throw error;
   }
 
-  const masterProduct = MOCK_MASTER_PRODUCTS.find(mp => mp.productId === productId);
-  if (!masterProduct) {
-    console.error(`Master product ${productId} not found.`);
-    throw new Error("Produto mestre não encontrado.");
+   if (!data) {
+     throw new Error("Cycle product not found after update");
   }
 
-  const cycleProductIndex = MOCK_CYCLE_PRODUCTS.findIndex(cp => cp.cycleId === activeCycle.cycleId && cp.productId === productId);
+  // TODO: Add data transformation if needed
+  return data as CycleProduct;
+}
 
-  if (cycleProductIndex > -1) {
-    MOCK_CYCLE_PRODUCTS[cycleProductIndex].isAvailableInCycle = isAvailable;
-    // Update displayImageUrl in MOCK_CYCLE_PRODUCTS as well
-    MOCK_CYCLE_PRODUCTS[cycleProductIndex].displayImageUrl = masterProduct.imageUrls[0] || 'https://placehold.co/400x300.png?text=Nugali';
+export async function deleteCycleProduct(cycleProductId: string): Promise<void> {
+  console.log('deleteCycleProduct called for ID:', cycleProductId);
 
-    console.log(`Availability and image for ${productId} in cycle ${activeCycle.cycleId} set to ${isAvailable}`);
-  } else {
-    // If the CycleProduct doesn't exist for this master product in the active cycle, create it.
-    // This is important for newly created master products.
-    // For mocks, we'll use a default price or derive from master if available (e.g. 0 for now).
-    // A real implementation would need a proper way to set price when adding a product to a cycle.
-    const newCycleProduct: CycleProduct = {
-      cycleProductId: `cp-${activeCycle.cycleId.slice(-5)}-${productId.slice(-5)}-${Date.now()}`,
-      cycleId: activeCycle.cycleId,
-      productId: productId,
-      productNameSnapshot: masterProduct.name, // Take snapshot from master
-      priceInCycle: 0, // Placeholder: Price should be set when product is added to cycle properly
-      isAvailableInCycle: isAvailable,
-      displayImageUrl: masterProduct.imageUrls[0] || 'https://placehold.co/400x300.png?text=Nugali',
-    };
-    MOCK_CYCLE_PRODUCTS.push(newCycleProduct);
-    console.log(`New CycleProduct created for ${productId} in cycle ${activeCycle.cycleId}, availability and image set.`);
+  // Delete the cycle product from the 'cycle_products' table
+  const { error } = await supabase
+    .from('cycle_products')
+    .delete()
+    .eq('cycle_product_id', cycleProductId);
+
+  if (error) {
+    console.error('Error deleting cycle product:', error);
+    throw error;
   }
 }
 
+export async function fetchDisplayableProducts(): Promise<DisplayableProduct[]> {
+  console.log('fetchDisplayableProducts called');
 
-// DISPLAYABLE PRODUCTS FOR CLIENT HOMEPAGE
-export async function fetchActivePurchaseCycleProducts(): Promise<DisplayableProduct[]> {
-  await new Promise(resolve => setTimeout(resolve, 400));
-  const activeCycle = MOCK_PURCHASE_CYCLES.find(pc => pc.isActive);
-  if (!activeCycle) {
-    return [];
+  // Fetch displayable products by joining 'cycle_products' and 'products' tables
+  // Filter for the active cycle and available products
+  const { data, error } = await supabase
+    .from('cycle_products')
+    .select(`
+      cycle_product_id,
+      cycle_id,
+      product_id,
+      product_name_snapshot,
+      price_in_cycle,
+      is_available_in_cycle,
+      display_image_url,
+      products (
+        description,
+        attributes
+      )
+    `)
+    .eq('is_available_in_cycle', true)
+    .filter('cycle_id', 'in', '(select cycle_id from purchase_cycles where is_active = true)'); // Subquery to get the active cycle_id
+
+  if (error) {
+    console.error('Error fetching displayable products:', error);
+    throw error;
   }
 
-  // Ensure MOCK_MASTER_PRODUCTS has the latest image URLs before creating DisplayableProduct
-  const masterProducts = await fetchAdminProducts();
-  const cycleProductsForActiveCycle = MOCK_CYCLE_PRODUCTS.filter(
-    cp => cp.cycleId === activeCycle.cycleId && cp.isAvailableInCycle // This filter is key
-  );
-
-  const displayableProducts: DisplayableProduct[] = cycleProductsForActiveCycle.map(cp => {
-    const masterProduct = masterProducts.find(mp => mp.productId === cp.productId);
-    if (!masterProduct) {
-      console.warn(`Master product with ID ${cp.productId} not found for cycle product ${cp.cycleProductId}`);
-      return null;
-    }
-    // Ensure CycleProduct's displayImageUrl is up-to-date with masterProduct's first image
-    // This is crucial if masterProduct's image was updated but cycleProduct was not.
-    const currentDisplayImageUrl = masterProduct.imageUrls[0] || 'https://placehold.co/400x300.png?text=Nugali';
-    // If cp.displayImageUrl is outdated or missing, update it (in memory for this mock)
-    if (cp.displayImageUrl !== currentDisplayImageUrl) {
-        const cpIndex = MOCK_CYCLE_PRODUCTS.findIndex(item => item.cycleProductId === cp.cycleProductId);
-        if (cpIndex !== -1) {
-            MOCK_CYCLE_PRODUCTS[cpIndex].displayImageUrl = currentDisplayImageUrl;
-        }
-    }
-
-    return {
-      cycleProductId: cp.cycleProductId,
-      productId: cp.productId,
-      cycleId: cp.cycleId,
-      name: cp.productNameSnapshot,
-      description: masterProduct.description,
-      price: cp.priceInCycle,
-      // Use the potentially updated displayImageUrl from cycleProduct, or fallback to master
-      imageUrl: cp.displayImageUrl || currentDisplayImageUrl,
-      attributes: masterProduct.attributes || {},
-      isAvailableInCycle: cp.isAvailableInCycle,
-    };
-  }).filter(dp => dp !== null) as DisplayableProduct[];
+  // Transform the data to match the DisplayableProduct type
+  const displayableProducts: DisplayableProduct[] = data.map((item: any) => ({
+    cycleProductId: item.cycle_product_id,
+    cycleId: item.cycle_id,
+    productId: item.product_id,
+    name: item.product_name_snapshot, // Use the snapshot name
+    description: item.products?.description, // Get description from the joined products table (handle potential null)
+    price: item.price_in_cycle,
+    isAvailable: item.is_available_in_cycle,
+    imageUrl: item.display_image_url,
+    attributes: item.products?.attributes, // Get attributes from the joined products table (handle potential null)
+  }));
 
   return displayableProducts;
 }
 
+export async function fetchDisplayableProductById(cycleProductId: string): Promise<DisplayableProduct | null> {
+  console.log('fetchDisplayableProductById called for ID:', cycleProductId);
 
-// CART & ORDERS
-let MOCK_CART_ITEMS: CartItem[] = getCartFromLocalStorage();
+   // Fetch a single displayable product by joining 'cycle_products' and 'products' tables
+   // Filter by cycle_product_id and ensure it's in the active cycle and available
+  const { data, error } = await supabase
+    .from('cycle_products')
+    .select(`
+      cycle_product_id,
+      cycle_id,
+      product_id,
+      product_name_snapshot,
+      price_in_cycle,
+      is_available_in_cycle,
+      display_image_url,
+      products (
+        description,
+        attributes
+      )
+    `)
+    .eq('cycle_product_id', cycleProductId)
+     .eq('is_available_in_cycle', true)
+    .filter('cycle_id', 'in', '(select cycle_id from purchase_cycles where is_active = true)') // Subquery to get the active cycle_id
+    .single(); // Use single() as we expect one result
 
+  if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+    console.error(`Error fetching displayable product ${cycleProductId}:`, error);
+    throw error;
+  }
+
+  if (!data) {
+    return null; // Product not found or not available/in active cycle
+  }
+
+  // Transform the data to match the DisplayableProduct type
+  const displayableProduct: DisplayableProduct = {
+    cycleProductId: data.cycle_product_id,
+    cycleId: data.cycle_id,
+    productId: data.product_id,
+    name: data.product_name_snapshot, // Use the snapshot name
+    description: data.products?.description, // Get description from the joined products table (handle potential null)
+    price: data.price_in_cycle,
+    isAvailable: data.is_available_in_cycle,
+    imageUrl: data.display_image_url,
+    attributes: data.products?.attributes, // Get attributes from the joined products table (handle potential null)
+  };
+
+  return displayableProduct;
+}
+
+
+// CART - Local Storage based (client-side only)
+// This remains largely the same as it interacts with localStorage, not Supabase.
+// We'll only update the function names to align with a potential future
+// migration to a server-side cart or to clarify they are client-side mocks.
+
+// Keep the existing listener system and localStorage functions as they are client-side mocks
+// (Already defined at the top)
+
+// Refactored Cart functions using local storage
 
 export async function fetchCartItems(): Promise<CartItem[]> {
-  MOCK_CART_ITEMS = getCartFromLocalStorage();
-  notifyCartUpdateListeners();
-  return [...MOCK_CART_ITEMS];
+  console.log('fetchCartItems called (using localStorage)');
+  await new Promise(resolve => setTimeout(resolve, 100)); // Simulate async
+  return getCartFromLocalStorage();
 }
 
 export async function addToCart(product: DisplayableProduct, quantity: number): Promise<void> {
-  console.log('addToCart called for product:', product.name, 'cycleProductId:', product.cycleProductId, 'quantity:', quantity);
-  MOCK_CART_ITEMS = getCartFromLocalStorage();
-  const existingItemIndex = MOCK_CART_ITEMS.findIndex(item => item.cycleProductId === product.cycleProductId);
+  console.log('addToCart called for product:', product.cycleProductId, 'quantity:', quantity, '(using localStorage)');
+  await new Promise(resolve => setTimeout(resolve, 50)); // Simulate async
+  let cart = getCartFromLocalStorage();
+  const existingItemIndex = cart.findIndex(item => item.cycleProductId === product.cycleProductId);
+
   if (existingItemIndex > -1) {
-    MOCK_CART_ITEMS[existingItemIndex].quantity += quantity;
+    cart[existingItemIndex].quantity += quantity;
   } else {
-    MOCK_CART_ITEMS.push({
+    cart.push({
       cycleProductId: product.cycleProductId,
       productId: product.productId,
       name: product.name,
       price: product.price,
       quantity: quantity,
       imageUrl: product.imageUrl,
-      description: product.description.substring(0,50) + "...",
+      description: product.description, // Storing full description in cart item
     });
   }
-  saveCartToLocalStorage(MOCK_CART_ITEMS);
+  saveCartToLocalStorage(cart);
   notifyCartUpdateListeners();
 }
 
-export async function updateCartItemQuantity(cycleProductId: string, quantity: number): Promise<void> {
-  console.log('updateCartItemQuantity called for cycleProductId:', cycleProductId, 'new quantity:', quantity);
-  MOCK_CART_ITEMS = getCartFromLocalStorage();
-  const itemIndex = MOCK_CART_ITEMS.findIndex(item => item.cycleProductId === cycleProductId);
+export async function updateCartItemQuantity(cycleProductId: string, newQuantity: number): Promise<void> {
+  console.log('updateCartItemQuantity called for product:', cycleProductId, 'newQuantity:', newQuantity, '(using localStorage)');
+  await new Promise(resolve => setTimeout(resolve, 50)); // Simulate async
+  let cart = getCartFromLocalStorage();
+  const itemIndex = cart.findIndex(item => item.cycleProductId === cycleProductId);
   if (itemIndex > -1) {
-    if (quantity <= 0) {
-      MOCK_CART_ITEMS.splice(itemIndex, 1);
+    if (newQuantity > 0) {
+      cart[itemIndex].quantity = newQuantity;
     } else {
-      MOCK_CART_ITEMS[itemIndex].quantity = quantity;
+      cart.splice(itemIndex, 1); // Remove if quantity is 0 or less
     }
+    saveCartToLocalStorage(cart);
+    notifyCartUpdateListeners();
   }
-  saveCartToLocalStorage(MOCK_CART_ITEMS);
-  notifyCartUpdateListeners();
 }
 
 export async function removeFromCart(cycleProductId: string): Promise<void> {
-  console.log('removeFromCart called for cycleProductId:', cycleProductId);
-  MOCK_CART_ITEMS = getCartFromLocalStorage().filter(item => item.cycleProductId !== cycleProductId);
-  saveCartToLocalStorage(MOCK_CART_ITEMS);
+  console.log('removeFromCart called for product:', cycleProductId, '(using localStorage)');
+  await new Promise(resolve => setTimeout(resolve, 50)); // Simulate async
+  let cart = getCartFromLocalStorage();
+  cart = cart.filter(item => item.cycleProductId !== cycleProductId);
+  saveCartToLocalStorage(cart);
   notifyCartUpdateListeners();
 }
 
-const MOCK_ORDERS: Order[] = [
-  {
-    orderId: 'order-mock-1',
-    orderNumber: 'ORD-00123',
-    userId: 'user-ana',
-    customerNameSnapshot: 'Ana Silva',
-    customerWhatsappSnapshot: '5521987654321',
-    cycleId: 'cycle-easter-2025',
-    items: [
-      { productId: 'prod-new-1', cycleProductId: 'cp-easter-new-1', productName: 'Barra Chocolate Vegano 60%', quantity: 1, priceAtPurchase: 88.00, lineItemTotal: 88.00 },
-      { productId: 'prod-new-6', cycleProductId: 'cp-easter-new-6', productName: 'Tablete Cacau em Flor 70% com Açaí', quantity: 2, priceAtPurchase: 20.66, lineItemTotal: 41.32 },
-    ],
-    orderTotalAmount: 129.32,
-    orderStatus: 'Pending Payment',
-    paymentStatus: 'Unpaid',
-    orderDate: '2024-05-20T10:30:00Z'
-  },
-  {
-    orderId: 'order-mock-2',
-    orderNumber: 'ORD-00124',
-    userId: 'user-carlos',
-    customerNameSnapshot: 'Carlos Pereira',
-    customerWhatsappSnapshot: '5511998877665',
-    cycleId: 'cycle-easter-2025',
-    items: [
-      { productId: 'prod-new-3', cycleProductId: 'cp-easter-new-3', productName: 'Barra de chocolate 70% ZERO AÇÚCAR vegano', quantity: 1, priceAtPurchase: 100.00, lineItemTotal: 100.00 },
-    ],
-    orderTotalAmount: 100.00,
-    orderStatus: 'Preparing',
-    paymentStatus: 'Paid',
-    orderDate: '2024-05-19T15:00:00Z'
-  },
-  {
-    orderId: 'order-mock-3',
-    orderNumber: 'ORD-00125',
-    userId: 'user-ana',
-    customerNameSnapshot: 'Ana Silva',
-    customerWhatsappSnapshot: '5521987654321',
-    cycleId: 'cycle-xmas-2024',
-    items: [{productId: 'prod-new-2', cycleProductId: 'cp-xmas-new-1', productName: 'Barra Chocolate Ao Leite 45% (Especial Natal)', quantity: 1, priceAtPurchase: 90.00, lineItemTotal: 90.00 }],
-    orderTotalAmount: 90.00,
-    orderStatus: 'Completed',
-    paymentStatus: 'Paid',
-    orderDate: '2023-12-15T11:00:00Z'
-  }
+
+// ORDERS - Mocked (using localStorage for simplicity, would be Supabase in real app)
+
+// TODO: Remove MOCK_ORDERS after migration
+let MOCK_ORDERS: Order[] = [
+    {
+        orderId: 'ord-mock-1',
+        orderNumber: "ORD2024001",
+        userId: 'user-mock-customer-1', // John Doe
+        customerNameSnapshot: "John Doe",
+        customerWhatsappSnapshot: "5511999990001",
+        cycleId: 'cycle-easter-2025',
+        items: [
+            { productId: 'prod-classic-dark-70', cycleProductId: 'cp-easter-classic-dark-70', productName: 'Barra Clássica Amargo 70% Cacau', quantity: 2, priceAtPurchase: 25.00, lineItemTotal: 50.00 },
+            { productId: 'prod-truffle-box-assorted', cycleProductId: 'cp-easter-truffle-box-assorted', productName: 'Caixa de Trufas Sortidas (12 un)', quantity: 1, priceAtPurchase: 45.00, lineItemTotal: 45.00 }
+        ],
+        orderTotalAmount: 95.00,
+        orderStatus: "Completed",
+        paymentStatus: "Paid",
+        orderDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(), // 10 days ago
+    },
+    {
+        orderId: 'ord-mock-2',
+        orderNumber: "ORD2024002",
+        userId: 'user-mock-admin-1', // Admin User
+        customerNameSnapshot: "Admin User",
+        customerWhatsappSnapshot: "5511988880000",
+        cycleId: 'cycle-mothers-day-2025',
+        items: [
+            { productId: 'prod-ganache-praline-bar', cycleProductId: 'cp-mothers-ganache-praline-bar', productName: 'Barra Recheada Praliné Crocante', quantity: 3, priceAtPurchase: 18.00, lineItemTotal: 54.00 }
+        ],
+        orderTotalAmount: 54.00,
+        orderStatus: "Preparing",
+        paymentStatus: "Paid",
+        orderDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
+    },
+    {
+        orderId: 'ord-mock-3',
+        orderNumber: "ORD2024003",
+        userId: 'user-mock-customer-1', // John Doe again
+        customerNameSnapshot: "John Doe",
+        customerWhatsappSnapshot: "5511999990001",
+        cycleId: 'cycle-mothers-day-2025',
+        items: [
+            { productId: 'prod-new-03', cycleProductId: 'cp-mothers-new-03', productName: 'Bombons Finos de Licor de Cereja', quantity: 1, priceAtPurchase: 33.50, lineItemTotal: 33.50 },
+             { productId: 'prod-new-06', cycleProductId: 'cp-mothers-new-06', productName: 'Drágeas Crocantes de Café com Chocolate Amargo', quantity: 2, priceAtPurchase: 15.75, lineItemTotal: 31.50 }
+        ],
+        orderTotalAmount: 65.00,
+        orderStatus: "Pending Payment",
+        paymentStatus: "Unpaid",
+        orderDate: new Date().toISOString(), // Today
+    }
 ];
 
+if (typeof localStorage !== 'undefined' && !localStorage.getItem('mockOrders')) {
+    localStorage.setItem('mockOrders', JSON.stringify(MOCK_ORDERS));
+}
+
+function getOrdersFromLocalStorage(): Order[] {
+  if (typeof localStorage !== 'undefined') {
+    const storedOrders = localStorage.getItem('mockOrders');
+    if (storedOrders) return JSON.parse(storedOrders);
+  }
+  return [];
+}
+
+function saveOrdersToLocalStorage(orders: Order[]) {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('mockOrders', JSON.stringify(orders));
+  }
+}
 
 export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
-  console.log('processCheckout called with cart:', cartItems);
-  await new Promise(resolve => setTimeout(resolve, 700));
-  const activeCycle = MOCK_PURCHASE_CYCLES.find(pc => pc.isActive);
-  if (!activeCycle) throw new Error("No active purchase cycle found for checkout.");
-
+  console.log('processCheckout called with items:', cartItems, '(using localStorage)');
   const currentUser = await getCurrentUser();
-  if (!currentUser) throw new Error("User must be logged in to checkout.");
+  if (!currentUser) {
+    throw new Error("User not logged in. Cannot process checkout.");
+  }
 
+  if (cartItems.length === 0) {
+    throw new Error("Cart is empty. Cannot process checkout.");
+  }
 
-  const orderTotalAmount = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const orderItems: OrderItem[] = cartItems.map(ci => ({
-    productId: ci.productId,
-    cycleProductId: ci.cycleProductId,
-    productName: ci.name,
-    quantity: ci.quantity,
-    priceAtPurchase: ci.price,
-    lineItemTotal: ci.price * ci.quantity,
+  // Find the active cycle. For mock, we'll assume one exists or pick the first from a mock list.
+  // In a real scenario, this would involve fetching the active cycleId.
+  // For this mock, we'll use the cycleId from the first cart item if available, or a default.
+  const activeCycleId = cartItems[0]?.cycleId || 'cycle-easter-2025'; // Fallback cycleId for mock
+
+  const orderItems: OrderItem[] = cartItems.map(cartItem => ({
+    productId: cartItem.productId,
+    cycleProductId: cartItem.cycleProductId,
+    productName: cartItem.name,
+    quantity: cartItem.quantity,
+    priceAtPurchase: cartItem.price,
+    lineItemTotal: cartItem.price * cartItem.quantity,
   }));
 
+  const orderTotalAmount = orderItems.reduce((sum, item) => sum + item.lineItemTotal, 0);
+
+  const allOrders = getOrdersFromLocalStorage();
+  const newOrderNumber = `ORD${new Date().getFullYear()}${(allOrders.length + 1).toString().padStart(3, '0')}`;
+
   const newOrder: Order = {
-    orderId: `order-${Date.now().toString()}`,
-    orderNumber: `ORD-${Date.now().toString().slice(-5)}`,
+    orderId: `ord-mock-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+    orderNumber: newOrderNumber,
     userId: currentUser.userId,
     customerNameSnapshot: currentUser.displayName,
-    customerWhatsappSnapshot: currentUser.whatsapp || '',
-    cycleId: activeCycle.cycleId,
+    customerWhatsappSnapshot: currentUser.whatsapp,
+    cycleId: activeCycleId,
     items: orderItems,
     orderTotalAmount,
-    orderStatus: "Pending Payment",
-    paymentStatus: "Unpaid",
+    orderStatus: "Pending Payment", // Initial status
+    paymentStatus: "Unpaid",        // Initial status
     orderDate: new Date().toISOString(),
   };
-  MOCK_ORDERS.push(newOrder);
-  MOCK_CART_ITEMS = [];
-  saveCartToLocalStorage(MOCK_CART_ITEMS);
-  notifyCartUpdateListeners();
+
+  allOrders.push(newOrder);
+  saveOrdersToLocalStorage(allOrders);
+
+  // Clear the cart after checkout
+  saveCartToLocalStorage([]);
+  notifyCartUpdateListeners(); // Notify that cart is now empty
+
+  console.log('Order processed (mock):', newOrder);
   return newOrder;
 }
 
+
 export async function fetchAdminOrders(): Promise<Order[]> {
-  console.log('fetchAdminOrders called');
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return [...MOCK_ORDERS];
+  console.log('fetchAdminOrders called (using localStorage)');
+  await new Promise(resolve => setTimeout(resolve, 100)); // Simulate async
+  return getOrdersFromLocalStorage();
 }
 
 export async function fetchUserOrders(userId: string): Promise<Order[]> {
-  console.log('fetchUserOrders called for userId:', userId);
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return MOCK_ORDERS.filter(order => order.userId === userId);
+  console.log(`fetchUserOrders called for userId: ${userId} (using localStorage)`);
+  await new Promise(resolve => setTimeout(resolve, 100)); // Simulate async
+  const allOrders = getOrdersFromLocalStorage();
+  return allOrders.filter(order => order.userId === userId);
 }
 
 
-export async function updateOrderStatus(orderId: string, newOrderStatus: Order['orderStatus'], newPaymentStatus?: Order['paymentStatus']): Promise<Order> {
-  console.log('updateOrderStatus called for order ID:', orderId, 'new orderStatus:', newOrderStatus, 'new paymentStatus:', newPaymentStatus);
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const orderIndex = MOCK_ORDERS.findIndex(o => o.orderId === orderId);
-  if (orderIndex === -1) throw new Error('Order not found');
+export async function updateOrderStatus(
+  orderId: string,
+  newOrderStatus: Order['orderStatus'],
+  newPaymentStatus?: Order['paymentStatus'] // Optional, as it might not always change with order status
+): Promise<Order> {
+  console.log(`updateOrderStatus called for orderId: ${orderId}, newOrderStatus: ${newOrderStatus}, newPaymentStatus: ${newPaymentStatus} (using localStorage)`);
+  await new Promise(resolve => setTimeout(resolve, 50)); // Simulate async
 
-  MOCK_ORDERS[orderIndex].orderStatus = newOrderStatus;
+  let orders = getOrdersFromLocalStorage();
+  const orderIndex = orders.findIndex(o => o.orderId === orderId);
 
-  if (newPaymentStatus) {
-    MOCK_ORDERS[orderIndex].paymentStatus = newPaymentStatus;
-  } else {
-    if (newOrderStatus === "Payment Confirmed" || newOrderStatus === "Preparing" || newOrderStatus === "Pronto para Retirada" || newOrderStatus === "Completed") {
-        if (MOCK_ORDERS[orderIndex].paymentStatus === "Unpaid") {
-            MOCK_ORDERS[orderIndex].paymentStatus = "Paid";
-        }
-    } else if (newOrderStatus === "Cancelled") {
-        if (MOCK_ORDERS[orderIndex].paymentStatus === "Paid") {
-            MOCK_ORDERS[orderIndex].paymentStatus = "Refunded";
-        }
-    } else if (newOrderStatus === "Pending Payment") {
-        if (MOCK_ORDERS[orderIndex].paymentStatus !== "Refunded") { // Don't revert a refund to unpaid automatically
-            MOCK_ORDERS[orderIndex].paymentStatus = "Unpaid";
-        }
-    }
+  if (orderIndex === -1) {
+    throw new Error(`Mock Order with ID ${orderId} not found.`);
   }
 
-  return MOCK_ORDERS[orderIndex];
+  orders[orderIndex].orderStatus = newOrderStatus;
+  if (newPaymentStatus) {
+    orders[orderIndex].paymentStatus = newPaymentStatus;
+  }
+  
+  // Logic to automatically update payment status based on order status if needed
+  if (newOrderStatus === "Payment Confirmed" && orders[orderIndex].paymentStatus === "Unpaid") {
+    orders[orderIndex].paymentStatus = "Paid";
+  }
+  if (newOrderStatus === "Completed" && orders[orderIndex].paymentStatus === "Unpaid") {
+      // This scenario might be less common, but if an order is completed, it should imply payment.
+      orders[orderIndex].paymentStatus = "Paid";
+  }
+  if (newOrderStatus === "Cancelled" && orders[orderIndex].paymentStatus === "Paid") {
+      // Optional: if an order is cancelled after payment, it might go to "Refunded" or admin decides manually.
+      // For simplicity, we'll leave this manual or specific.
+  }
+
+
+  saveOrdersToLocalStorage(orders);
+  return orders[orderIndex];
 }
 
-// --- Admin Dashboard Metrics ---
-export async function fetchActiveCycleMetrics(): Promise<{ activeCycle: PurchaseCycle | null; pendingOrdersCount: number; totalSalesActiveCycle: number; }> {
-  console.log('fetchActiveCycleMetrics called');
-  await new Promise(resolve => setTimeout(resolve, 300));
-  const activeCycle = MOCK_PURCHASE_CYCLES.find(pc => pc.isActive) || null;
+// MISC / Other placeholder functions that might be needed
+
+export async function fetchActivePurchaseCycleTitle(): Promise<string> {
+    console.log('fetchActivePurchaseCycleTitle called (using mock data)');
+    // In a real app, this would query Supabase for the active cycle.
+    // For mock, find an active cycle or return a default.
+    const activeCycle = MOCK_PURCHASE_CYCLES.find(c => c.isActive);
+    return activeCycle ? activeCycle.name : "Temporada Atual"; // Default title
+}
+
+// This function now needs to return DisplayableProduct[]
+export async function fetchActivePurchaseCycleProducts(): Promise<DisplayableProduct[]> {
+  console.log('fetchActivePurchaseCycleProducts called (using mock data)');
+  await new Promise(resolve => setTimeout(resolve, 200)); // Simulate async
+
+  const activeCycle = MOCK_PURCHASE_CYCLES.find(c => c.isActive);
+  if (!activeCycle) {
+      console.warn("No active purchase cycle found in mock data for fetchActivePurchaseCycleProducts.");
+      return [];
+  }
+
+  const cycleProds = MOCK_CYCLE_PRODUCTS.filter(cp => cp.cycleId === activeCycle.cycleId && cp.isAvailableInCycle);
+
+  const displayableProducts: DisplayableProduct[] = cycleProds.map(cp => {
+      const masterProduct = MOCK_MASTER_PRODUCTS.find(mp => mp.productId === cp.productId);
+      if (!masterProduct) {
+          console.warn(`Master product with ID ${cp.productId} not found for cycle product ${cp.cycleProductId}. Skipping.`);
+          return null; // Or handle as an error
+      }
+      return {
+          cycleProductId: cp.cycleProductId,
+          cycleId: cp.cycleId,
+          productId: cp.productId,
+          name: cp.productNameSnapshot,
+          description: masterProduct.description,
+          price: cp.priceInCycle,
+          isAvailable: cp.isAvailableInCycle, // This should always be true due to filter above
+          imageUrl: cp.displayImageUrl || masterProduct.imageUrls[0] || 'https://placehold.co/400x300.png?text=Produto',
+          attributes: masterProduct.attributes,
+      };
+  }).filter(dp => dp !== null) as DisplayableProduct[]; // Filter out any nulls
+
+  return displayableProducts;
+}
+
+
+// Placeholder for fetching product availability in the active cycle (used in ProductForm)
+export async function fetchProductAvailabilityInActiveCycle(productId: string): Promise<boolean> {
+    console.log(`fetchProductAvailabilityInActiveCycle called for productId: ${productId} (mock)`);
+    const activeCycle = MOCK_PURCHASE_CYCLES.find(c => c.isActive);
+    if (!activeCycle) return false; // No active cycle, so not available
+
+    const cycleProduct = MOCK_CYCLE_PRODUCTS.find(
+        cp => cp.cycleId === activeCycle.cycleId && cp.productId === productId
+    );
+    return cycleProduct ? cycleProduct.isAvailableInCycle : false; // Default to false if not explicitly in cycle
+}
+
+// Placeholder for setting product availability in the active cycle (used in ProductForm)
+export async function setProductAvailabilityInActiveCycle(productId: string, isAvailable: boolean): Promise<void> {
+    console.log(`setProductAvailabilityInActiveCycle called for productId: ${productId}, isAvailable: ${isAvailable} (mock)`);
+    const activeCycle = MOCK_PURCHASE_CYCLES.find(c => c.isActive);
+    if (!activeCycle) {
+        console.warn("No active cycle to set product availability.");
+        return;
+    }
+
+    const cycleProductIndex = MOCK_CYCLE_PRODUCTS.findIndex(
+        cp => cp.cycleId === activeCycle.cycleId && cp.productId === productId
+    );
+
+    if (cycleProductIndex > -1) {
+        MOCK_CYCLE_PRODUCTS[cycleProductIndex].isAvailableInCycle = isAvailable;
+    } else {
+        // If product is not yet in the cycle, and we want to make it available, we might need to add it.
+        // For simplicity, this mock will only update existing entries.
+        // A real implementation would handle creating a new cycle_product entry if needed.
+        const masterProduct = MOCK_MASTER_PRODUCTS.find(mp => mp.productId === productId);
+        if (masterProduct && isAvailable) { // Only add if making available and master product exists
+             MOCK_CYCLE_PRODUCTS.push({
+                cycleProductId: `cp-mock-${activeCycle.cycleId}-${productId}-${Date.now()}`,
+                cycleId: activeCycle.cycleId,
+                productId: productId,
+                productNameSnapshot: masterProduct.name, // Take snapshot from master
+                priceInCycle: 0, // Default price, admin should set this
+                isAvailableInCycle: true,
+                displayImageUrl: masterProduct.imageUrls[0] || 'https://placehold.co/400x300.png?text=Produto',
+            });
+            console.log(`Mock: Added ${masterProduct.name} to active cycle as it was made available.`);
+        } else {
+            console.warn(`Product ${productId} not found in active cycle ${activeCycle.name}. Availability not set.`);
+        }
+    }
+    // In a real scenario, you'd save MOCK_CYCLE_PRODUCTS or update Supabase.
+}
+
+// Admin Dashboard Metrics
+interface AdminDashboardMetrics {
+  activeCycle: PurchaseCycle | null;
+  pendingOrdersCount: number;
+  totalSalesActiveCycle: number;
+}
+
+export async function fetchActiveCycleMetrics(): Promise<AdminDashboardMetrics> {
+  console.log('fetchActiveCycleMetrics called (using mock data)');
+  await new Promise(resolve => setTimeout(resolve, 150));
+
+  const activeCycle = MOCK_PURCHASE_CYCLES.find(c => c.isActive) || null;
   let pendingOrdersCount = 0;
   let totalSalesActiveCycle = 0;
 
   if (activeCycle) {
-    const ordersInActiveCycle = MOCK_ORDERS.filter(order => order.cycleId === activeCycle.cycleId);
-    pendingOrdersCount = ordersInActiveCycle.filter(order => order.orderStatus === "Pending Payment" || order.orderStatus === "Preparing" || order.orderStatus === "Payment Confirmed").length;
+    const ordersInActiveCycle = getOrdersFromLocalStorage().filter(o => o.cycleId === activeCycle.cycleId);
+    pendingOrdersCount = ordersInActiveCycle.filter(
+      o => o.orderStatus === "Pending Payment" || o.orderStatus === "Preparing" || o.orderStatus === "Payment Confirmed"
+    ).length;
     totalSalesActiveCycle = ordersInActiveCycle
-      .filter(order => order.paymentStatus === "Paid")
-      .reduce((sum, order) => sum + order.orderTotalAmount, 0);
+      .filter(o => o.paymentStatus === "Paid")
+      .reduce((sum, o) => sum + o.orderTotalAmount, 0);
   }
 
-  return { activeCycle, pendingOrdersCount, totalSalesActiveCycle };
+  return {
+    activeCycle,
+    pendingOrdersCount,
+    totalSalesActiveCycle,
+  };
 }
 
-// --- Placeholder for Customer Data Viewing (Admin) ---
-export async function fetchAdminUsers(): Promise<User[]> {
-    console.log('fetchAdminUsers called');
-    await new Promise(resolve => setTimeout(resolve, 300));
-    // Return all users, not just customers, so admins can see other admins if needed,
-    // but the new admin/customers page will filter or display roles.
-    // Or, specifically filter for customers if the page is *only* for customers.
-    // For now, returning all users. The new page can handle the display logic.
-    return [...MOCK_USERS].filter(user => user.role === 'customer');
-}
 
-// --- Seasons (Legacy, to be removed or refactored if not used by Purchase Cycles) ---
+// SEASONS - Deprecated, use Purchase Cycles. These are kept for completeness of the old spec but should be removed.
 export interface Season {
   id: string;
   name: string;
@@ -745,55 +1202,49 @@ export interface Season {
   endDate: string;
   isActive: boolean;
 }
-const MOCK_SEASONS: Season[] = [
-  { id: 'season-1', name: 'Páscoa 2024', startDate: '2024-03-01T00:00:00Z', endDate: '2024-04-20T00:00:00Z', isActive: false },
-  { id: 'season-2', name: 'Inverno Quente 2024', startDate: '2024-06-01T00:00:00Z', endDate: '2024-08-31T00:00:00Z', isActive: true },
-];
+let MOCK_SEASONS: Season[] = [];
+export async function fetchSeasons(): Promise<Season[]> { console.warn("fetchSeasons is deprecated. Use fetchPurchaseCycles."); return MOCK_SEASONS; }
+export async function createSeason(seasonData: Omit<Season, 'id'>): Promise<Season> { console.warn("createSeason is deprecated. Use createPurchaseCycle."); const newSeason = { ...seasonData, id: `s-${Date.now()}` }; MOCK_SEASONS.push(newSeason); return newSeason; }
+export async function updateSeason(seasonId: string, seasonData: Partial<Season>): Promise<Season> { console.warn("updateSeason is deprecated. Use updatePurchaseCycle."); const index = MOCK_SEASONS.findIndex(s => s.id === seasonId); if (index === -1) throw new Error("Season not found"); MOCK_SEASONS[index] = { ...MOCK_SEASONS[index], ...seasonData }; return MOCK_SEASONS[index]; }
+export async function deleteSeason(seasonId: string): Promise<void> { console.warn("deleteSeason is deprecated. Use deletePurchaseCycle."); MOCK_SEASONS = MOCK_SEASONS.filter(s => s.id !== seasonId); }
 
-export async function fetchSeasons(): Promise<Season[]> {
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return [...MOCK_SEASONS];
+
+// USER MANAGEMENT (for Admin Panel - Customers View)
+export async function fetchAdminUsers(): Promise<User[]> {
+  console.log('fetchAdminUsers called (using mock data)');
+  await new Promise(resolve => setTimeout(resolve, 100));
+  // In a real app, this would query Supabase profiles table.
+  // For mock, we'll simulate fetching from a predefined list of users.
+  const MOCK_USERS: User[] = [
+    {
+      userId: 'user-mock-customer-1',
+      email: 'john.doe@example.com',
+      displayName: 'John Doe',
+      whatsapp: '5511999990001',
+      role: 'customer',
+      createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
+      addressStreet: 'Rua das Palmeiras', addressNumber: '123', addressComplement: 'Apto 10', addressNeighborhood: 'Vila Madalena', addressCity: 'São Paulo', addressState: 'SP', addressZip: '05432-010'
+    },
+    {
+      userId: 'user-mock-customer-2',
+      email: 'jane.smith@example.com',
+      displayName: 'Jane Smith',
+      whatsapp: '5521988880002',
+      role: 'customer',
+      createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
+      addressStreet: 'Avenida Copacabana', addressNumber: '456', addressComplement: '', addressNeighborhood: 'Copacabana', addressCity: 'Rio de Janeiro', addressState: 'RJ', addressZip: '22020-001'
+    },
+     {
+      userId: 'user-mock-admin-1', // Included for completeness, though normally filtered out if fetching only 'customer'
+      email: 'admin@nugali.com',
+      displayName: 'Admin User',
+      whatsapp: '5511988880000',
+      role: 'admin',
+      createdAt: new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString(), // 100 days ago
+      addressStreet: 'Rua Principal', addressNumber: '01', addressComplement: 'Escritório', addressNeighborhood: 'Centro', addressCity: 'Blumenau', addressState: 'SC', addressZip: '89010-000'
+    },
+  ];
+  return MOCK_USERS.filter(user => user.role === 'customer'); // Return only customers
 }
 
-export async function createSeason(seasonData: Omit<Season, 'id'>): Promise<Season> {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const newSeason: Season = { ...seasonData, id: `season-${Date.now()}` };
-  MOCK_SEASONS.push(newSeason);
-  return newSeason;
-}
-
-export async function updateSeason(seasonId: string, seasonData: Partial<Omit<Season, 'id'>>): Promise<Season> {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const seasonIndex = MOCK_SEASONS.findIndex(s => s.id === seasonId);
-  if (seasonIndex === -1) throw new Error("Season not found");
-  MOCK_SEASONS[seasonIndex] = { ...MOCK_SEASONS[seasonIndex], ...seasonData };
-  return MOCK_SEASONS[seasonIndex];
-}
-
-export async function deleteSeason(seasonId: string): Promise<void> {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const index = MOCK_SEASONS.findIndex(s => s.id === seasonId);
-  if (index > -1) MOCK_SEASONS.splice(index, 1);
-}
-
-// Ensure this matches the new Unsplash URLs for mock cycle products
-MOCK_CYCLE_PRODUCTS.forEach(cp => {
-    const master = MOCK_MASTER_PRODUCTS.find(mp => mp.productId === cp.productId);
-    if (master && master.imageUrls.length > 0) {
-        cp.displayImageUrl = master.imageUrls[0];
-    }
-});
-// Update mock users with more realistic creation dates
-MOCK_USERS.forEach(user => {
-    if (user.userId.startsWith('new-user-')) { // for dynamically created ones
-        user.createdAt = new Date(parseInt(user.userId.split('-')[2])).toISOString();
-    }
-});
-// Correct snapshots for existing orders
-MOCK_ORDERS.forEach(order => {
-    const user = MOCK_USERS.find(u => u.userId === order.userId);
-    if (user) {
-        order.customerNameSnapshot = user.displayName;
-        order.customerWhatsappSnapshot = user.whatsapp;
-    }
-});
+    

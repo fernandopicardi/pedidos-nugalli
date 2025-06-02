@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { Loader2 } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
 import { fetchProductAvailabilityInActiveCycle, setProductAvailabilityInActiveCycle } from '@/lib/supabasePlaceholders';
 
 interface ProductFormProps {
@@ -40,6 +41,8 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
   const [isAvailableInActiveCycle, setIsAvailableInActiveCycle] = useState(true);
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
 
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -108,6 +111,42 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
     setter(prev => 
       prev.includes(option) ? prev.filter(item => item !== option) : [...prev, option]
     );
+  };
+
+  const handleImageFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    setSelectedImage(file);
+  };
+
+  const handleImageUpload = async () => {
+    if (!selectedImage) return;
+
+    setIsUploadingImage(true);
+
+    const filePath = `products/${Date.now()}_${selectedImage.name}`;
+    const bucketName = 'product-images'; // <-- REPLACE WITH YOUR ACTUAL BUCKET NAME
+
+    try {
+      const { data, error } = await supabase.storage
+        .from(bucketName)
+        .upload(filePath, selectedImage);
+
+      if (error) {
+        throw error;
+      }
+
+      // Get public URL and add to imageUrls
+      const { publicUrl } = supabase.storage.from(bucketName).getPublicUrl(data.path);
+      setImageUrls(prevUrls => [...prevUrls.filter(url => url.trim() !== ''), publicUrl]);
+      toast({ title: "Upload Sucesso", description: "Imagem carregada com sucesso." });
+    } catch (error: any) {
+      toast({ title: "Erro no Upload", description: `Não foi possível carregar a imagem: ${error.message}`, variant: "destructive" });
+    } finally {
+      setIsUploadingImage(false);
+      setSelectedImage(null); // Reset file input
+      const fileInput = document.getElementById('imageUpload') as HTMLInputElement;
+      if (fileInput) fileInput.value = ''; // Clear file input value
+    }
   };
 
   const handleSubmit = async (event: FormEvent) => {
@@ -200,6 +239,18 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         {imageUrls.filter(url => url.trim())[0] && <img src={imageUrls.filter(url => url.trim())[0]} data-ai-hint="chocolate product" alt="Preview" className="mt-2 h-24 w-24 object-cover rounded-md border"/>}
       </div>
 
+      {/* New Image Upload Section */}
+      <div>
+         <Label className="font-semibold">Carregar Imagem do Computador</Label>
+         <div className="flex items-center space-x-2 mt-1">
+           <Input id="imageUpload" type="file" accept="image/*" onChange={handleImageFileChange} disabled={isUploadingImage} className="flex-grow"/>
+           <Button onClick={handleImageUpload} disabled={!selectedImage || isUploadingImage || isSubmitting} type="button">
+              {isUploadingImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+             {isUploadingImage ? 'Carregando...' : 'Carregar Imagem'}
+           </Button>
+         </div>
+      </div>
+
       <Separator />
       <p className="font-semibold text-lg">Atributos do Produto Mestre</p>
 
@@ -287,7 +338,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
           Cancelar
         </Button>
-        <Button type="submit" disabled={isSubmitting || isLoadingAvailability}>
+        <Button type=\"submit\" disabled={isSubmitting || isLoadingAvailability || isUploadingImage}>\n
           {isSubmitting ? (initialData ? 'Salvando...' : 'Criando...') : (initialData ? 'Salvar Alterações' : 'Criar Produto Mestre')}
         </Button>
       </div>
