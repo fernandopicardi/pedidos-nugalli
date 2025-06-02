@@ -24,14 +24,8 @@ const orderStatusMapping: Record<Order['orderStatus'], string> = {
   "Cancelled": "Cancelado"
 };
 
-const orderStatusColors: Record<Order['orderStatus'], "default" | "secondary" | "destructive" | "outline"> = {
-  "Pending Payment": "secondary",
-  "Payment Confirmed": "default",
-  "Preparing": "outline", 
-  "Pronto para Retirada": "outline",
-  "Completed": "default", 
-  "Cancelled": "destructive"
-};
+// Removed orderStatusColors as badges are no longer directly used for display in this manner.
+// Select component itself will display the status.
 
 const paymentStatusMapping: Record<Order['paymentStatus'], string> = {
   "Unpaid": "Não Pago",
@@ -39,11 +33,7 @@ const paymentStatusMapping: Record<Order['paymentStatus'], string> = {
   "Refunded": "Reembolsado",
 };
 
-const paymentStatusColors: Record<Order['paymentStatus'], "default" | "secondary" | "destructive"> = {
-  "Unpaid": "secondary",
-  "Paid": "default",
-  "Refunded": "destructive",
-};
+// Removed paymentStatusColors for the same reason.
 
 
 export default function OrderVisualizationPage() {
@@ -101,7 +91,7 @@ export default function OrderVisualizationPage() {
                   <TableHead>Cliente</TableHead>
                   <TableHead className="w-[160px]">Data</TableHead>
                   <TableHead className="w-[120px]">Valor Total</TableHead>
-                  <TableHead className="w-[180px]">
+                  <TableHead className="w-[200px]">
                     <div className="flex items-center">
                       Status do Pedido
                       <Tooltip>
@@ -114,7 +104,7 @@ export default function OrderVisualizationPage() {
                       </Tooltip>
                     </div>
                   </TableHead>
-                  <TableHead className="w-[150px]">
+                  <TableHead className="w-[180px]">
                      <div className="flex items-center">
                       Status do Pagamento
                       <Tooltip>
@@ -127,7 +117,6 @@ export default function OrderVisualizationPage() {
                       </Tooltip>
                     </div>
                   </TableHead>
-                  <TableHead className="text-right w-[280px]">Alterar Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -138,62 +127,56 @@ export default function OrderVisualizationPage() {
                     <TableCell>{formatDate(order.orderDate)}</TableCell>
                     <TableCell>R$ {order.orderTotalAmount.toFixed(2).replace('.', ',')}</TableCell>
                     <TableCell>
-                       <Badge variant={orderStatusColors[order.orderStatus] || 'default'} className="whitespace-nowrap">
-                         {orderStatusMapping[order.orderStatus] || order.orderStatus}
-                       </Badge>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Select
+                            value={order.orderStatus}
+                            onValueChange={(newStatus: Order['orderStatus']) => handleStatusChange(order.orderId, newStatus, order.paymentStatus)}
+                          >
+                            <SelectTrigger className="w-full h-9 text-xs">
+                              <SelectValue>
+                                {orderStatusMapping[order.orderStatus] || order.orderStatus}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(Object.keys(orderStatusMapping) as Array<Order['orderStatus']>).map(statusKey => (
+                                 <SelectItem key={statusKey} value={statusKey} className="text-xs">
+                                   {orderStatusMapping[statusKey]}
+                                 </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Altere o status do fluxo de trabalho deste pedido.</p>
+                        </TooltipContent>
+                      </Tooltip>
                     </TableCell>
                     <TableCell>
-                       <Badge variant={paymentStatusColors[order.paymentStatus] || 'default'} className="whitespace-nowrap">
-                         {paymentStatusMapping[order.paymentStatus] || order.paymentStatus}
-                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex flex-col sm:flex-row gap-2 justify-end">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Select
-                              value={order.orderStatus}
-                              onValueChange={(newStatus: Order['orderStatus']) => handleStatusChange(order.orderId, newStatus, order.paymentStatus)}
-                            >
-                              <SelectTrigger className="w-full sm:w-[180px] h-9 text-xs">
-                                <SelectValue placeholder="Pedido..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {(Object.keys(orderStatusMapping) as Array<Order['orderStatus']>).map(statusKey => (
-                                   <SelectItem key={statusKey} value={statusKey} className="text-xs">
-                                     {orderStatusMapping[statusKey]}
-                                   </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Altere o status do fluxo de trabalho deste pedido.</p>
-                          </TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                             <Select
-                              value={order.paymentStatus}
-                              onValueChange={(newStatus: Order['paymentStatus']) => handleStatusChange(order.orderId, order.orderStatus, newStatus)}
-                            >
-                              <SelectTrigger className="w-full sm:w-[150px] h-9 text-xs">
-                                <SelectValue placeholder="Pagamento..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {(Object.keys(paymentStatusMapping) as Array<Order['paymentStatus']>).map(statusKey => (
-                                   <SelectItem key={statusKey} value={statusKey} className="text-xs">
-                                     {paymentStatusMapping[statusKey]}
-                                   </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Altere o status financeiro deste pedido.</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                           <Select
+                            value={order.paymentStatus}
+                            onValueChange={(newStatus: Order['paymentStatus']) => handleStatusChange(order.orderId, order.orderStatus, newStatus)}
+                          >
+                            <SelectTrigger className="w-full h-9 text-xs">
+                              <SelectValue>
+                                {paymentStatusMapping[order.paymentStatus] || order.paymentStatus}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(Object.keys(paymentStatusMapping) as Array<Order['paymentStatus']>).map(statusKey => (
+                                 <SelectItem key={statusKey} value={statusKey} className="text-xs">
+                                   {paymentStatusMapping[statusKey]}
+                                 </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Altere o status financeiro deste pedido.</p>
+                        </TooltipContent>
+                      </Tooltip>
                     </TableCell>
                   </TableRow>
                 ))}
