@@ -258,8 +258,7 @@ export async function getCurrentUser(): Promise<User | null> {
     const { data: authData, error: authError } = await supabase.auth.getUser();
 
     if (authError) {
-      // Log the error but don't let it break, return null
-      console.warn('Supabase authError in getCurrentUser:', authError.message);
+      console.warn('Supabase authError in getCurrentUser (will return null):', authError.message);
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem('currentUser');
       }
@@ -281,11 +280,12 @@ export async function getCurrentUser(): Promise<User | null> {
       .single();
 
     if (profileError) {
-      console.warn('Error fetching current user profile:', profileError.message, '- User ID:', authData.user.id);
+      console.warn('Error fetching current user profile (will return basic user info or null if critical):', profileError.message, '- User ID:', authData.user.id);
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem('currentUser');
       }
       // Fallback to basic auth user info if profile is missing, but log it as an issue.
+      // This can happen if RLS on profiles table blocks access, or profile doesn't exist.
       const basicUser: User = {
         userId: authData.user.id,
         email: authData.user.email || 'N/A',
@@ -299,11 +299,11 @@ export async function getCurrentUser(): Promise<User | null> {
     }
     
     if (!userProfile) {
-        console.warn('User profile not found for authenticated user ID:', authData.user.id);
+        console.warn('User profile not found for authenticated user ID (will return basic user info):', authData.user.id);
         if (typeof localStorage !== 'undefined') {
             localStorage.removeItem('currentUser');
         }
-        const basicUser: User = {
+        const basicUser: User = { // Construct from authData.user if profile is truly missing
             userId: authData.user.id,
             email: authData.user.email || 'N/A',
             displayName: authData.user.user_metadata?.displayName || authData.user.email?.split('@')[0] || 'User',
@@ -338,8 +338,8 @@ export async function getCurrentUser(): Promise<User | null> {
     return currentUser;
 
   } catch (error: any) {
-    // Catch any unexpected errors from supabase.auth.getUser() itself (like AuthSessionMissingError)
-    console.error('Critical error in getCurrentUser (e.g., AuthSessionMissingError):', error.message);
+    // Catch any unexpected errors from supabase.auth.getUser() itself
+    console.error('Critical error in getCurrentUser (e.g., network issue, Supabase client problem):', error.message);
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('currentUser');
     }
@@ -749,8 +749,12 @@ export async function fetchDisplayableProducts(): Promise<DisplayableProduct[]> 
     .filter('cycle_id', 'in', '(select cycle_id from purchase_cycles where is_active = true)'); 
 
   if (error) {
-    console.error('Error fetching displayable products:', error);
-    throw error;
+    console.error('Failed to fetch displayable products. Raw error object:', error);
+    // Attempt to log common Supabase error properties if they exist
+    const err = error as any; // Type assertion to access potential properties
+    console.error(`Error details - Code: ${err.code}, Message: ${err.message}, Details: ${err.details}, Hint: ${err.hint}`);
+    console.error('Full error stringified (if possible):', JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
+    throw err; // Re-throw the (potentially typed) error
   }
 
   const displayableProducts: DisplayableProduct[] = data.map((item: any) => ({
@@ -759,7 +763,7 @@ export async function fetchDisplayableProducts(): Promise<DisplayableProduct[]> 
     productId: item.product_id,
     name: item.product_name_snapshot, 
     description: item.products?.description || '',
-    price: item.price_in_cycle,
+    price: item.price_in_cycle || 0, // Ensure price is a number, default to 0 if null/undefined
     isAvailable: item.is_available_in_cycle, // Will be true due to filter
     imageUrl: item.display_image_url || item.products?.image_urls?.[0] || 'https://placehold.co/400x300.png?text=Produto',
     attributes: item.products?.attributes || {},
@@ -807,7 +811,7 @@ export async function fetchDisplayableProductById(cycleProductId: string): Promi
     productId: data.product_id,
     name: data.product_name_snapshot, 
     description: data.products?.description || '', 
-    price: data.price_in_cycle,
+    price: data.price_in_cycle || 0, // Ensure price is a number, default to 0 if null/undefined
     isAvailable: data.is_available_in_cycle,
     imageUrl: data.display_image_url || data.products?.image_urls?.[0] || 'https://placehold.co/400x300.png?text=Produto',
     attributes: data.products?.attributes || {}, 
@@ -1449,3 +1453,4 @@ export async function fetchAdminUsers(): Promise<User[]> {
       addressZip: profile.address_zip,
   })) as User[];
 }
+

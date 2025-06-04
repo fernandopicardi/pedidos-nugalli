@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getCurrentUser, updateUserDetails, signOut, fetchUserOrders } from '@/lib/supabasePlaceholders';
 import type { User as AppUser, Order } from '@/types';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Loader2, LogOut, ShoppingBag, CalendarDays, Info, Home, MapPin, UserCircle, Phone } from 'lucide-react'; // Added Home, MapPin for address
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -286,7 +287,7 @@ export default function AccountPage() {
           </Card>
         ) : (
           <div className="space-y-6">
-            {orders.map(order => (
+            {orders.map(order => ( 
               <Card key={order.orderId} className="shadow-md hover:shadow-lg transition-shadow">
                 <CardHeader className="pb-4">
                   <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
