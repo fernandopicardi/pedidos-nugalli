@@ -2,10 +2,23 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { Footer } from '@/components/layout/footer';
-import { Open_Sans, Playfair_Display } from 'next/font/google';
-import { Header } from '@/components/layout/header'; // Re-added import
+import { PT_Sans, Playfair_Display } from 'next/font/google';
+import { Header } from '@/components/layout/header';
 
+// Initialize fonts at the module scope
+const ptSans = PT_Sans({
+  subsets: ['latin'],
+  weight: ['400', '700'], // Include weights you'll use
+  display: 'swap',
+  variable: '--font-pt-sans', // Define CSS variable for PT Sans
+});
 
+const playfairDisplay = Playfair_Display({
+  subsets: ['latin'],
+  weight: ['400', '700'], // Include weights you'll use
+  display: 'swap',
+  variable: '--font-playfair-display', // Define CSS variable for Playfair Display
+});
 
 export const metadata: Metadata = {
   title: 'Nugali Seasonal Selections',
@@ -14,22 +27,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children, }: Readonly<{ children: React.ReactNode; }>) {
-
-  // Define fonts using next/font/google for App Router compatibility
-  const openSans = Open_Sans({
-    subsets: ['latin'],
-    display: 'swap',
-    variable: '--font-open-sans', // Define CSS variable
-  });
-
-  const playfairDisplay = Playfair_Display({
-    subsets: ['latin'],
-    display: 'swap',
-    variable: '--font-playfair-display', // Define CSS variable
-  });
-
   return (
-    <html lang="en">
+    <html lang="en" className={`${ptSans.variable} ${playfairDisplay.variable}`}>
       <body className="font-body antialiased flex flex-col min-h-screen">
         <Header />
         <main className="flex-grow">{children}</main>

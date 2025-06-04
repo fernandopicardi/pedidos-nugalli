@@ -2,13 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: 'Open Sans', sans-serif; /* Default body font */
-}
-
-h1, h2, h3, h4, h5, h6 {
-  font-family: 'Open Sans', sans-serif; /* Changed to Open Sans for headlines */
-}
+/* Removed direct font-family declarations for body and h1-h6,
+   as Tailwind will now handle this via utility classes (font-body, font-headline)
+   which use the CSS variables defined in layout.tsx and configured in tailwind.config.ts.
+*/
 
 @layer base {
   :root {
@@ -106,12 +103,16 @@ h1, h2, h3, h4, h5, h6 {
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground; /* font-body class will apply PT Sans */
     min-height: 100vh;
     display: flex;
     flex-direction: column;
   }
   main {
     flex-grow: 1;
+  }
+  /* Ensure headlines use the headline font utility from Tailwind */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-headline;
   }
 }

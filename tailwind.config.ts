@@ -10,8 +10,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['Open Sans', 'sans-serif'],
-        headline: ['Open Sans', 'sans-serif'], // Changed to Open Sans
+        body: ['var(--font-pt-sans)', 'sans-serif'], // Use PT Sans variable
+        headline: ['var(--font-playfair-display)', 'serif'], // Use Playfair Display variable
         code: ['monospace'],
       },
       colors: {
