@@ -11,6 +11,7 @@ import { signInWithEmail, signUpWithEmail } from '@/lib/supabasePlaceholders';
 import { useToast } from '@/hooks/use-toast';
 import { updateUserDetails } from '@/lib/supabasePlaceholders'; // Rewritten import
 import { useRouter } from 'next/navigation';
+import { Separator } from '../ui/separator';
 
 export function AuthForm() {
   const [email, setEmail] = useState('');
@@ -79,21 +80,26 @@ export function AuthForm() {
     } else if (loginResult.user) {
       // If auto-login is successful, update the user's profile with address data
       const updateResult = await updateUserDetails(loginResult.user.userId, {
- addressStreet,
- addressNumber,
- addressComplement,
-        addressNeighborhood, addressCity, addressState, addressZip
+        addressStreet,
+        addressNumber,
+        addressComplement,
+        addressNeighborhood,
+        addressCity,
+        addressState,
+        addressZip
       });
 
- toast({ title: "Cadastro Bem-Sucedido", description: "Sua conta foi criada." });
+      toast({ title: "Cadastro Bem-Sucedido", description: "Sua conta foi criada." });
+      redirectToStoredPathOrFallback('/'); // Redirect after successful registration and profile update
     } else {
        // This case should ideally not be reached if signup was successful
-      }
+       toast({ title: "Erro Inesperado", description: "Ocorreu um erro durante o cadastro. Tente novamente.", variant: "destructive"});
+    }
     setIsSubmitting(false);
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background p-4">
+    <div className="flex items-center justify-center min-h-[calc(100vh-160px)] bg-background p-4"> {/* Adjusted min-height to account for header/footer */}
       <Tabs defaultValue="login" className="w-full max-w-md">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="login">Entrar</TabsTrigger>
@@ -148,6 +154,7 @@ export function AuthForm() {
             </CardHeader>
             <form onSubmit={handleRegister}>
               <CardContent className="space-y-6">
+                {/* Dados da Conta */}
                 <div className="space-y-2">
                   <Label htmlFor="register-email">Email</Label>
                   <Input
@@ -165,7 +172,7 @@ export function AuthForm() {
                   <Input
                     id="register-password"
                     type="password"
-                    placeholder="Crie uma senha"
+                    placeholder="Crie uma senha (mín. 6 caracteres)"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -184,83 +191,101 @@ export function AuthForm() {
                     className="bg-input"
                   />
                 </div>
-                 {/* Address Fields - Optional */}
-                <div className="space-y-2">
-                  <Label htmlFor="address-street">Rua (Opcional)</Label>
-                  <Input
-                    id="address-street"
-                    type="text"
-                    placeholder="Rua, Avenida, Travessa..."
-                    value={addressStreet}
-                    onChange={(e) => setAddressStreet(e.target.value)}
-                    className="bg-input"
-                  />
-                </div>
-               <div className="space-y-2">
-                  <Label htmlFor="address-number">Número (Opcional)</Label>
-                  <Input
-                    id="address-number"
-                    type="text"
-                    placeholder="Ex: 123"
-                    value={addressNumber}
-                    onChange={(e) => setAddressNumber(e.target.value)}
-                    className="bg-input"
-                  />
-                </div>
-               <div className="space-y-2">
-                  <Label htmlFor="address-complement">Complemento (Opcional)</Label>
-                  <Input
-                    id="address-complement"
-                    type="text"
-                    placeholder="Apartamento, Bloco, Casa..."
-                    value={addressComplement}
-                    onChange={(e) => setAddressComplement(e.target.value)}
-                    className="bg-input"
-                  />
-                </div>
-               <div className="space-y-2">
-                  <Label htmlFor="address-neighborhood">Bairro (Opcional)</Label>
-                  <Input
-                    id="address-neighborhood"
-                    type="text"
-                    placeholder="Seu bairro"
-                    value={addressNeighborhood}
-                    onChange={(e) => setAddressNeighborhood(e.target.value)}
-                    className="bg-input"
-                  />
-                </div>
-               <div className="space-y-2">
-                  <Label htmlFor="address-city">Cidade (Opcional)</Label>
-                  <Input
-                    id="address-city"
-                    type="text"
-                    placeholder="Sua cidade"
-                    value={addressCity}
-                    onChange={(e) => setAddressCity(e.target.value)}
-                    className="bg-input"
-                  />
-                </div>
-               <div className="space-y-2">
-                  <Label htmlFor="address-state">Estado (Opcional)</Label>
-                  <Input
-                    id="address-state"
-                    type="text"
-                    placeholder="Seu estado (UF)"
-                    value={addressState}
-                    onChange={(e) => setAddressState(e.target.value)}
-                    className="bg-input"
-                  />
-                </div>
-               <div className="space-y-2">
-                  <Label htmlFor="address-zip">CEP (Opcional)</Label>
-                  <Input
-                    id="address-zip"
-                    type="text"
-                    placeholder="00000-000"
-                    value={addressZip}
-                    onChange={(e) => setAddressZip(e.target.value)}
-                    className="bg-input"
-                  />
+
+                <Separator />
+
+                {/* Endereço - Opcional */}
+                <div className="space-y-4">
+                  <h3 className="text-md font-medium text-muted-foreground pt-1">Endereço (Opcional)</h3>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="address-street">Logradouro (Rua, Avenida)</Label>
+                    <Input
+                      id="address-street"
+                      type="text"
+                      placeholder="Ex: Rua das Palmeiras"
+                      value={addressStreet}
+                      onChange={(e) => setAddressStreet(e.target.value)}
+                      className="bg-input"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="address-number">Número</Label>
+                      <Input
+                        id="address-number"
+                        type="text"
+                        placeholder="Ex: 123"
+                        value={addressNumber}
+                        onChange={(e) => setAddressNumber(e.target.value)}
+                        className="bg-input"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="address-complement">Complemento</Label>
+                      <Input
+                        id="address-complement"
+                        type="text"
+                        placeholder="Ex: Apto 101"
+                        value={addressComplement}
+                        onChange={(e) => setAddressComplement(e.target.value)}
+                        className="bg-input"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="address-neighborhood">Bairro</Label>
+                      <Input
+                        id="address-neighborhood"
+                        type="text"
+                        placeholder="Ex: Centro"
+                        value={addressNeighborhood}
+                        onChange={(e) => setAddressNeighborhood(e.target.value)}
+                        className="bg-input"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="address-city">Cidade</Label>
+                      <Input
+                        id="address-city"
+                        type="text"
+                        placeholder="Ex: São Paulo"
+                        value={addressCity}
+                        onChange={(e) => setAddressCity(e.target.value)}
+                        className="bg-input"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="address-state">Estado (UF)</Label>
+                      <Input
+                        id="address-state"
+                        type="text"
+                        placeholder="Ex: SP"
+                        maxLength={2}
+                        value={addressState}
+                        onChange={(e) => setAddressState(e.target.value.toUpperCase())}
+                        className="bg-input"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="address-zip">CEP</Label>
+                      <Input
+                        id="address-zip"
+                        type="text"
+                        placeholder="Ex: 01000-000"
+                        value={addressZip}
+                        onChange={(e) => setAddressZip(e.target.value)}
+                        className="bg-input"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground pt-1">O endereço é opcional e utilizado apenas para referência interna, não para entregas.</p>
                 </div>
               </CardContent>
               <CardFooter>
@@ -275,3 +300,5 @@ export function AuthForm() {
     </div>
   );
 }
+
+    
