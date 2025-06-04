@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import type { Season } from '@/types';
+import type { PurchaseCycle } from '@/types'; // Import PurchaseCycle
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -25,17 +25,17 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export default function SeasonManagementPage() {
-  const [seasons, setSeasons] = useState<Season[]>([]);
+  const [cycles, setCycles] = useState<PurchaseCycle[]>([]); // Use cycles
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingSeason, setEditingSeason] = useState<Season | null>(null);
+  const [editingCycle, setEditingCycle] = useState<PurchaseCycle | null>(null);
   const { toast } = useToast();
 
-  async function loadSeasons() {
+  async function loadCycles() {
     setIsLoading(true);
     try {
-      const data = await fetchSeasons();
-      setSeasons(data);
+      const data = await fetchSeasons(); // TODO: Replace with fetchPurchaseCycles
+      setCycles(data as PurchaseCycle[]); // Set to cycles
     } catch (error) {
       console.error("Failed to fetch seasons:", error);
       toast({ title: "Erro ao Carregar", description: "Não foi possível carregar as temporadas.", variant: "destructive" });
@@ -45,43 +45,42 @@ export default function SeasonManagementPage() {
   }
 
   useEffect(() => {
-    loadSeasons();
+    loadCycles();
   }, []);
 
-  const handleFormSubmit = async (data: Omit<Season, 'id'> | (Partial<Season> & { id: string })) => {
+  const handleFormSubmit = async (data: Omit<PurchaseCycle, 'cycleId'> | (Partial<PurchaseCycle> & { cycleId: string })) => {
     try {
-      if ('id' in data && data.id) { // Editing existing season
-        await updateSeason(data.id, data);
-      } else { // Creating new season
-        await createSeason(data as Omit<Season, 'id'>);
+      if ('cycleId' in data && data.cycleId) { // Editing existing cycle
+        await updatePurchaseCycle(data.cycleId, data); // TODO: Ensure updatePurchaseCycle signature matches
+      } else { // Creating new cycle
+        await createPurchaseCycle(data as Omit<PurchaseCycle, 'cycleId'>);
       }
       setIsModalOpen(false);
-      setEditingSeason(null);
-      await loadSeasons(); // Refresh list
+      setEditingCycle(null);
+      await loadCycles(); // Refresh list
     } catch (error) {
-      console.error("Failed to save season:", error);
-      // Toast is handled within SeasonForm, but can add specific one here if needed.
+      console.error("Failed to save purchase cycle:", error);
+      toast({ title: "Erro ao Salvar", description: "Não foi possível salvar o ciclo de compra.", variant: "destructive" });
     }
   };
 
   const openNewSeasonModal = () => {
-    setEditingSeason(null);
+    setEditingCycle(null); // Use editingCycle
+    setIsModalOpen(true);
+  };
+  const openEditCycleModal = (cycle: PurchaseCycle) => {
+    setEditingCycle(cycle);
     setIsModalOpen(true);
   };
 
-  const openEditSeasonModal = (season: Season) => {
-    setEditingSeason(season);
-    setIsModalOpen(true);
-  };
-
-  const handleDeleteSeason = async (seasonId: string, seasonName: string) => {
+  const handleDeleteCycle = async (cycleId: string, cycleName: string) => {
     try {
-      await deleteSeason(seasonId);
-      toast({ title: "Temporada Deletada", description: `A temporada "${seasonName}" foi deletada.` });
-      await loadSeasons(); // Refresh list
+      await deletePurchaseCycle(cycleId); // Use deletePurchaseCycle
+      toast({ title: "Ciclo Deletado", description: `O ciclo "${cycleName}" foi deletado.` });
+      await loadCycles(); // Refresh list
     } catch (error) {
-      console.error("Failed to delete season:", error);
-      toast({ title: "Erro ao Deletar", description: "Não foi possível deletar a temporada.", variant: "destructive" });
+      console.error("Failed to delete purchase cycle:", error);
+      toast({ title: "Erro ao Deletar", description: "Não foi possível deletar o ciclo de compra.", variant: "destructive" });
     }
   };
   
@@ -101,12 +100,10 @@ export default function SeasonManagementPage() {
       />
 
       <Dialog open={isModalOpen} onOpenChange={(isOpen) => { setIsModalOpen(isOpen); if (!isOpen) setEditingSeason(null); }}>
-        <DialogContent className="sm:max-w-[600px] bg-card shadow-lg">
-          <DialogHeader>
-            <DialogTitle className="font-headline text-2xl">
-              {editingSeason ? 'Editar Temporada' : 'Nova Temporada'}
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-[600px]">
+         <DialogHeader>\
+            <DialogTitle>{editingCycle ? \'Editar Ciclo de Compra\' : \'Novo Ciclo de Compra\'}</DialogTitle>\
+         </DialogHeader>\
           <SeasonForm
             initialData={editingSeason}
             onSubmit={handleFormSubmit}
@@ -115,11 +112,11 @@ export default function SeasonManagementPage() {
         </DialogContent>
       </Dialog>
 
-      {isLoading ? (
-        <p>Carregando temporadas...</p>
-      ) : seasons.length === 0 ? (
-         <div className="text-center py-12 bg-card rounded-lg shadow">
-            <p className="text-xl text-muted-foreground mb-4">Nenhuma temporada cadastrada.</p>
+     {isLoading ? (
+        <p>Carregando ciclos de compra...</p>
+      ) : cycles.length === 0 ? (
+         <div className="text-center py-12">
+            <p className="text-xl text-muted-foreground mb-4">Nenhum ciclo de compra cadastrado.</p>
             <Button onClick={openNewSeasonModal}>
               <PlusCircle size={18} className="mr-2" />
               Criar Primeira Temporada
@@ -127,7 +124,7 @@ export default function SeasonManagementPage() {
           </div>
       ) : (
         <div className="bg-card p-6 rounded-lg shadow">
-          <Table>
+           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
@@ -138,18 +135,18 @@ export default function SeasonManagementPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {seasons.map((season) => (
-                <TableRow key={season.id}>
-                  <TableCell className="font-medium">{season.name}</TableCell>
-                  <TableCell>{formatDate(season.startDate)}</TableCell>
-                  <TableCell>{formatDate(season.endDate)}</TableCell>
-                  <TableCell>{season.isActive ? 'Sim' : 'Não'}</TableCell>
+              {cycles.map((cycle) => (\
+                <TableRow key={cycle.cycleId}>
+                  <TableCell className="font-medium">{cycle.name}</TableCell>
+                  <TableCell>{formatDate(cycle.startDate)}</TableCell>
+                  <TableCell>{formatDate(cycle.endDate)}</TableCell>
+                  <TableCell>{cycle.isActive ? 'Sim' : 'Não'}</TableCell>
                   <TableCell className="text-right space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => openEditSeasonModal(season)}>
+                    <Button variant="outline" size="sm" onClick={() => openEditCycleModal(cycle)}>
                       <Edit3 size={16} className="mr-1" /> Editar
                     </Button>
                      <AlertDialog>
-                      <AlertDialogTrigger asChild>
+                       <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="sm">
                           <Trash2 size={16} className="mr-1" /> Deletar
                         </Button>
@@ -157,20 +154,20 @@ export default function SeasonManagementPage() {
                       <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>Confirmar Deleção</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Tem certeza que deseja deletar a temporada "{season.name}"? Esta ação não pode ser desfeita.
+                           <AlertDialogDescription>
+                            Tem certeza que deseja deletar o ciclo de compra "{cycle.name}"? Esta ação não pode ser desfeita.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDeleteSeason(season.id, season.name)}>
+                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDeleteCycle(cycle.cycleId, cycle.name)}>\
                             Deletar
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
                   </TableCell>
-                </TableRow>
+                 </TableRow>
               ))}
             </TableBody>
           </Table>
