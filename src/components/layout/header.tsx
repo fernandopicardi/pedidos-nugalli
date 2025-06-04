@@ -2,11 +2,12 @@
 "use client";
 
 import Link from 'next/link';
-import { ShoppingCart, User, LayoutDashboard, Settings } from 'lucide-react'; // Added LayoutDashboard, Settings
+import { ShoppingCart, User, LayoutDashboard, Settings } from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { subscribeToCartUpdates, getCurrentUser } from '@/lib/supabasePlaceholders';
 import type { CartItem, User as AppUser } from '@/types';
+import { supabase } from '@/lib/supabaseClient'; // Import supabase client for onAuthStateChange
 
 export function Header() {
   const [itemCount, setItemCount] = useState(0);
@@ -16,26 +17,42 @@ export function Header() {
   useEffect(() => {
     setIsClient(true);
 
+    // --- Cart Updates ---
     const handleCartUpdate = (cartItems: CartItem[]) => {
       const totalQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0);
       setItemCount(totalQuantity);
     };
+    const unsubscribeCart = subscribeToCartUpdates(handleCartUpdate);
 
-    async function loadUser() {
+    // --- Auth State Changes ---
+    async function loadUserFromSession() {
       const user = await getCurrentUser();
       setCurrentUser(user);
     }
+    
+    loadUserFromSession(); // Initial load
 
-    loadUser();
-    const unsubscribe = subscribeToCartUpdates(handleCartUpdate);
-
-    // Periodically check for user changes (e.g. if localStorage updates)
-    const userCheckInterval = setInterval(loadUser, 2000);
-
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth event:', event);
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'INITIAL_SESSION') {
+        if (session?.user) {
+          const userProfile = await getCurrentUser(); // Re-fetch full profile
+          setCurrentUser(userProfile);
+        } else {
+           // This case might occur if INITIAL_SESSION has no user or after a token refresh failure
+          const userProfile = await getCurrentUser(); // Attempt to get user if session exists but event is unclear
+          setCurrentUser(userProfile);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setCurrentUser(null);
+      }
+    });
 
     return () => {
-      unsubscribe();
-      clearInterval(userCheckInterval);
+      unsubscribeCart();
+      if (authListener && authListener.subscription) {
+        authListener.subscription.unsubscribe();
+      }
     };
   }, []);
 
@@ -90,4 +107,3 @@ export function Header() {
     </header>
   );
 }
-

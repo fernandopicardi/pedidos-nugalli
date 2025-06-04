@@ -75,9 +75,9 @@ export async function signInWithEmail(email: string, password: string): Promise<
   if (data.user) {
        // Attempt to fetch user profile from our 'users' table
        const { data: userProfile, error: profileError } = await supabase
-           .from('users')
+           .from('profiles') // Corrected table name
            .select('*')
-           .eq('user_id', data.user.id) // Supabase auth user id maps to user_id in our 'users' table
+           .eq('id', data.user.id) // Corrected column name
            .single();
 
        if (profileError) {
@@ -101,11 +101,25 @@ export async function signInWithEmail(email: string, password: string): Promise<
            };
            return { user: basicUser, error: { message: `Sign in successful, but failed to load profile: ${profileError.message}` } };
        }
+        if (!userProfile) {
+            console.warn('User profile not found after sign in for user ID:', data.user.id);
+             const basicUser: User = {
+               userId: data.user.id,
+               email: data.user.email || 'N/A',
+               displayName: data.user.user_metadata?.displayName || data.user.email?.split('@')[0] || 'User',
+               whatsapp: data.user.user_metadata?.whatsapp || '',
+               role: data.user.user_metadata?.role || 'customer',
+               createdAt: data.user.created_at,
+               addressStreet: '', addressNumber: '', addressComplement: '', addressNeighborhood: '', addressCity: '', addressState: '', addressZip: '',
+           };
+           return { user: basicUser, error: { message: `Sign in successful, but profile was not found.` } };
+        }
+
 
        // Combine auth data with profile data, or just use profile data if comprehensive
        const fullUser: User = {
-           userId: userProfile.user_id,
-           email: userProfile.email, // Use email from profile or auth? Consistency needed.
+           userId: userProfile.id, // Corrected
+           email: userProfile.email, 
            displayName: userProfile.display_name,
            whatsapp: userProfile.whatsapp,
            role: userProfile.role,
@@ -117,7 +131,6 @@ export async function signInWithEmail(email: string, password: string): Promise<
            addressCity: userProfile.address_city,
            addressState: userProfile.address_state,
            addressZip: userProfile.address_zip,
-           // Include updatedAt if your 'users' table has it
        };
 
        // Update localStorage or a state management solution with the new user
@@ -140,93 +153,84 @@ export async function signUpWithEmail(email: string, password: string, displayNa
     email,
     password,
     options: {
-        data: { // Include metadata that goes into auth.users table
+        data: { 
             displayName: displayName || email.split('@')[0],
             whatsapp: whatsapp || '',
-            role: 'customer', // Default role for new signups
+            // role: 'customer', // Role is managed in profiles table via trigger
         }
     }
   });
 
   if (authError) {
     console.error('Supabase sign up error:', authError);
-     // Handle specific error codes, e.g., user already exists (authError.message includes "User already registered")
     return { user: null, error: { message: authError.message } };
   }
-
-  // If auth sign up is successful, insert a corresponding record into our 'users' table
-  // This table holds additional profile information.
-  if (authData.user) {
-      const newUserProfile: Omit<User, 'createdAt' | 'addressStreet' | 'addressNumber' | 'addressComplement' | 'addressNeighborhood' | 'addressCity' | 'addressState' | 'addressZip'> = {
-          userId: authData.user.id,
-          email: authData.user.email!, // Email is guaranteed after successful signup
-          displayName: displayName || authData.user.email!.split('@')[0],
-          whatsapp: whatsapp || '',
-          role: 'customer', // Ensure role is set in your profile table as well
-          // createdAt will be set by DB default
-          // Address fields start empty
-      };
-
-      const { data: profileData, error: profileError } = await supabase
-          .from('users')
-          .insert([
-              {
-                user_id: newUserProfile.userId,
-                email: newUserProfile.email,
-                display_name: newUserProfile.displayName,
-                whatsapp: newUserProfile.whatsapp,
-                role: newUserProfile.role,
-                // created_at will be set by DB default
-              }
-          ])
-          .select() // Select the inserted row
-          .single();
-
-      if (profileError) {
-          console.error('Error creating user profile after sign up:', profileError);
-           // Decide how to handle this - potentially delete the auth user entry?
-           // For now, return basic auth user and error message
-           const basicUser: User = {
-               userId: authData.user.id,
-               email: authData.user.email || 'N/A',
-               displayName: authData.user.user_metadata?.displayName || authData.user.email?.split('@')[0] || 'User',
-               whatsapp: authData.user.user_metadata?.whatsapp || '',
-               role: authData.user.user_metadata?.role || 'customer',
-               createdAt: authData.user.created_at,
-               addressStreet: '', addressNumber: '', addressComplement: '', addressNeighborhood: '', addressCity: '', addressState: '', addressZip: '',
-           };
-           return { user: basicUser, error: { message: `Signup successful, but failed to create profile: ${profileError.message}` } };
-      }
-
-      // Transform profile data to User type
-       const fullUser: User = {
-           userId: profileData.user_id,
-           email: profileData.email,
-           displayName: profileData.display_name,
-           whatsapp: profileData.whatsapp,
-           role: profileData.role,
-           createdAt: profileData.created_at,
-           addressStreet: profileData.address_street,
-           addressNumber: profileData.address_number,
-           addressComplement: profileData.address_complement,
-           addressNeighborhood: profileData.address_neighborhood,
-           addressCity: profileData.address_city,
-           addressState: profileData.address_state,
-           addressZip: profileData.address_zip,
-       };
-
-       // Update localStorage or state management
-        if (typeof localStorage !== 'undefined') {
-            localStorage.setItem('currentUser', JSON.stringify(fullUser));
-        }
-
-
-      return { user: fullUser, error: null };
+  
+  if (!authData.user) {
+    return { user: null, error: {message: "User not created in auth table."}};
   }
 
+  // The trigger `on_auth_user_created` should automatically create a profile.
+  // We can try to fetch this profile to return it.
+  try {
+    // Wait a brief moment for the trigger to potentially complete
+    await new Promise(resolve => setTimeout(resolve, 500));
 
-   // This case should ideally not be reached if auth signup is successful
-  return { user: null, error: { message: 'Unknown sign up error.' } };
+    const { data: profileData, error: profileError } = await supabase
+        .from('profiles') // Corrected table name
+        .select('*')
+        .eq('id', authData.user.id) // Corrected column name
+        .single();
+
+    if (profileError || !profileData) {
+        console.error('Error fetching profile after signup or profile not found:', profileError);
+        // Fallback: return basic user info from auth if profile fetch fails
+        const basicUser: User = {
+            userId: authData.user.id,
+            email: authData.user.email || 'N/A',
+            displayName: authData.user.user_metadata?.displayName || authData.user.email?.split('@')[0] || 'User',
+            whatsapp: authData.user.user_metadata?.whatsapp || '',
+            role: 'customer', // Default assumption
+            createdAt: authData.user.created_at,
+            addressStreet: '', addressNumber: '', addressComplement: '', addressNeighborhood: '', addressCity: '', addressState: '', addressZip: '',
+        };
+        return { user: basicUser, error: { message: `Signup successful, but failed to fetch profile immediately: ${profileError?.message || "Profile not found"}` } };
+    }
+
+    const fullUser: User = {
+        userId: profileData.id, // Corrected
+        email: profileData.email,
+        displayName: profileData.display_name,
+        whatsapp: profileData.whatsapp,
+        role: profileData.role,
+        createdAt: profileData.created_at,
+        addressStreet: profileData.address_street,
+        addressNumber: profileData.address_number,
+        addressComplement: profileData.address_complement,
+        addressNeighborhood: profileData.address_neighborhood,
+        addressCity: profileData.address_city,
+        addressState: profileData.address_state,
+        addressZip: profileData.address_zip,
+    };
+
+    if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('currentUser', JSON.stringify(fullUser));
+    }
+    return { user: fullUser, error: null };
+
+  } catch (e) {
+      console.error("Error in signUpWithEmail post-profile fetch:", e);
+      const basicUser: User = {
+         userId: authData.user.id,
+         email: authData.user.email || 'N/A',
+         displayName: authData.user.user_metadata?.displayName || authData.user.email?.split('@')[0] || 'User',
+         whatsapp: authData.user.user_metadata?.whatsapp || '',
+         role: 'customer', // Default assumption
+         createdAt: authData.user.created_at,
+         addressStreet: '', addressNumber: '', addressComplement: '', addressNeighborhood: '', addressCity: '', addressState: '', addressZip: '',
+     };
+     return { user: basicUser, error: { message: `Signup successful, but an exception occurred while fetching profile.` } };
+  }
 }
 
 
@@ -250,73 +254,97 @@ export async function signOut(): Promise<{ error: { message: string } | null }> 
 
 
 export async function getCurrentUser(): Promise<User | null> {
-   // Fetch the current authenticated user from Supabase Auth
-  const { data: authData, error: authError } = await supabase.auth.getUser();
+  try {
+    const { data: authData, error: authError } = await supabase.auth.getUser();
 
-   if (authError) {
-       console.error('Error fetching current auth user:', authError);
-       if (typeof localStorage !== 'undefined') {
-            localStorage.removeItem('currentUser'); // Clear local storage if auth check fails
-       }
-       return null;
-   }
+    if (authError) {
+      // Log the error but don't let it break, return null
+      console.warn('Supabase authError in getCurrentUser:', authError.message);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('currentUser');
+      }
+      return null;
+    }
 
-   if (!authData.user) {
+    if (!authData.user) {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('currentUser');
+      }
+      return null; // No authenticated user
+    }
+
+    // If an authenticated user exists, fetch their profile
+    const { data: userProfile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', authData.user.id)
+      .single();
+
+    if (profileError) {
+      console.warn('Error fetching current user profile:', profileError.message, '- User ID:', authData.user.id);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('currentUser');
+      }
+      // Fallback to basic auth user info if profile is missing, but log it as an issue.
+      const basicUser: User = {
+        userId: authData.user.id,
+        email: authData.user.email || 'N/A',
+        displayName: authData.user.user_metadata?.displayName || authData.user.email?.split('@')[0] || 'User',
+        whatsapp: authData.user.user_metadata?.whatsapp || '',
+        role: (authData.user.user_metadata?.role as 'customer' | 'admin') || 'customer',
+        createdAt: authData.user.created_at,
+        addressStreet: '', addressNumber: '', addressComplement: '', addressNeighborhood: '', addressCity: '', addressState: '', addressZip: '',
+      };
+      return basicUser;
+    }
+    
+    if (!userProfile) {
+        console.warn('User profile not found for authenticated user ID:', authData.user.id);
         if (typeof localStorage !== 'undefined') {
-            localStorage.removeItem('currentUser'); // Clear local storage if no user is authenticated
-       }
-       return null; // No authenticated user
-   }
-
-   // If an authenticated user exists, fetch their profile from our 'users' table
-   const { data: userProfile, error: profileError } = await supabase
-       .from('users')
-       .select('*')
-       .eq('user_id', authData.user.id)
-       .single();
-
-   if (profileError) {
-       console.error('Error fetching current user profile:', profileError);
-        if (typeof localStorage !== 'undefined') {
-            localStorage.removeItem('currentUser'); // Clear local storage if profile fetch fails
+            localStorage.removeItem('currentUser');
         }
-        // Decide how to handle this - maybe return basic auth user info?
-       const basicUser: User = {
-           userId: authData.user.id,
-           email: authData.user.email || 'N/A',
-           displayName: authData.user.user_metadata?.displayName || authData.user.email?.split('@')[0] || 'User',
-           whatsapp: authData.user.user_metadata?.whatsapp || '',
-           role: authData.user.user_metadata?.role || 'customer',
-           createdAt: authData.user.created_at,
+        const basicUser: User = {
+            userId: authData.user.id,
+            email: authData.user.email || 'N/A',
+            displayName: authData.user.user_metadata?.displayName || authData.user.email?.split('@')[0] || 'User',
+            whatsapp: authData.user.user_metadata?.whatsapp || '',
+            role: (authData.user.user_metadata?.role as 'customer' | 'admin') || 'customer',
+            createdAt: authData.user.created_at,
             addressStreet: '', addressNumber: '', addressComplement: '', addressNeighborhood: '', addressCity: '', addressState: '', addressZip: '',
-       };
-       return basicUser; // Return basic info even if profile is missing
-   }
-
-   // Transform profile data to User type
-   const currentUser: User = {
-       userId: userProfile.user_id,
-       email: userProfile.email,
-       displayName: userProfile.display_name,
-       whatsapp: userProfile.whatsapp,
-       role: userProfile.role,
-       createdAt: userProfile.created_at,
-       addressStreet: userProfile.address_street,
-       addressNumber: userProfile.address_number,
-       addressComplement: userProfile.address_complement,
-       addressNeighborhood: userProfile.address_neighborhood,
-       addressCity: userProfile.address_city,
-       addressState: userProfile.address_state,
-       addressZip: userProfile.address_zip,
-   };
-
-   // Update localStorage or state management
-    if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        };
+        return basicUser;
     }
 
 
-   return currentUser;
+    const currentUser: User = {
+      userId: userProfile.id,
+      email: userProfile.email,
+      displayName: userProfile.display_name,
+      whatsapp: userProfile.whatsapp,
+      role: userProfile.role,
+      createdAt: userProfile.created_at,
+      addressStreet: userProfile.address_street,
+      addressNumber: userProfile.address_number,
+      addressComplement: userProfile.address_complement,
+      addressNeighborhood: userProfile.address_neighborhood,
+      addressCity: userProfile.address_city,
+      addressState: userProfile.address_state,
+      addressZip: userProfile.address_zip,
+    };
+
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    }
+    return currentUser;
+
+  } catch (error: any) {
+    // Catch any unexpected errors from supabase.auth.getUser() itself (like AuthSessionMissingError)
+    console.error('Critical error in getCurrentUser (e.g., AuthSessionMissingError):', error.message);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('currentUser');
+    }
+    return null;
+  }
 }
 
 export async function updateUserDetails(
@@ -325,25 +353,23 @@ export async function updateUserDetails(
 ): Promise<{ user: User | null; error: { message: string } | null }> {
   console.log('updateUserDetails called for userId:', userId, 'with data:', data);
 
-   // Note: Updating displayName or whatsapp might also involve updating auth.users metadata
-   // This example focuses on updating the 'users' profile table.
+  const updatePayload: Record<string, any> = {};
+  if (data.displayName !== undefined) updatePayload.display_name = data.displayName;
+  if (data.whatsapp !== undefined) updatePayload.whatsapp = data.whatsapp;
+  if (data.addressStreet !== undefined) updatePayload.address_street = data.addressStreet;
+  if (data.addressNumber !== undefined) updatePayload.address_number = data.addressNumber;
+  if (data.addressComplement !== undefined) updatePayload.address_complement = data.addressComplement;
+  if (data.addressNeighborhood !== undefined) updatePayload.address_neighborhood = data.addressNeighborhood;
+  if (data.addressCity !== undefined) updatePayload.address_city = data.addressCity;
+  if (data.addressState !== undefined) updatePayload.address_state = data.addressState;
+  if (data.addressZip !== undefined) updatePayload.address_zip = data.addressZip;
+
 
   const { data: updatedData, error } = await supabase
-    .from('users')
-    .update({
-        ...(data.displayName !== undefined && { display_name: data.displayName }),
-        ...(data.whatsapp !== undefined && { whatsapp: data.whatsapp }),
-        ...(data.addressStreet !== undefined && { address_street: data.addressStreet }),
-        ...(data.addressNumber !== undefined && { address_number: data.addressNumber }),
-        ...(data.addressComplement !== undefined && { address_complement: data.addressComplement }),
-        ...(data.addressNeighborhood !== undefined && { address_neighborhood: data.addressNeighborhood }),
-        ...(data.addressCity !== undefined && { address_city: data.addressCity }),
-        ...(data.addressState !== undefined && { address_state: data.addressState }),
-        ...(data.addressZip !== undefined && { address_zip: data.addressZip }),
-        // updated_at will be set by the database default
-    })
-    .eq('user_id', userId)
-    .select() // Select the updated row
+    .from('profiles') // Corrected table name
+    .update(updatePayload)
+    .eq('id', userId) // Corrected column name
+    .select() 
     .single();
 
   if (error) {
@@ -355,9 +381,8 @@ export async function updateUserDetails(
        return { user: null, error: { message: "User not found after update attempt." } };
    }
 
-  // Transform the updated data to User type
    const updatedUser: User = {
-       userId: updatedData.user_id,
+       userId: updatedData.id, // Corrected
        email: updatedData.email,
        displayName: updatedData.display_name,
        whatsapp: updatedData.whatsapp,
@@ -371,9 +396,8 @@ export async function updateUserDetails(
        addressState: updatedData.address_state,
        addressZip: updatedData.address_zip,
    };
-
-   // Update localStorage or state management if the updated user is the current user
-   const currentUserFromStorage = await getCurrentUser(); // Fetch current user to compare
+ 
+   const currentUserFromStorage = await getCurrentUser(); 
    if (currentUserFromStorage && currentUserFromStorage.userId === userId) {
         if (typeof localStorage !== 'undefined') {
             localStorage.setItem('currentUser', JSON.stringify(updatedUser));
@@ -386,81 +410,70 @@ export async function updateUserDetails(
 
 
 export async function checkAdminRole(): Promise<boolean> {
-   // Fetch the current user and check their role from the profile table
-  const user = await getCurrentUser(); // This now fetches from DB profile
+  const user = await getCurrentUser(); 
   return user?.role === 'admin';
 }
 
 // MASTER PRODUCTS - For Admin CRUD
-// TODO: Remove MOCK_MASTER_PRODUCTS after data is migrated to Supabase
-let MOCK_MASTER_PRODUCTS: Product[] = [
-  // ... (keep existing mock data for now, but it's not used in the refactored functions)
-];
+let MOCK_MASTER_PRODUCTS: Product[] = [];
 
 
 export async function fetchAdminProducts(): Promise<Product[]> {
   console.log('fetchAdminProducts called');
 
-  // Fetch all products from the 'products' table
   const { data, error } = await supabase
     .from('products')
     .select('*')
-    .order('created_at', { ascending: false }); // Example: Order by creation date
+    .order('created_at', { ascending: false }); 
 
   if (error) {
     console.error('Error fetching admin products:', error);
     throw error;
   }
-
-  // TODO: Add data transformation if needed (e.g., snake_case to camelCase)
-  return data as Product[];
+  return data.map(p => ({ ...p, imageUrls: p.image_urls, isSeasonal: p.is_seasonal })) as Product[];
 }
 
 export async function createProduct(productData: Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>): Promise<Product> {
   console.log('createProduct called with:', productData);
 
-  // Insert the new product data into the 'products' table
   const { data, error } = await supabase
     .from('products')
     .insert([
       {
         name: productData.name,
         description: productData.description,
-        image_urls: productData.imageUrls, // Assuming your column is named image_urls
-        attributes: productData.attributes, // Assuming your column is named attributes (JSONB)
-        is_seasonal: productData.isSeasonal, // Assuming your column is named is_seasonal
-        // created_at and updated_at will be set by the database default
+        image_urls: productData.imageUrls, 
+        attributes: productData.attributes, 
+        is_seasonal: productData.isSeasonal, 
       },
     ])
-    .select() // Select the inserted data to return the created product
-    .single(); // Expect a single result
+    .select() 
+    .single(); 
 
   if (error) {
     console.error('Error creating product:', error);
     throw error;
   }
-
-  // TODO: Add data transformation if needed
-  return data as Product;
+  return { ...data, imageUrls: data.image_urls, isSeasonal: data.is_seasonal } as Product;
 }
 
 export async function updateProduct(productId: string, productData: Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>>): Promise<Product> {
   console.log('updateProduct called for ID', productId, 'with:', productData);
+  
+  const updatePayload: Record<string, any> = {};
+  if (productData.name !== undefined) updatePayload.name = productData.name;
+  if (productData.description !== undefined) updatePayload.description = productData.description;
+  if (productData.imageUrls !== undefined) updatePayload.image_urls = productData.imageUrls;
+  if (productData.attributes !== undefined) updatePayload.attributes = productData.attributes;
+  if (productData.isSeasonal !== undefined) updatePayload.is_seasonal = productData.isSeasonal;
 
-  // Update the product data in the 'products' table
+
   const { data, error } = await supabase
     .from('products')
-    .update({
-      ...(productData.name !== undefined && { name: productData.name }),
-      ...(productData.description !== undefined && { description: productData.description }),
-      ...(productData.imageUrls !== undefined && { image_urls: productData.imageUrls }),
-      ...(productData.attributes !== undefined && { attributes: productData.attributes }),
-      ...(productData.isSeasonal !== undefined && { is_seasonal: productData.isSeasonal }),
-      // updated_at will be set by the database default
-    })
-    .eq('product_id', productId) // Assuming your primary key column is named product_id
-    .select() // Select the updated data to return the product
-    .single(); // Expect a single result
+    .update(updatePayload)
+    .eq('product_id', productId) 
+    .select() 
+    .single(); 
 
   if (error) {
     console.error('Error updating product:', error);
@@ -470,15 +483,12 @@ export async function updateProduct(productId: string, productData: Partial<Omit
   if (!data) {
      throw new Error("Product not found after update");
   }
-
-  // TODO: Add data transformation if needed
-  return data as Product;
+  return { ...data, imageUrls: data.image_urls, isSeasonal: data.is_seasonal } as Product;
 }
 
 export async function deleteProduct(productId: string): Promise<void> {
   console.log('deleteProduct called for ID:', productId);
 
-  // Delete the product from the 'products' table
   const { error } = await supabase
     .from('products')
     .delete()
@@ -488,40 +498,30 @@ export async function deleteProduct(productId: string): Promise<void> {
     console.error('Error deleting product:', error);
     throw error;
   }
-  // Note: Deleting a product might require handling dependent records
-  // like cycle_products. Database foreign key constraints with CASCADE DELETE
-  // are the recommended way to handle this automatically.
 }
 
 
 // PURCHASE CYCLES - For Admin CRUD
-// TODO: Remove MOCK_PURCHASE_CYCLES after data is migrated to Supabase
-const MOCK_PURCHASE_CYCLES: PurchaseCycle[] = [
-  // ... (keep existing mock data for now, but it's not used in the refactored functions)
-];
+const MOCK_PURCHASE_CYCLES: PurchaseCycle[] = [];
 
 export async function fetchPurchaseCycles(): Promise<PurchaseCycle[]> {
   console.log('fetchPurchaseCycles called');
 
-  // Fetch all purchase cycles from the 'purchase_cycles' table
   const { data, error } = await supabase
     .from('purchase_cycles')
     .select('*')
-    .order('start_date', { ascending: false }); // Example: Order by start date descending
+    .order('start_date', { ascending: false }); 
 
   if (error) {
     console.error('Error fetching purchase cycles:', error);
     throw error;
   }
-
-  // TODO: Add data transformation if needed (e.g., snake_case to camelCase)
-  return data as PurchaseCycle[];
+  return data.map(pc => ({...pc, cycleId: pc.cycle_id, startDate: pc.start_date, endDate: pc.end_date, isActive: pc.is_active })) as PurchaseCycle[];
 }
 
 export async function createPurchaseCycle(cycleData: Omit<PurchaseCycle, 'cycleId' | 'createdAt'>): Promise<PurchaseCycle> {
   console.log('createPurchaseCycle called with:', cycleData);
 
-  // Deactivate any currently active cycle if the new one is active
   if (cycleData.isActive) {
       const { error: updateError } = await supabase
           .from('purchase_cycles')
@@ -530,65 +530,58 @@ export async function createPurchaseCycle(cycleData: Omit<PurchaseCycle, 'cycleI
 
       if (updateError) {
           console.error('Error deactivating previous active cycles:', updateError);
-          // Decide if you want to throw or just log a warning
       }
   }
 
 
-  // Insert the new purchase cycle data into the 'purchase_cycles' table
   const { data, error } = await supabase
     .from('purchase_cycles')
     .insert([
       {
         name: cycleData.name,
-        start_date: cycleData.startDate, // Assuming snake_case columns
+        start_date: cycleData.startDate, 
         end_date: cycleData.endDate,
         is_active: cycleData.isActive,
-        // created_at will be set by the database default
       },
     ])
-    .select() // Select the inserted data to return the created cycle
-    .single(); // Expect a single result
+    .select() 
+    .single(); 
 
   if (error) {
     console.error('Error creating purchase cycle:', error);
     throw error;
   }
-
-  // TODO: Add data transformation if needed
-  return data as PurchaseCycle;
+  return {...data, cycleId: data.cycle_id, startDate: data.start_date, endDate: data.end_date, isActive: data.is_active } as PurchaseCycle;
 }
 
 export async function updatePurchaseCycle(cycleId: string, cycleData: Partial<Omit<PurchaseCycle, 'cycleId' | 'createdAt'>>): Promise<PurchaseCycle> {
   console.log('updatePurchaseCycle called for ID', cycleId, 'with:', cycleData);
 
-  // If the cycle is being set to active, deactivate any other active cycles first
-  if (cycleData.isActive === true) { // Strictly check for true
+  if (cycleData.isActive === true) { 
       const { error: updateError } = await supabase
           .from('purchase_cycles')
           .update({ is_active: false })
           .eq('is_active', true)
-          .neq('cycle_id', cycleId); // Don't deactivate the cycle we are about to activate
+          .neq('cycle_id', cycleId); 
 
       if (updateError) {
           console.error('Error deactivating other active cycles:', updateError);
-           // Decide if you want to throw or just log a warning
       }
   }
 
-  // Update the purchase cycle data in the 'purchase_cycles' table
+  const updatePayload: Record<string, any> = {};
+  if (cycleData.name !== undefined) updatePayload.name = cycleData.name;
+  if (cycleData.startDate !== undefined) updatePayload.start_date = cycleData.startDate;
+  if (cycleData.endDate !== undefined) updatePayload.end_date = cycleData.endDate;
+  if (cycleData.isActive !== undefined) updatePayload.is_active = cycleData.isActive;
+
+
   const { data, error } = await supabase
     .from('purchase_cycles')
-    .update({
-      ...(cycleData.name !== undefined && { name: cycleData.name }),
-      ...(cycleData.startDate !== undefined && { start_date: cycleData.startDate }),
-      ...(cycleData.endDate !== undefined && { end_date: cycleData.endDate }),
-      ...(cycleData.isActive !== undefined && { is_active: cycleData.isActive }),
-      // updated_at will be set by the database default
-    })
-    .eq('cycle_id', cycleId) // Assuming your primary key column is named cycle_id
-    .select() // Select the updated data to return the cycle
-    .single(); // Expect a single result
+    .update(updatePayload)
+    .eq('cycle_id', cycleId) 
+    .select() 
+    .single(); 
 
   if (error) {
     console.error('Error updating purchase cycle:', error);
@@ -598,15 +591,12 @@ export async function updatePurchaseCycle(cycleId: string, cycleData: Partial<Om
   if (!data) {
      throw new Error("PurchaseCycle not found after update");
   }
-
-  // TODO: Add data transformation if needed
-  return data as PurchaseCycle;
+  return {...data, cycleId: data.cycle_id, startDate: data.start_date, endDate: data.end_date, isActive: data.is_active } as PurchaseCycle;
 }
 
 export async function deletePurchaseCycle(cycleId: string): Promise<void> {
   console.log('deletePurchaseCycle called for ID:', cycleId);
 
-  // Delete the purchase cycle from the 'purchase_cycles' table
   const { error } = await supabase
     .from('purchase_cycles')
     .delete()
@@ -616,26 +606,16 @@ export async function deletePurchaseCycle(cycleId: string): Promise<void> {
     console.error('Error deleting purchase cycle:', error);
     throw error;
   }
-    // Note: Deleting a cycle might require handling dependent records
-    // like cycle_products. Database foreign key constraints with CASCADE DELETE
-    // are the recommended way to handle this automatically.
 }
 
 
 // CYCLE PRODUCTS - For Admin CRUD and Customer Display
-// TODO: Remove MOCK_CYCLE_PRODUCTS and MOCK_DISPLAYABLE_PRODUCTS after data is migrated to Supabase
-let MOCK_CYCLE_PRODUCTS: CycleProduct[] = [
-  // ... (keep existing mock data for now, but it's not used in the refactored functions)
-];
-
-let MOCK_DISPLAYABLE_PRODUCTS: DisplayableProduct[] = [
-  // ... (keep existing mock data for now, but it's not used in the refactored functions)
-];
+let MOCK_CYCLE_PRODUCTS: CycleProduct[] = [];
+let MOCK_DISPLAYABLE_PRODUCTS: DisplayableProduct[] = [];
 
 export async function fetchCycleProducts(cycleId: string): Promise<CycleProduct[]> {
   console.log('fetchCycleProducts called for cycle ID:', cycleId);
 
-  // Fetch cycle products for a specific cycle from the 'cycle_products' table
   const { data, error } = await supabase
     .from('cycle_products')
     .select('*')
@@ -645,15 +625,22 @@ export async function fetchCycleProducts(cycleId: string): Promise<CycleProduct[
     console.error(`Error fetching cycle products for cycle ${cycleId}:`, error);
     throw error;
   }
-
-  // TODO: Add data transformation if needed (e.g., snake_case to camelCase)
-  return data as CycleProduct[];
+  return data.map(cp => ({
+      cycleProductId: cp.cycle_product_id,
+      cycleId: cp.cycle_id,
+      productId: cp.product_id,
+      productNameSnapshot: cp.product_name_snapshot,
+      priceInCycle: cp.price_in_cycle,
+      isAvailableInCycle: cp.is_available_in_cycle,
+      displayImageUrl: cp.display_image_url,
+      createdAt: cp.created_at, // Ensure these are mapped if your type includes them
+      updatedAt: cp.updated_at  // Ensure these are mapped if your type includes them
+  })) as CycleProduct[];
 }
 
 export async function createCycleProduct(cycleProductData: Omit<CycleProduct, 'cycleProductId' | 'createdAt' | 'updatedAt'>): Promise<CycleProduct> {
   console.log('createCycleProduct called with:', cycleProductData);
 
-  // Insert the new cycle product data into the 'cycle_products' table
   const { data, error } = await supabase
     .from('cycle_products')
     .insert([
@@ -664,39 +651,45 @@ export async function createCycleProduct(cycleProductData: Omit<CycleProduct, 'c
         price_in_cycle: cycleProductData.priceInCycle,
         is_available_in_cycle: cycleProductData.isAvailableInCycle,
         display_image_url: cycleProductData.displayImageUrl,
-        // created_at and updated_at will be set by the database default
       },
     ])
-    .select() // Select the inserted data to return the created cycle product
-    .single(); // Expect a single result
+    .select() 
+    .single(); 
 
   if (error) {
     console.error('Error creating cycle product:', error);
     throw error;
   }
-
-  // TODO: Add data transformation if needed
-  return data as CycleProduct;
+  return {
+      cycleProductId: data.cycle_product_id,
+      cycleId: data.cycle_id,
+      productId: data.product_id,
+      productNameSnapshot: data.product_name_snapshot,
+      priceInCycle: data.price_in_cycle,
+      isAvailableInCycle: data.is_available_in_cycle,
+      displayImageUrl: data.display_image_url,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at
+  } as CycleProduct;
 }
 
 export async function updateCycleProduct(cycleProductId: string, cycleProductData: Partial<Omit<CycleProduct, 'cycleProductId' | 'createdAt' | 'updatedAt'>>): Promise<CycleProduct> {
   console.log('updateCycleProduct called for ID', cycleProductId, 'with:', cycleProductData);
 
-  // Update the cycle product data in the 'cycle_products' table
+  const updatePayload: Record<string, any> = {};
+  if (cycleProductData.cycleId !== undefined) updatePayload.cycle_id = cycleProductData.cycleId;
+  if (cycleProductData.productId !== undefined) updatePayload.product_id = cycleProductData.productId;
+  if (cycleProductData.productNameSnapshot !== undefined) updatePayload.product_name_snapshot = cycleProductData.productNameSnapshot;
+  if (cycleProductData.priceInCycle !== undefined) updatePayload.price_in_cycle = cycleProductData.priceInCycle;
+  if (cycleProductData.isAvailableInCycle !== undefined) updatePayload.is_available_in_cycle = cycleProductData.isAvailableInCycle;
+  if (cycleProductData.displayImageUrl !== undefined) updatePayload.display_image_url = cycleProductData.displayImageUrl;
+
   const { data, error } = await supabase
     .from('cycle_products')
-    .update({
-      ...(cycleProductData.cycleId !== undefined && { cycle_id: cycleProductData.cycleId }),
-      ...(cycleProductData.productId !== undefined && { product_id: cycleProductData.productId }),
-      ...(cycleProductData.productNameSnapshot !== undefined && { product_name_snapshot: cycleProductData.productNameSnapshot }),
-      ...(cycleProductData.priceInCycle !== undefined && { price_in_cycle: cycleProductData.priceInCycle }),
-      ...(cycleProductData.isAvailableInCycle !== undefined && { is_available_in_cycle: cycleProductData.isAvailableInCycle }),
-      ...(cycleProductData.displayImageUrl !== undefined && { display_image_url: cycleProductData.displayImageUrl }),
-      // updated_at will be set by the database default
-    })
+    .update(updatePayload)
     .eq('cycle_product_id', cycleProductId)
-    .select() // Select the updated data to return the cycle product
-    .single(); // Expect a single result
+    .select() 
+    .single(); 
 
   if (error) {
     console.error('Error updating cycle product:', error);
@@ -706,15 +699,22 @@ export async function updateCycleProduct(cycleProductId: string, cycleProductDat
    if (!data) {
      throw new Error("Cycle product not found after update");
   }
-
-  // TODO: Add data transformation if needed
-  return data as CycleProduct;
+  return {
+      cycleProductId: data.cycle_product_id,
+      cycleId: data.cycle_id,
+      productId: data.product_id,
+      productNameSnapshot: data.product_name_snapshot,
+      priceInCycle: data.price_in_cycle,
+      isAvailableInCycle: data.is_available_in_cycle,
+      displayImageUrl: data.display_image_url,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at
+  } as CycleProduct;
 }
 
 export async function deleteCycleProduct(cycleProductId: string): Promise<void> {
   console.log('deleteCycleProduct called for ID:', cycleProductId);
 
-  // Delete the cycle product from the 'cycle_products' table
   const { error } = await supabase
     .from('cycle_products')
     .delete()
@@ -729,8 +729,6 @@ export async function deleteCycleProduct(cycleProductId: string): Promise<void> 
 export async function fetchDisplayableProducts(): Promise<DisplayableProduct[]> {
   console.log('fetchDisplayableProducts called');
 
-  // Fetch displayable products by joining 'cycle_products' and 'products' tables
-  // Filter for the active cycle and available products
   const { data, error } = await supabase
     .from('cycle_products')
     .select(`
@@ -743,28 +741,28 @@ export async function fetchDisplayableProducts(): Promise<DisplayableProduct[]> 
       display_image_url,
       products (
         description,
-        attributes
+        attributes,
+        image_urls
       )
     `)
     .eq('is_available_in_cycle', true)
-    .filter('cycle_id', 'in', '(select cycle_id from purchase_cycles where is_active = true)'); // Subquery to get the active cycle_id
+    .filter('cycle_id', 'in', '(select cycle_id from purchase_cycles where is_active = true)'); 
 
   if (error) {
     console.error('Error fetching displayable products:', error);
     throw error;
   }
 
-  // Transform the data to match the DisplayableProduct type
   const displayableProducts: DisplayableProduct[] = data.map((item: any) => ({
     cycleProductId: item.cycle_product_id,
     cycleId: item.cycle_id,
     productId: item.product_id,
-    name: item.product_name_snapshot, // Use the snapshot name
-    description: item.products?.description, // Get description from the joined products table (handle potential null)
+    name: item.product_name_snapshot, 
+    description: item.products?.description || '',
     price: item.price_in_cycle,
-    isAvailable: item.is_available_in_cycle,
-    imageUrl: item.display_image_url,
-    attributes: item.products?.attributes, // Get attributes from the joined products table (handle potential null)
+    isAvailable: item.is_available_in_cycle, // Will be true due to filter
+    imageUrl: item.display_image_url || item.products?.image_urls?.[0] || 'https://placehold.co/400x300.png?text=Produto',
+    attributes: item.products?.attributes || {},
   }));
 
   return displayableProducts;
@@ -773,8 +771,6 @@ export async function fetchDisplayableProducts(): Promise<DisplayableProduct[]> 
 export async function fetchDisplayableProductById(cycleProductId: string): Promise<DisplayableProduct | null> {
   console.log('fetchDisplayableProductById called for ID:', cycleProductId);
 
-   // Fetch a single displayable product by joining 'cycle_products' and 'products' tables
-   // Filter by cycle_product_id and ensure it's in the active cycle and available
   const { data, error } = await supabase
     .from('cycle_products')
     .select(`
@@ -787,34 +783,34 @@ export async function fetchDisplayableProductById(cycleProductId: string): Promi
       display_image_url,
       products (
         description,
-        attributes
+        attributes,
+        image_urls
       )
     `)
     .eq('cycle_product_id', cycleProductId)
      .eq('is_available_in_cycle', true)
-    .filter('cycle_id', 'in', '(select cycle_id from purchase_cycles where is_active = true)') // Subquery to get the active cycle_id
-    .single(); // Use single() as we expect one result
+    .filter('cycle_id', 'in', '(select cycle_id from purchase_cycles where is_active = true)') 
+    .single(); 
 
-  if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+  if (error && error.code !== 'PGRST116') { 
     console.error(`Error fetching displayable product ${cycleProductId}:`, error);
     throw error;
   }
 
   if (!data) {
-    return null; // Product not found or not available/in active cycle
+    return null; 
   }
 
-  // Transform the data to match the DisplayableProduct type
   const displayableProduct: DisplayableProduct = {
     cycleProductId: data.cycle_product_id,
     cycleId: data.cycle_id,
     productId: data.product_id,
-    name: data.product_name_snapshot, // Use the snapshot name
-    description: data.products?.description, // Get description from the joined products table (handle potential null)
+    name: data.product_name_snapshot, 
+    description: data.products?.description || '', 
     price: data.price_in_cycle,
     isAvailable: data.is_available_in_cycle,
-    imageUrl: data.display_image_url,
-    attributes: data.products?.attributes, // Get attributes from the joined products table (handle potential null)
+    imageUrl: data.display_image_url || data.products?.image_urls?.[0] || 'https://placehold.co/400x300.png?text=Produto',
+    attributes: data.products?.attributes || {}, 
   };
 
   return displayableProduct;
@@ -822,15 +818,6 @@ export async function fetchDisplayableProductById(cycleProductId: string): Promi
 
 
 // CART - Local Storage based (client-side only)
-// This remains largely the same as it interacts with localStorage, not Supabase.
-// We'll only update the function names to align with a potential future
-// migration to a server-side cart or to clarify they are client-side mocks.
-
-// Keep the existing listener system and localStorage functions as they are client-side mocks
-// (Already defined at the top)
-
-// Refactored Cart functions using local storage
-
 export async function fetchCartItems(): Promise<CartItem[]> {
   console.log('fetchCartItems called (using localStorage)');
   await new Promise(resolve => setTimeout(resolve, 100)); // Simulate async
@@ -853,7 +840,7 @@ export async function addToCart(product: DisplayableProduct, quantity: number): 
       price: product.price,
       quantity: quantity,
       imageUrl: product.imageUrl,
-      description: product.description, // Storing full description in cart item
+      description: product.description, 
     });
   }
   saveCartToLocalStorage(cart);
@@ -888,70 +875,60 @@ export async function removeFromCart(cycleProductId: string): Promise<void> {
 
 // ORDERS - Mocked (using localStorage for simplicity, would be Supabase in real app)
 
-// TODO: Remove MOCK_ORDERS after migration
-let MOCK_ORDERS: Order[] = [
-    {
-        orderId: 'ord-mock-1',
-        orderNumber: "ORD2024001",
-        userId: 'user-mock-customer-1', // John Doe
-        customerNameSnapshot: "John Doe",
-        customerWhatsappSnapshot: "5511999990001",
-        cycleId: 'cycle-easter-2025',
-        items: [
-            { productId: 'prod-classic-dark-70', cycleProductId: 'cp-easter-classic-dark-70', productName: 'Barra Clássica Amargo 70% Cacau', quantity: 2, priceAtPurchase: 25.00, lineItemTotal: 50.00 },
-            { productId: 'prod-truffle-box-assorted', cycleProductId: 'cp-easter-truffle-box-assorted', productName: 'Caixa de Trufas Sortidas (12 un)', quantity: 1, priceAtPurchase: 45.00, lineItemTotal: 45.00 }
-        ],
-        orderTotalAmount: 95.00,
-        orderStatus: "Completed",
-        paymentStatus: "Paid",
-        orderDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(), // 10 days ago
-    },
-    {
-        orderId: 'ord-mock-2',
-        orderNumber: "ORD2024002",
-        userId: 'user-mock-admin-1', // Admin User
-        customerNameSnapshot: "Admin User",
-        customerWhatsappSnapshot: "5511988880000",
-        cycleId: 'cycle-mothers-day-2025',
-        items: [
-            { productId: 'prod-ganache-praline-bar', cycleProductId: 'cp-mothers-ganache-praline-bar', productName: 'Barra Recheada Praliné Crocante', quantity: 3, priceAtPurchase: 18.00, lineItemTotal: 54.00 }
-        ],
-        orderTotalAmount: 54.00,
-        orderStatus: "Preparing",
-        paymentStatus: "Paid",
-        orderDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
-    },
-    {
-        orderId: 'ord-mock-3',
-        orderNumber: "ORD2024003",
-        userId: 'user-mock-customer-1', // John Doe again
-        customerNameSnapshot: "John Doe",
-        customerWhatsappSnapshot: "5511999990001",
-        cycleId: 'cycle-mothers-day-2025',
-        items: [
-            { productId: 'prod-new-03', cycleProductId: 'cp-mothers-new-03', productName: 'Bombons Finos de Licor de Cereja', quantity: 1, priceAtPurchase: 33.50, lineItemTotal: 33.50 },
-             { productId: 'prod-new-06', cycleProductId: 'cp-mothers-new-06', productName: 'Drágeas Crocantes de Café com Chocolate Amargo', quantity: 2, priceAtPurchase: 15.75, lineItemTotal: 31.50 }
-        ],
-        orderTotalAmount: 65.00,
-        orderStatus: "Pending Payment",
-        paymentStatus: "Unpaid",
-        orderDate: new Date().toISOString(), // Today
-    }
-];
+let MOCK_ORDERS: Order[] = []; // Start with empty, rely on localStorage if exists
 
-if (typeof localStorage !== 'undefined' && !localStorage.getItem('mockOrders')) {
-    localStorage.setItem('mockOrders', JSON.stringify(MOCK_ORDERS));
+if (typeof localStorage !== 'undefined') {
+    const storedMockOrders = localStorage.getItem('mockOrders');
+    if (storedMockOrders) {
+        try {
+            MOCK_ORDERS = JSON.parse(storedMockOrders);
+        } catch (e) {
+            console.error("Failed to parse mockOrders from localStorage", e);
+            MOCK_ORDERS = []; // Initialize to empty if parsing fails
+        }
+    } else {
+        // If nothing in localStorage, initialize with default mock orders and save
+        MOCK_ORDERS = [
+            {
+                orderId: 'ord-mock-1',
+                orderNumber: "ORD2024001",
+                userId: 'user-mock-customer-1', // John Doe
+                customerNameSnapshot: "John Doe",
+                customerWhatsappSnapshot: "5511999990001",
+                cycleId: 'cycle-easter-2025',
+                items: [
+                    { productId: 'prod-classic-dark-70', cycleProductId: 'cp-easter-classic-dark-70', productName: 'Barra Clássica Amargo 70% Cacau', quantity: 2, priceAtPurchase: 25.00, lineItemTotal: 50.00 },
+                    { productId: 'prod-truffle-box-assorted', cycleProductId: 'cp-easter-truffle-box-assorted', productName: 'Caixa de Trufas Sortidas (12 un)', quantity: 1, priceAtPurchase: 45.00, lineItemTotal: 45.00 }
+                ],
+                orderTotalAmount: 95.00,
+                orderStatus: "Completed",
+                paymentStatus: "Paid",
+                orderDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(), 
+            },
+            // ... other mock orders if needed ...
+        ];
+        localStorage.setItem('mockOrders', JSON.stringify(MOCK_ORDERS));
+    }
 }
+
 
 function getOrdersFromLocalStorage(): Order[] {
   if (typeof localStorage !== 'undefined') {
     const storedOrders = localStorage.getItem('mockOrders');
-    if (storedOrders) return JSON.parse(storedOrders);
+    if (storedOrders) {
+        try {
+            return JSON.parse(storedOrders);
+        } catch (e) {
+            console.error("Failed to parse orders from localStorage", e);
+            return MOCK_ORDERS; // Fallback to in-memory MOCK_ORDERS if parsing fails
+        }
+    }
   }
-  return [];
+  return MOCK_ORDERS; // Fallback if localStorage is not available or no orders stored
 }
 
 function saveOrdersToLocalStorage(orders: Order[]) {
+  MOCK_ORDERS = orders; // Update in-memory mock as well
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem('mockOrders', JSON.stringify(orders));
   }
@@ -968,10 +945,19 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
     throw new Error("Cart is empty. Cannot process checkout.");
   }
 
-  // Find the active cycle. For mock, we'll assume one exists or pick the first from a mock list.
-  // In a real scenario, this would involve fetching the active cycleId.
-  // For this mock, we'll use the cycleId from the first cart item if available, or a default.
-  const activeCycleId = cartItems[0]?.cycleId || 'cycle-easter-2025'; // Fallback cycleId for mock
+  // Fetch the active cycle details from the database
+  const { data: activeCycleData, error: cycleError } = await supabase
+    .from('purchase_cycles')
+    .select('cycle_id')
+    .eq('is_active', true)
+    .single();
+
+  if (cycleError || !activeCycleData) {
+    console.error('Error fetching active cycle or no active cycle found:', cycleError);
+    throw new Error("No active purchase cycle found or error fetching it. Cannot process checkout.");
+  }
+  const activeCycleId = activeCycleData.cycle_id;
+
 
   const orderItems: OrderItem[] = cartItems.map(cartItem => ({
     productId: cartItem.productId,
@@ -984,184 +970,381 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
 
   const orderTotalAmount = orderItems.reduce((sum, item) => sum + item.lineItemTotal, 0);
 
-  const allOrders = getOrdersFromLocalStorage();
-  const newOrderNumber = `ORD${new Date().getFullYear()}${(allOrders.length + 1).toString().padStart(3, '0')}`;
+  // Generate a new order number
+  const { data: lastOrder, error: lastOrderError } = await supabase
+    .from('orders')
+    .select('order_number')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
 
-  const newOrder: Order = {
-    orderId: `ord-mock-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-    orderNumber: newOrderNumber,
-    userId: currentUser.userId,
-    customerNameSnapshot: currentUser.displayName,
-    customerWhatsappSnapshot: currentUser.whatsapp,
-    cycleId: activeCycleId,
-    items: orderItems,
-    orderTotalAmount,
-    orderStatus: "Pending Payment", // Initial status
-    paymentStatus: "Unpaid",        // Initial status
-    orderDate: new Date().toISOString(),
+  let newOrderNumber = `ORD${new Date().getFullYear()}001`;
+  if (!lastOrderError && lastOrder && lastOrder.order_number) {
+    const lastNum = parseInt(lastOrder.order_number.slice(-3));
+    newOrderNumber = `ORD${new Date().getFullYear()}${(lastNum + 1).toString().padStart(3, '0')}`;
+  }
+
+
+  const newOrderPayload = {
+    // order_id will be auto-generated by Supabase
+    order_number: newOrderNumber,
+    user_id: currentUser.userId,
+    customer_name_snapshot: currentUser.displayName,
+    customer_whatsapp_snapshot: currentUser.whatsapp,
+    cycle_id: activeCycleId,
+    order_total_amount: orderTotalAmount,
+    order_status: "Pending Payment", 
+    payment_status: "Unpaid",        
+    order_date: new Date().toISOString(),
   };
 
-  allOrders.push(newOrder);
-  saveOrdersToLocalStorage(allOrders);
+  const { data: createdOrderData, error: createOrderError } = await supabase
+    .from('orders')
+    .insert(newOrderPayload)
+    .select()
+    .single();
+  
+  if (createOrderError || !createdOrderData) {
+      console.error("Error creating order in database:", createOrderError);
+      throw new Error("Failed to create order in database.");
+  }
 
-  // Clear the cart after checkout
+  const orderItemsPayload = orderItems.map(item => ({
+      order_id: createdOrderData.order_id,
+      product_id: item.productId,
+      cycle_product_id: item.cycleProductId,
+      product_name: item.productName,
+      quantity: item.quantity,
+      price_at_purchase: item.priceAtPurchase,
+      line_item_total: item.lineItemTotal,
+  }));
+
+  const { error: createOrderItemsError } = await supabase
+    .from('order_items')
+    .insert(orderItemsPayload);
+
+  if (createOrderItemsError) {
+      console.error("Error creating order items in database:", createOrderItemsError);
+      // Potentially delete the order record if items fail to insert (rollback logic)
+      await supabase.from('orders').delete().eq('order_id', createdOrderData.order_id);
+      throw new Error("Failed to create order items in database.");
+  }
+
+
   saveCartToLocalStorage([]);
-  notifyCartUpdateListeners(); // Notify that cart is now empty
+  notifyCartUpdateListeners(); 
 
-  console.log('Order processed (mock):', newOrder);
-  return newOrder;
+  return {
+      orderId: createdOrderData.order_id,
+      orderNumber: createdOrderData.order_number,
+      userId: createdOrderData.user_id,
+      customerNameSnapshot: createdOrderData.customer_name_snapshot,
+      customerWhatsappSnapshot: createdOrderData.customer_whatsapp_snapshot,
+      cycleId: createdOrderData.cycle_id,
+      items: orderItems, // Use the already mapped items
+      orderTotalAmount: createdOrderData.order_total_amount,
+      orderStatus: createdOrderData.order_status,
+      paymentStatus: createdOrderData.payment_status,
+      orderDate: createdOrderData.order_date,
+      adminNotes: createdOrderData.admin_notes,
+      // Ensure all fields from Order type are mapped
+  } as Order;
 }
 
 
 export async function fetchAdminOrders(): Promise<Order[]> {
-  console.log('fetchAdminOrders called (using localStorage)');
-  await new Promise(resolve => setTimeout(resolve, 100)); // Simulate async
-  return getOrdersFromLocalStorage();
+  console.log('fetchAdminOrders called (from Supabase)');
+  
+  const { data: ordersData, error: ordersError } = await supabase
+    .from('orders')
+    .select('*')
+    .order('order_date', { ascending: false });
+
+  if (ordersError) {
+    console.error("Error fetching admin orders:", ordersError);
+    throw ordersError;
+  }
+
+  const orders: Order[] = await Promise.all(ordersData.map(async (orderDto: any) => {
+    const { data: itemsData, error: itemsError } = await supabase
+      .from('order_items')
+      .select('*')
+      .eq('order_id', orderDto.order_id);
+
+    if (itemsError) {
+      console.error(`Error fetching items for order ${orderDto.order_id}:`, itemsError);
+      // Continue with empty items or handle as critical error
+    }
+
+    return {
+      orderId: orderDto.order_id,
+      orderNumber: orderDto.order_number,
+      userId: orderDto.user_id,
+      customerNameSnapshot: orderDto.customer_name_snapshot,
+      customerWhatsappSnapshot: orderDto.customer_whatsapp_snapshot,
+      cycleId: orderDto.cycle_id,
+      items: itemsData?.map(itemDto => ({
+        productId: itemDto.product_id,
+        cycleProductId: itemDto.cycle_product_id,
+        productName: itemDto.product_name,
+        quantity: itemDto.quantity,
+        priceAtPurchase: itemDto.price_at_purchase,
+        lineItemTotal: itemDto.line_item_total,
+      })) || [],
+      orderTotalAmount: orderDto.order_total_amount,
+      orderStatus: orderDto.order_status,
+      paymentStatus: orderDto.payment_status,
+      orderDate: orderDto.order_date,
+      adminNotes: orderDto.admin_notes,
+    } as Order;
+  }));
+
+  return orders;
 }
 
 export async function fetchUserOrders(userId: string): Promise<Order[]> {
-  console.log(`fetchUserOrders called for userId: ${userId} (using localStorage)`);
-  await new Promise(resolve => setTimeout(resolve, 100)); // Simulate async
-  const allOrders = getOrdersFromLocalStorage();
-  return allOrders.filter(order => order.userId === userId);
+  console.log(`fetchUserOrders called for userId: ${userId} (from Supabase)`);
+  
+  const { data: ordersData, error: ordersError } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('user_id', userId)
+    .order('order_date', { ascending: false });
+
+  if (ordersError) {
+    console.error(`Error fetching orders for user ${userId}:`, ordersError);
+    throw ordersError;
+  }
+
+  const orders: Order[] = await Promise.all(ordersData.map(async (orderDto: any) => {
+    const { data: itemsData, error: itemsError } = await supabase
+      .from('order_items')
+      .select('*')
+      .eq('order_id', orderDto.order_id);
+
+    if (itemsError) {
+      console.error(`Error fetching items for order ${orderDto.order_id} (user ${userId}):`, itemsError);
+    }
+
+    return {
+      orderId: orderDto.order_id,
+      orderNumber: orderDto.order_number,
+      userId: orderDto.user_id,
+      customerNameSnapshot: orderDto.customer_name_snapshot,
+      customerWhatsappSnapshot: orderDto.customer_whatsapp_snapshot,
+      cycleId: orderDto.cycle_id,
+      items: itemsData?.map(itemDto => ({
+        productId: itemDto.product_id,
+        cycleProductId: itemDto.cycle_product_id,
+        productName: itemDto.product_name,
+        quantity: itemDto.quantity,
+        priceAtPurchase: itemDto.price_at_purchase,
+        lineItemTotal: itemDto.line_item_total,
+      })) || [],
+      orderTotalAmount: orderDto.order_total_amount,
+      orderStatus: orderDto.order_status,
+      paymentStatus: orderDto.payment_status,
+      orderDate: orderDto.order_date,
+      adminNotes: orderDto.admin_notes,
+    } as Order;
+  }));
+  
+  return orders;
 }
 
 
 export async function updateOrderStatus(
   orderId: string,
   newOrderStatus: Order['orderStatus'],
-  newPaymentStatus?: Order['paymentStatus'] // Optional, as it might not always change with order status
+  newPaymentStatus?: Order['paymentStatus'] 
 ): Promise<Order> {
-  console.log(`updateOrderStatus called for orderId: ${orderId}, newOrderStatus: ${newOrderStatus}, newPaymentStatus: ${newPaymentStatus} (using localStorage)`);
-  await new Promise(resolve => setTimeout(resolve, 50)); // Simulate async
-
-  let orders = getOrdersFromLocalStorage();
-  const orderIndex = orders.findIndex(o => o.orderId === orderId);
-
-  if (orderIndex === -1) {
-    throw new Error(`Mock Order with ID ${orderId} not found.`);
-  }
-
-  orders[orderIndex].orderStatus = newOrderStatus;
-  if (newPaymentStatus) {
-    orders[orderIndex].paymentStatus = newPaymentStatus;
-  }
+  console.log(`updateOrderStatus called for orderId: ${orderId}, newOrderStatus: ${newOrderStatus}, newPaymentStatus: ${newPaymentStatus} (to Supabase)`);
   
-  // Logic to automatically update payment status based on order status if needed
-  if (newOrderStatus === "Payment Confirmed" && orders[orderIndex].paymentStatus === "Unpaid") {
-    orders[orderIndex].paymentStatus = "Paid";
-  }
-  if (newOrderStatus === "Completed" && orders[orderIndex].paymentStatus === "Unpaid") {
-      // This scenario might be less common, but if an order is completed, it should imply payment.
-      orders[orderIndex].paymentStatus = "Paid";
-  }
-  if (newOrderStatus === "Cancelled" && orders[orderIndex].paymentStatus === "Paid") {
-      // Optional: if an order is cancelled after payment, it might go to "Refunded" or admin decides manually.
-      // For simplicity, we'll leave this manual or specific.
+  const updatePayload: { order_status: string; payment_status?: string } = {
+    order_status: newOrderStatus,
+  };
+
+  if (newPaymentStatus) {
+    updatePayload.payment_status = newPaymentStatus;
+  } else {
+    // Auto-update payment status based on order status if not explicitly provided
+    if (newOrderStatus === "Payment Confirmed" || newOrderStatus === "Completed") {
+      const { data: currentOrder } = await supabase.from('orders').select('payment_status').eq('order_id', orderId).single();
+      if (currentOrder && currentOrder.payment_status === "Unpaid") {
+        updatePayload.payment_status = "Paid";
+      }
+    }
   }
 
 
-  saveOrdersToLocalStorage(orders);
-  return orders[orderIndex];
+  const { data: updatedOrderData, error } = await supabase
+    .from('orders')
+    .update(updatePayload)
+    .eq('order_id', orderId)
+    .select()
+    .single();
+
+  if (error || !updatedOrderData) {
+    console.error(`Error updating order status for ${orderId}:`, error);
+    throw new Error(`Failed to update order status for ${orderId}.`);
+  }
+
+  // Fetch items separately to reconstruct the full Order object to return
+  const { data: itemsData, error: itemsError } = await supabase
+      .from('order_items')
+      .select('*')
+      .eq('order_id', updatedOrderData.order_id);
+  
+  if (itemsError) {
+      console.error(`Error fetching items for updated order ${updatedOrderData.order_id}:`, itemsError);
+      // Decide if this is critical, for now, proceed but log
+  }
+
+  return {
+      orderId: updatedOrderData.order_id,
+      orderNumber: updatedOrderData.order_number,
+      userId: updatedOrderData.user_id,
+      customerNameSnapshot: updatedOrderData.customer_name_snapshot,
+      customerWhatsappSnapshot: updatedOrderData.customer_whatsapp_snapshot,
+      cycleId: updatedOrderData.cycle_id,
+      items: itemsData?.map(itemDto => ({
+        productId: itemDto.product_id,
+        cycleProductId: itemDto.cycle_product_id,
+        productName: itemDto.product_name,
+        quantity: itemDto.quantity,
+        priceAtPurchase: itemDto.price_at_purchase,
+        lineItemTotal: itemDto.line_item_total,
+      })) || [],
+      orderTotalAmount: updatedOrderData.order_total_amount,
+      orderStatus: updatedOrderData.order_status,
+      paymentStatus: updatedOrderData.payment_status,
+      orderDate: updatedOrderData.order_date,
+      adminNotes: updatedOrderData.admin_notes,
+  } as Order;
 }
 
-// MISC / Other placeholder functions that might be needed
 
 export async function fetchActivePurchaseCycleTitle(): Promise<string> {
-    console.log('fetchActivePurchaseCycleTitle called (using mock data)');
-    // In a real app, this would query Supabase for the active cycle.
-    // For mock, find an active cycle or return a default.
-    const activeCycle = MOCK_PURCHASE_CYCLES.find(c => c.isActive);
-    return activeCycle ? activeCycle.name : "Temporada Atual"; // Default title
+    console.log('fetchActivePurchaseCycleTitle called (from Supabase)');
+    const { data, error } = await supabase
+        .from('purchase_cycles')
+        .select('name')
+        .eq('is_active', true)
+        .single();
+
+    if (error || !data) {
+        console.warn('No active purchase cycle found or error fetching title:', error);
+        return "Temporada Atual"; // Default title
+    }
+    return data.name;
 }
 
-// This function now needs to return DisplayableProduct[]
 export async function fetchActivePurchaseCycleProducts(): Promise<DisplayableProduct[]> {
-  console.log('fetchActivePurchaseCycleProducts called (using mock data)');
-  await new Promise(resolve => setTimeout(resolve, 200)); // Simulate async
-
-  const activeCycle = MOCK_PURCHASE_CYCLES.find(c => c.isActive);
-  if (!activeCycle) {
-      console.warn("No active purchase cycle found in mock data for fetchActivePurchaseCycleProducts.");
-      return [];
-  }
-
-  const cycleProds = MOCK_CYCLE_PRODUCTS.filter(cp => cp.cycleId === activeCycle.cycleId && cp.isAvailableInCycle);
-
-  const displayableProducts: DisplayableProduct[] = cycleProds.map(cp => {
-      const masterProduct = MOCK_MASTER_PRODUCTS.find(mp => mp.productId === cp.productId);
-      if (!masterProduct) {
-          console.warn(`Master product with ID ${cp.productId} not found for cycle product ${cp.cycleProductId}. Skipping.`);
-          return null; // Or handle as an error
-      }
-      return {
-          cycleProductId: cp.cycleProductId,
-          cycleId: cp.cycleId,
-          productId: cp.productId,
-          name: cp.productNameSnapshot,
-          description: masterProduct.description,
-          price: cp.priceInCycle,
-          isAvailable: cp.isAvailableInCycle, // This should always be true due to filter above
-          imageUrl: cp.displayImageUrl || masterProduct.imageUrls[0] || 'https://placehold.co/400x300.png?text=Produto',
-          attributes: masterProduct.attributes,
-      };
-  }).filter(dp => dp !== null) as DisplayableProduct[]; // Filter out any nulls
-
-  return displayableProducts;
+  console.log('fetchActivePurchaseCycleProducts called (from Supabase)');
+  // This is the same as fetchDisplayableProducts, as it filters by active cycle
+  return fetchDisplayableProducts();
 }
 
 
-// Placeholder for fetching product availability in the active cycle (used in ProductForm)
 export async function fetchProductAvailabilityInActiveCycle(productId: string): Promise<boolean> {
-    console.log(`fetchProductAvailabilityInActiveCycle called for productId: ${productId} (mock)`);
-    const activeCycle = MOCK_PURCHASE_CYCLES.find(c => c.isActive);
-    if (!activeCycle) return false; // No active cycle, so not available
+    console.log(`fetchProductAvailabilityInActiveCycle called for productId: ${productId} (from Supabase)`);
+    
+    const { data: activeCycle, error: cycleError } = await supabase
+        .from('purchase_cycles')
+        .select('cycle_id')
+        .eq('is_active', true)
+        .single();
 
-    const cycleProduct = MOCK_CYCLE_PRODUCTS.find(
-        cp => cp.cycleId === activeCycle.cycleId && cp.productId === productId
-    );
-    return cycleProduct ? cycleProduct.isAvailableInCycle : false; // Default to false if not explicitly in cycle
+    if (cycleError || !activeCycle) {
+        console.warn("No active cycle to check product availability or error fetching cycle:", cycleError);
+        return false;
+    }
+
+    const { data: cycleProduct, error: cpError } = await supabase
+        .from('cycle_products')
+        .select('is_available_in_cycle')
+        .eq('cycle_id', activeCycle.cycle_id)
+        .eq('product_id', productId)
+        .single();
+    
+    if (cpError && cpError.code !== 'PGRST116') { // PGRST116 = no rows found, which is fine
+        console.warn(`Error fetching cycle product for product ${productId} in active cycle:`, cpError);
+        return false;
+    }
+    
+    return cycleProduct ? cycleProduct.is_available_in_cycle : false;
 }
 
-// Placeholder for setting product availability in the active cycle (used in ProductForm)
 export async function setProductAvailabilityInActiveCycle(productId: string, isAvailable: boolean): Promise<void> {
-    console.log(`setProductAvailabilityInActiveCycle called for productId: ${productId}, isAvailable: ${isAvailable} (mock)`);
-    const activeCycle = MOCK_PURCHASE_CYCLES.find(c => c.isActive);
-    if (!activeCycle) {
-        console.warn("No active cycle to set product availability.");
-        return;
+    console.log(`setProductAvailabilityInActiveCycle called for productId: ${productId}, isAvailable: ${isAvailable} (to Supabase)`);
+    
+    const { data: activeCycle, error: cycleError } = await supabase
+        .from('purchase_cycles')
+        .select('cycle_id')
+        .eq('is_active', true)
+        .single();
+
+    if (cycleError || !activeCycle) {
+        console.error("No active cycle to set product availability or error fetching cycle:", cycleError);
+        throw new Error("No active purchase cycle found.");
     }
 
-    const cycleProductIndex = MOCK_CYCLE_PRODUCTS.findIndex(
-        cp => cp.cycleId === activeCycle.cycleId && cp.productId === productId
-    );
+    // Check if cycle_product entry exists
+    const { data: existingCycleProduct, error: fetchCpError } = await supabase
+        .from('cycle_products')
+        .select('cycle_product_id, product_name_snapshot, price_in_cycle, display_image_url') // select fields needed for potential insert
+        .eq('cycle_id', activeCycle.cycle_id)
+        .eq('product_id', productId)
+        .single();
 
-    if (cycleProductIndex > -1) {
-        MOCK_CYCLE_PRODUCTS[cycleProductIndex].isAvailableInCycle = isAvailable;
-    } else {
-        // If product is not yet in the cycle, and we want to make it available, we might need to add it.
-        // For simplicity, this mock will only update existing entries.
-        // A real implementation would handle creating a new cycle_product entry if needed.
-        const masterProduct = MOCK_MASTER_PRODUCTS.find(mp => mp.productId === productId);
-        if (masterProduct && isAvailable) { // Only add if making available and master product exists
-             MOCK_CYCLE_PRODUCTS.push({
-                cycleProductId: `cp-mock-${activeCycle.cycleId}-${productId}-${Date.now()}`,
-                cycleId: activeCycle.cycleId,
-                productId: productId,
-                productNameSnapshot: masterProduct.name, // Take snapshot from master
-                priceInCycle: 0, // Default price, admin should set this
-                isAvailableInCycle: true,
-                displayImageUrl: masterProduct.imageUrls[0] || 'https://placehold.co/400x300.png?text=Produto',
-            });
-            console.log(`Mock: Added ${masterProduct.name} to active cycle as it was made available.`);
-        } else {
-            console.warn(`Product ${productId} not found in active cycle ${activeCycle.name}. Availability not set.`);
+    if (fetchCpError && fetchCpError.code !== 'PGRST116') { // PGRST116 = no rows found
+        console.error(`Error checking existing cycle_product for product ${productId}:`, fetchCpError);
+        throw fetchCpError;
+    }
+
+    if (existingCycleProduct) {
+        // Update existing cycle_product
+        const { error: updateError } = await supabase
+            .from('cycle_products')
+            .update({ is_available_in_cycle: isAvailable })
+            .eq('cycle_product_id', existingCycleProduct.cycle_product_id);
+        if (updateError) {
+            console.error(`Error updating availability for cycle_product ${existingCycleProduct.cycle_product_id}:`, updateError);
+            throw updateError;
         }
+    } else if (isAvailable) {
+        // Create new cycle_product because it's being made available and doesn't exist
+        const { data: masterProduct, error: masterProductError } = await supabase
+            .from('products')
+            .select('name, image_urls')
+            .eq('product_id', productId)
+            .single();
+
+        if (masterProductError || !masterProduct) {
+            console.error(`Master product ${productId} not found to create new cycle_product:`, masterProductError);
+            throw new Error(`Master product ${productId} not found.`);
+        }
+        
+        const { error: insertError } = await supabase
+            .from('cycle_products')
+            .insert({
+                cycle_id: activeCycle.cycle_id,
+                product_id: productId,
+                product_name_snapshot: masterProduct.name,
+                price_in_cycle: 0, // Default price, admin should set this via ProductForm or another interface
+                is_available_in_cycle: true,
+                display_image_url: masterProduct.image_urls?.[0] || 'https://placehold.co/400x300.png?text=Produto',
+            });
+        if (insertError) {
+            console.error(`Error inserting new cycle_product for product ${productId}:`, insertError);
+            throw insertError;
+        }
+        console.log(`Created new cycle_product for ${masterProduct.name} in active cycle as it was made available.`);
     }
-    // In a real scenario, you'd save MOCK_CYCLE_PRODUCTS or update Supabase.
+    // If it doesn't exist and isAvailable is false, do nothing.
 }
 
-// Admin Dashboard Metrics
+
 interface AdminDashboardMetrics {
   activeCycle: PurchaseCycle | null;
   pendingOrdersCount: number;
@@ -1169,21 +1352,48 @@ interface AdminDashboardMetrics {
 }
 
 export async function fetchActiveCycleMetrics(): Promise<AdminDashboardMetrics> {
-  console.log('fetchActiveCycleMetrics called (using mock data)');
-  await new Promise(resolve => setTimeout(resolve, 150));
+  console.log('fetchActiveCycleMetrics called (from Supabase)');
+  
+  const { data: activeCycleData, error: cycleError } = await supabase
+    .from('purchase_cycles')
+    .select('*')
+    .eq('is_active', true)
+    .single();
 
-  const activeCycle = MOCK_PURCHASE_CYCLES.find(c => c.isActive) || null;
+  let activeCycle: PurchaseCycle | null = null;
+  if (!cycleError && activeCycleData) {
+    activeCycle = {
+        cycleId: activeCycleData.cycle_id,
+        name: activeCycleData.name,
+        startDate: activeCycleData.start_date,
+        endDate: activeCycleData.end_date,
+        isActive: activeCycleData.is_active,
+        createdAt: activeCycleData.created_at,
+    };
+  } else if (cycleError && cycleError.code !== 'PGRST116') {
+    console.warn("Error fetching active cycle for metrics:", cycleError);
+  }
+
+
   let pendingOrdersCount = 0;
   let totalSalesActiveCycle = 0;
 
   if (activeCycle) {
-    const ordersInActiveCycle = getOrdersFromLocalStorage().filter(o => o.cycleId === activeCycle.cycleId);
-    pendingOrdersCount = ordersInActiveCycle.filter(
-      o => o.orderStatus === "Pending Payment" || o.orderStatus === "Preparing" || o.orderStatus === "Payment Confirmed"
-    ).length;
-    totalSalesActiveCycle = ordersInActiveCycle
-      .filter(o => o.paymentStatus === "Paid")
-      .reduce((sum, o) => sum + o.orderTotalAmount, 0);
+    const { data: ordersData, error: ordersError } = await supabase
+      .from('orders')
+      .select('order_status, payment_status, order_total_amount')
+      .eq('cycle_id', activeCycle.cycleId);
+
+    if (ordersError) {
+      console.warn("Error fetching orders for active cycle metrics:", ordersError);
+    } else if (ordersData) {
+      pendingOrdersCount = ordersData.filter(
+        (o: any) => o.order_status === "Pending Payment" || o.order_status === "Preparing" || o.order_status === "Payment Confirmed"
+      ).length;
+      totalSalesActiveCycle = ordersData
+        .filter((o: any) => o.payment_status === "Paid")
+        .reduce((sum: number, o: any) => sum + o.order_total_amount, 0);
+    }
   }
 
   return {
@@ -1195,7 +1405,7 @@ export async function fetchActiveCycleMetrics(): Promise<AdminDashboardMetrics> 
 
 
 // SEASONS - Deprecated, use Purchase Cycles. These are kept for completeness of the old spec but should be removed.
-export interface Season {
+export interface Season { // This type is still referenced in admin/seasons/page.tsx, so keep it for now.
   id: string;
   name: string;
   startDate: string;
@@ -1209,42 +1419,33 @@ export async function updateSeason(seasonId: string, seasonData: Partial<Season>
 export async function deleteSeason(seasonId: string): Promise<void> { console.warn("deleteSeason is deprecated. Use deletePurchaseCycle."); MOCK_SEASONS = MOCK_SEASONS.filter(s => s.id !== seasonId); }
 
 
-// USER MANAGEMENT (for Admin Panel - Customers View)
 export async function fetchAdminUsers(): Promise<User[]> {
-  console.log('fetchAdminUsers called (using mock data)');
-  await new Promise(resolve => setTimeout(resolve, 100));
-  // In a real app, this would query Supabase profiles table.
-  // For mock, we'll simulate fetching from a predefined list of users.
-  const MOCK_USERS: User[] = [
-    {
-      userId: 'user-mock-customer-1',
-      email: 'john.doe@example.com',
-      displayName: 'John Doe',
-      whatsapp: '5511999990001',
-      role: 'customer',
-      createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
-      addressStreet: 'Rua das Palmeiras', addressNumber: '123', addressComplement: 'Apto 10', addressNeighborhood: 'Vila Madalena', addressCity: 'São Paulo', addressState: 'SP', addressZip: '05432-010'
-    },
-    {
-      userId: 'user-mock-customer-2',
-      email: 'jane.smith@example.com',
-      displayName: 'Jane Smith',
-      whatsapp: '5521988880002',
-      role: 'customer',
-      createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
-      addressStreet: 'Avenida Copacabana', addressNumber: '456', addressComplement: '', addressNeighborhood: 'Copacabana', addressCity: 'Rio de Janeiro', addressState: 'RJ', addressZip: '22020-001'
-    },
-     {
-      userId: 'user-mock-admin-1', // Included for completeness, though normally filtered out if fetching only 'customer'
-      email: 'admin@nugali.com',
-      displayName: 'Admin User',
-      whatsapp: '5511988880000',
-      role: 'admin',
-      createdAt: new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString(), // 100 days ago
-      addressStreet: 'Rua Principal', addressNumber: '01', addressComplement: 'Escritório', addressNeighborhood: 'Centro', addressCity: 'Blumenau', addressState: 'SC', addressZip: '89010-000'
-    },
-  ];
-  return MOCK_USERS.filter(user => user.role === 'customer'); // Return only customers
-}
+  console.log('fetchAdminUsers called (from Supabase)');
+  
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .order('created_at', { ascending: false });
+    // .eq('role', 'customer'); // If you only want customers, uncomment this
 
-    
+  if (error) {
+    console.error("Error fetching admin users (profiles):", error);
+    throw error;
+  }
+
+  return data.map(profile => ({
+      userId: profile.id,
+      email: profile.email,
+      displayName: profile.display_name,
+      whatsapp: profile.whatsapp,
+      role: profile.role,
+      createdAt: profile.created_at,
+      addressStreet: profile.address_street,
+      addressNumber: profile.address_number,
+      addressComplement: profile.address_complement,
+      addressNeighborhood: profile.address_neighborhood,
+      addressCity: profile.address_city,
+      addressState: profile.address_state,
+      addressZip: profile.address_zip,
+  })) as User[];
+}
