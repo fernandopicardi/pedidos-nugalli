@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import type { CartItem } from '@/types';
+import type { CartItem, User as AppUser } from '@/types'; // Added AppUser
 import { Button } from '@/components/ui/button';
 import { PageContainer } from '@/components/shared/page-container';
 import { CartItemDisplay } from '@/components/cart/cart-item-display';
@@ -11,44 +11,122 @@ import { supabase } from '@/lib/supabaseClient';
 import { useToast } from "@/hooks/use-toast";
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { getCurrentUser, processCheckout } from '@/lib/supabasePlaceholders'; // Added getCurrentUser and processCheckout
+import { Loader2 } from 'lucide-react';
 
 export default function CartPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null); // Added currentUser state
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
 
   useEffect(() => {
-    async function loadCartItems() {
+    async function loadUserDataAndCart() {
       setIsLoading(true);
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const user = await getCurrentUser();
+      setCurrentUser(user);
 
-      if (sessionError || !sessionData?.session) {
-        toast({ title: "Erro", description: "Usuário não autenticado.", variant: "destructive" });
+      if (!user) {
+        // Not strictly an error, user might just not be logged in.
+        // Cart will be empty, checkout will prompt login.
+        setCartItems([]);
         setIsLoading(false);
         return;
       }
 
-      const userId = sessionData.session.user.id;
-      const { data: items, error } = await supabase.from('Cart Items').select('*, cycle_products(*)').eq('user_id', userId);
-      // TODO: Map the fetched data to the CartItem type expected by the component
-      setCartItems(items);
-      setIsLoading(false);
+      try {
+        const { data: items, error } = await supabase
+          .from('Cart Items')
+          .select(`
+            cart_item_id, 
+            quantity,
+            cycle_product_id, 
+            cycle_products (
+              product_id,
+              product_name_snapshot,
+              price_in_cycle,
+              display_image_url,
+              Products ( description )
+            )
+          `)
+          .eq('user_id', user.userId);
+
+        if (error) {
+          throw error;
+        }
+
+        if (items && Array.isArray(items)) {
+          const mappedItems: CartItem[] = items.map((item: any) => ({
+            cartItemId: item.cart_item_id,
+            cycleProductId: item.cycle_product_id,
+            productId: item.cycle_products?.product_id || '',
+            name: item.cycle_products?.product_name_snapshot || 'Nome Indisponível',
+            price: item.cycle_products?.price_in_cycle || 0,
+            imageUrl: item.cycle_products?.display_image_url || 'https://placehold.co/600x400.png',
+            quantity: item.quantity,
+            description: item.cycle_products?.Products?.description || '',
+          }));
+          setCartItems(mappedItems);
+        } else {
+          setCartItems([]);
+        }
+      } catch (err) {
+        toast({ title: "Erro ao Carregar Carrinho", description: "Não foi possível buscar os itens do seu carrinho.", variant: "destructive" });
+        setCartItems([]);
+      } finally {
+        setIsLoading(false);
+      }
     }
-    loadCartItems();
-  }, []);
+    loadUserDataAndCart();
+  }, [toast]); // Dependencies: toast (stable: setCurrentUser, setIsLoading, setCartItems)
 
-  const handleQuantityChange = (cycleProductId: string, newQuantity: number) => {
-    setCartItems(prevItems =>
-      prevItems.map(item =>
-        item.cycleProductId === cycleProductId ? { ...item, quantity: newQuantity } : item
-      )
-    );
+  const handleQuantityChange = async (cartItemId: string, newQuantity: number) => {
+    // Find the item in the current cart to update its quantity locally first for responsiveness
+    const itemIndex = cartItems.findIndex(item => item.cartItemId === cartItemId);
+    if (itemIndex === -1) return;
+
+    const updatedCartItems = [...cartItems];
+    updatedCartItems[itemIndex] = { ...updatedCartItems[itemIndex], quantity: newQuantity };
+    setCartItems(updatedCartItems);
+
+    try {
+      // Call Supabase to update the quantity in the database
+      const { error } = await supabase
+        .from('Cart Items')
+        .update({ quantity: newQuantity })
+        .eq('cart_item_id', cartItemId);
+
+      if (error) {
+        toast({ title: "Erro ao atualizar quantidade", description: error.message, variant: "destructive" });
+        // Revert local change if Supabase update fails
+        setCartItems(cartItems); 
+      }
+    } catch (error: any) {
+        toast({ title: "Erro ao atualizar quantidade", description: error.message, variant: "destructive" });
+        setCartItems(cartItems); // Revert
+    }
   };
 
-  const handleRemoveItem = (cycleProductId: string) => {
-    setCartItems(prevItems => prevItems.filter(item => item.cycleProductId !== cycleProductId));
+  const handleRemoveItem = async (cartItemId: string) => {
+    const originalCartItems = [...cartItems];
+    setCartItems(prevItems => prevItems.filter(item => item.cartItemId !== cartItemId));
+    
+    try {
+        const { error } = await supabase
+            .from('Cart Items')
+            .delete()
+            .eq('cart_item_id', cartItemId);
+        if (error) {
+            toast({ title: "Erro ao remover item", description: error.message, variant: "destructive" });
+            setCartItems(originalCartItems); // Revert if error
+        }
+    } catch(error: any) {
+        toast({ title: "Erro ao remover item", description: error.message, variant: "destructive" });
+        setCartItems(originalCartItems); // Revert
+    }
   };
+
 
   const totalValue = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
@@ -58,7 +136,6 @@ export default function CartPage() {
       return;
     }
 
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     if (!currentUser) {
       toast({ title: "Login Necessário", description: "Você precisa estar logado para finalizar o pedido.", variant: "default" });
       sessionStorage.setItem('redirectAfterLogin', '/cart');
@@ -66,26 +143,27 @@ export default function CartPage() {
       return;
     }
 
+    setIsLoading(true); // Indicate processing for checkout
     try {
-      const order = await processCheckout(cartItems);
+      const order = await processCheckout(cartItems); // processCheckout internally gets user
       toast({
         title: "Pedido Realizado!",
         description: `Seu pedido #${order.orderNumber} foi confirmado.`,
       });
       setCartItems([]);
       // router.push(`/order-confirmation/${order.orderId}`); // TODO: Implement order confirmation page
-    } catch (error) {
+    } catch (error: any) {
       toast({ title: "Erro no Checkout", description: (error as Error).message || "Não foi possível finalizar seu pedido. Tente novamente.", variant: "destructive" });
+    } finally {
+      setIsLoading(false); // Stop loading indicator
     }
   };
 
-  if (isLoading) {
+  if (isLoading && !cartItems.length) { // Show full page loader only on initial load
     return (
-      <PageContainer>
-        <div className="text-center py-12">
-          <h1 className="text-3xl font-headline mb-6">Seu Carrinho</h1>
-          <p>Carregando itens...</p>
-        </div>
+      <PageContainer className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground">Carregando seu carrinho...</p>
       </PageContainer>
     );
   }
@@ -113,10 +191,11 @@ export default function CartPage() {
                 <CardContent className="p-0">
                   {cartItems.map(item => (
                     <CartItemDisplay
-                      key={item.cycleProductId}
+                      key={item.cartItemId} // Use cartItemId as key
                       item={item}
-                      onQuantityChange={handleQuantityChange}
-                      onRemove={handleRemoveItem}
+                      // Pass cartItemId to handlers, assuming CartItemDisplay will use it
+                      onQuantityChange={(cycleProdId, newQuantity) => handleQuantityChange(item.cartItemId, newQuantity)}
+                      onRemove={() => handleRemoveItem(item.cartItemId)}
                     />
                   ))}
                 </CardContent>
@@ -139,8 +218,9 @@ export default function CartPage() {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button onClick={handleCheckout} className="w-full text-lg py-6">
-                    Finalizar Pedido
+                  <Button onClick={handleCheckout} className="w-full text-lg py-6" disabled={isLoading}>
+                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    {isLoading ? 'Processando...' : 'Finalizar Pedido'}
                   </Button>
                 </CardFooter>
               </Card>
@@ -151,3 +231,4 @@ export default function CartPage() {
     </PageContainer>
   );
 }
+
