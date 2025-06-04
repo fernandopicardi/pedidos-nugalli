@@ -67,6 +67,9 @@ export async function signInWithEmail(email: string, password: string): Promise<
 
   if (error) {
     console.error('Supabase sign in error:', error);
+    if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed'))) { // More robust check for fetch errors
+      return { user: null, error: { message: 'Network error: Unable to connect to authentication service. Please check your internet connection and ensure the Supabase service is reachable and configured correctly (URL/Key).' } };
+    }
     return { user: null, error: { message: error.message } };
   }
 
@@ -163,6 +166,9 @@ export async function signUpWithEmail(email: string, password: string, displayNa
 
   if (authError) {
     console.error('Supabase sign up error:', authError);
+    if (authError.message === 'Failed to fetch' || (authError as any)?.message?.includes('fetch failed'))) {
+      return { user: null, error: { message: 'Network error: Unable to connect to authentication service for sign up. Please check your internet connection and Supabase configuration.' } };
+    }
     return { user: null, error: { message: authError.message } };
   }
   
@@ -236,20 +242,34 @@ export async function signUpWithEmail(email: string, password: string, displayNa
 
 export async function signOut(): Promise<{ error: { message: string } | null }> {
   console.log('signOut called');
-  const { error } = await supabase.auth.signOut();
+  try {
+    const { error } = await supabase.auth.signOut();
 
-  if (error) {
-    console.error('Supabase sign out error:', error);
-    return { error: { message: error.message } };
-  }
-
-  // Clear local storage or state management upon successful sign out
-   if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem('currentUser');
+    if (error) {
+      console.error('Supabase sign out error:', error);
+      if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
+        // Even if sign out fails to reach server, clear local state
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem('currentUser');
+        }
+        return { error: { message: 'Network error during sign out. Local session cleared, but server state might be unchanged.' } };
+      }
+      return { error: { message: error.message } };
     }
 
+    // Clear local storage or state management upon successful sign out
+    if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('currentUser');
+    }
+    return { error: null };
 
-  return { error: null };
+  } catch (e: any) {
+    console.error('Unexpected error during signOut:', e);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('currentUser'); // Attempt to clear local session on any error
+    }
+    return { error: { message: e.message || 'An unexpected error occurred during sign out.' } };
+  }
 }
 
 
@@ -258,7 +278,15 @@ export async function getCurrentUser(): Promise<User | null> {
     const { data: authData, error: authError } = await supabase.auth.getUser();
 
     if (authError) {
-      console.warn('Supabase authError in getCurrentUser (will return null):', authError.message);
+      // Check for specific network-related errors
+      if (authError.message === 'Failed to fetch' || (authError as any)?.message?.includes('fetch failed')) {
+        console.warn('Supabase authError in getCurrentUser (Network Error - will return null):', authError.message);
+      } else if (authError.name === 'AuthSessionMissingError') {
+        console.warn('Supabase authError in getCurrentUser (AuthSessionMissingError - will return null):', authError.message);
+      } else {
+        console.warn('Supabase authError in getCurrentUser (will return null):', authError.message);
+      }
+      
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem('currentUser');
       }
@@ -370,10 +398,13 @@ export async function updateUserDetails(
     .update(updatePayload)
     .eq('id', userId) // Corrected column name
     .select() 
-    .single();
+    .single(); 
 
   if (error) {
     console.error(`Error updating user details for user ${userId}:`, error);
+    if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
+      return { user: null, error: { message: 'Network error: Unable to save user details. Please check your internet connection and Supabase configuration.' } };
+    }
     return { user: null, error: { message: error.message } };
   }
 
@@ -428,6 +459,9 @@ export async function fetchAdminProducts(): Promise<Product[]> {
 
   if (error) {
     console.error('Error fetching admin products:', error);
+    if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
+      throw new Error('Network error: Unable to fetch admin products. Please check connection and Supabase config.');
+    }
     throw error;
   }
   return data.map(p => ({ ...p, imageUrls: p.image_urls, isSeasonal: p.is_seasonal })) as Product[];
@@ -452,6 +486,9 @@ export async function createProduct(productData: Omit<Product, 'productId' | 'cr
 
   if (error) {
     console.error('Error creating product:', error);
+    if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
+      throw new Error('Network error: Unable to create product. Please check connection and Supabase config.');
+    }
     throw error;
   }
   return { ...data, imageUrls: data.image_urls, isSeasonal: data.is_seasonal } as Product;
@@ -477,6 +514,9 @@ export async function updateProduct(productId: string, productData: Partial<Omit
 
   if (error) {
     console.error('Error updating product:', error);
+    if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
+      throw new Error('Network error: Unable to update product. Please check connection and Supabase config.');
+    }
     throw error;
   }
 
@@ -496,6 +536,9 @@ export async function deleteProduct(productId: string): Promise<void> {
 
   if (error) {
     console.error('Error deleting product:', error);
+    if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
+      throw new Error('Network error: Unable to delete product. Please check connection and Supabase config.');
+    }
     throw error;
   }
 }
@@ -514,6 +557,9 @@ export async function fetchPurchaseCycles(): Promise<PurchaseCycle[]> {
 
   if (error) {
     console.error('Error fetching purchase cycles:', error);
+    if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
+      throw new Error('Network error: Unable to fetch purchase cycles. Please check connection and Supabase config.');
+    }
     throw error;
   }
   return data.map(pc => ({...pc, cycleId: pc.cycle_id, startDate: pc.start_date, endDate: pc.end_date, isActive: pc.is_active })) as PurchaseCycle[];
@@ -530,6 +576,13 @@ export async function createPurchaseCycle(cycleData: Omit<PurchaseCycle, 'cycleI
 
       if (updateError) {
           console.error('Error deactivating previous active cycles:', updateError);
+           if (updateError.message === 'Failed to fetch' || (updateError as any)?.message?.includes('fetch failed')) {
+             // Non-critical, proceed with creation but log it.
+             console.warn('Network error while deactivating other cycles. Proceeding with new cycle creation.');
+           } else {
+             // Other errors might be more critical, but for now, we'll still try to create the new cycle.
+             console.warn('Error deactivating other cycles. Details:', updateError.message);
+           }
       }
   }
 
@@ -549,6 +602,9 @@ export async function createPurchaseCycle(cycleData: Omit<PurchaseCycle, 'cycleI
 
   if (error) {
     console.error('Error creating purchase cycle:', error);
+    if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
+      throw new Error('Network error: Unable to create purchase cycle. Please check connection and Supabase config.');
+    }
     throw error;
   }
   return {...data, cycleId: data.cycle_id, startDate: data.start_date, endDate: data.end_date, isActive: data.is_active } as PurchaseCycle;
@@ -566,6 +622,11 @@ export async function updatePurchaseCycle(cycleId: string, cycleData: Partial<Om
 
       if (updateError) {
           console.error('Error deactivating other active cycles:', updateError);
+          if (updateError.message === 'Failed to fetch' || (updateError as any)?.message?.includes('fetch failed')) {
+             console.warn('Network error while deactivating other cycles during update. Proceeding with current cycle update.');
+           } else {
+             console.warn('Error deactivating other cycles during update. Details:', updateError.message);
+           }
       }
   }
 
@@ -585,6 +646,9 @@ export async function updatePurchaseCycle(cycleId: string, cycleData: Partial<Om
 
   if (error) {
     console.error('Error updating purchase cycle:', error);
+    if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
+      throw new Error('Network error: Unable to update purchase cycle. Please check connection and Supabase config.');
+    }
     throw error;
   }
 
@@ -604,6 +668,9 @@ export async function deletePurchaseCycle(cycleId: string): Promise<void> {
 
   if (error) {
     console.error('Error deleting purchase cycle:', error);
+    if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
+      throw new Error('Network error: Unable to delete purchase cycle. Please check connection and Supabase config.');
+    }
     throw error;
   }
 }
@@ -623,6 +690,9 @@ export async function fetchCycleProducts(cycleId: string): Promise<CycleProduct[
 
   if (error) {
     console.error(`Error fetching cycle products for cycle ${cycleId}:`, error);
+    if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
+      throw new Error(`Network error: Unable to fetch cycle products for cycle ${cycleId}. Please check connection and Supabase config.`);
+    }
     throw error;
   }
   return data.map(cp => ({
@@ -658,6 +728,9 @@ export async function createCycleProduct(cycleProductData: Omit<CycleProduct, 'c
 
   if (error) {
     console.error('Error creating cycle product:', error);
+    if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
+      throw new Error('Network error: Unable to create cycle product. Please check connection and Supabase config.');
+    }
     throw error;
   }
   return {
@@ -693,6 +766,9 @@ export async function updateCycleProduct(cycleProductId: string, cycleProductDat
 
   if (error) {
     console.error('Error updating cycle product:', error);
+     if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
+      throw new Error('Network error: Unable to update cycle product. Please check connection and Supabase config.');
+    }
     throw error;
   }
 
@@ -722,6 +798,9 @@ export async function deleteCycleProduct(cycleProductId: string): Promise<void> 
 
   if (error) {
     console.error('Error deleting cycle product:', error);
+    if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
+      throw new Error('Network error: Unable to delete cycle product. Please check connection and Supabase config.');
+    }
     throw error;
   }
 }
@@ -749,11 +828,14 @@ export async function fetchDisplayableProducts(): Promise<DisplayableProduct[]> 
     .filter('cycle_id', 'in', '(select cycle_id from purchase_cycles where is_active = true)'); 
 
   if (error) {
-    console.error('Failed to fetch displayable products. Raw error object:', error);
+    console.error('Error fetching displayable products. Raw error object:', error);
     // Attempt to log common Supabase error properties if they exist
     const err = error as any; // Type assertion to access potential properties
     console.error(`Error details - Code: ${err.code}, Message: ${err.message}, Details: ${err.details}, Hint: ${err.hint}`);
     console.error('Full error stringified (if possible):', JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
+    if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
+      throw new Error('Network error: Unable to fetch displayable products. Please check connection and Supabase config.');
+    }
     throw err; // Re-throw the (potentially typed) error
   }
 
@@ -798,6 +880,9 @@ export async function fetchDisplayableProductById(cycleProductId: string): Promi
 
   if (error && error.code !== 'PGRST116') { 
     console.error(`Error fetching displayable product ${cycleProductId}:`, error);
+     if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
+      throw new Error(`Network error: Unable to fetch displayable product ${cycleProductId}. Please check connection and Supabase config.`);
+    }
     throw error;
   }
 
@@ -958,6 +1043,9 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
 
   if (cycleError || !activeCycleData) {
     console.error('Error fetching active cycle or no active cycle found:', cycleError);
+    if ((cycleError as any)?.message?.includes('fetch failed')) {
+       throw new Error("Network error: Unable to verify active purchase cycle. Cannot process checkout.");
+    }
     throw new Error("No active purchase cycle found or error fetching it. Cannot process checkout.");
   }
   const activeCycleId = activeCycleData.cycle_id;
@@ -981,6 +1069,12 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
     .order('created_at', { ascending: false })
     .limit(1)
     .single();
+
+  if (lastOrderError && lastOrderError.code !== 'PGRST116' && (lastOrderError as any)?.message?.includes('fetch failed')) { // PGRST116 means no rows found, which is fine for the first order
+      console.error("Network error fetching last order number:", lastOrderError);
+      throw new Error("Network error: Unable to generate order number. Cannot process checkout.");
+  }
+
 
   let newOrderNumber = `ORD${new Date().getFullYear()}001`;
   if (!lastOrderError && lastOrder && lastOrder.order_number) {
@@ -1010,6 +1104,9 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
   
   if (createOrderError || !createdOrderData) {
       console.error("Error creating order in database:", createOrderError);
+      if ((createOrderError as any)?.message?.includes('fetch failed')) {
+          throw new Error("Network error: Failed to save order. Please try again.");
+      }
       throw new Error("Failed to create order in database.");
   }
 
@@ -1031,7 +1128,10 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
       console.error("Error creating order items in database:", createOrderItemsError);
       // Potentially delete the order record if items fail to insert (rollback logic)
       await supabase.from('orders').delete().eq('order_id', createdOrderData.order_id);
-      throw new Error("Failed to create order items in database.");
+      if ((createOrderItemsError as any)?.message?.includes('fetch failed')) {
+          throw new Error("Network error: Failed to save order items. Order has been cancelled.");
+      }
+      throw new Error("Failed to create order items in database. Order has been cancelled.");
   }
 
 
@@ -1066,6 +1166,9 @@ export async function fetchAdminOrders(): Promise<Order[]> {
 
   if (ordersError) {
     console.error("Error fetching admin orders:", ordersError);
+    if ((ordersError as any)?.message?.includes('fetch failed')) {
+      throw new Error("Network error: Unable to fetch admin orders.");
+    }
     throw ordersError;
   }
 
@@ -1077,7 +1180,10 @@ export async function fetchAdminOrders(): Promise<Order[]> {
 
     if (itemsError) {
       console.error(`Error fetching items for order ${orderDto.order_id}:`, itemsError);
-      // Continue with empty items or handle as critical error
+      if ((itemsError as any)?.message?.includes('fetch failed')) {
+        console.warn(`Network error fetching items for order ${orderDto.order_id}. Order items may be incomplete.`);
+         // Continue with empty items or handle as critical error
+      }
     }
 
     return {
@@ -1117,6 +1223,9 @@ export async function fetchUserOrders(userId: string): Promise<Order[]> {
 
   if (ordersError) {
     console.error(`Error fetching orders for user ${userId}:`, ordersError);
+    if ((ordersError as any)?.message?.includes('fetch failed')) {
+      throw new Error(`Network error: Unable to fetch orders for user ${userId}.`);
+    }
     throw ordersError;
   }
 
@@ -1128,6 +1237,9 @@ export async function fetchUserOrders(userId: string): Promise<Order[]> {
 
     if (itemsError) {
       console.error(`Error fetching items for order ${orderDto.order_id} (user ${userId}):`, itemsError);
+       if ((itemsError as any)?.message?.includes('fetch failed')) {
+        console.warn(`Network error fetching items for order ${orderDto.order_id} (user ${userId}). Order items may be incomplete.`);
+      }
     }
 
     return {
@@ -1173,7 +1285,10 @@ export async function updateOrderStatus(
   } else {
     // Auto-update payment status based on order status if not explicitly provided
     if (newOrderStatus === "Payment Confirmed" || newOrderStatus === "Completed") {
-      const { data: currentOrder } = await supabase.from('orders').select('payment_status').eq('order_id', orderId).single();
+      const { data: currentOrder, error: fetchError } = await supabase.from('orders').select('payment_status').eq('order_id', orderId).single();
+      if (fetchError && (fetchError as any)?.message?.includes('fetch failed')) {
+          throw new Error(`Network error: Unable to fetch current order status for ${orderId}. Status update aborted.`);
+      }
       if (currentOrder && currentOrder.payment_status === "Unpaid") {
         updatePayload.payment_status = "Paid";
       }
@@ -1190,6 +1305,9 @@ export async function updateOrderStatus(
 
   if (error || !updatedOrderData) {
     console.error(`Error updating order status for ${orderId}:`, error);
+    if ((error as any)?.message?.includes('fetch failed')) {
+      throw new Error(`Network error: Failed to update order status for ${orderId}.`);
+    }
     throw new Error(`Failed to update order status for ${orderId}.`);
   }
 
@@ -1201,6 +1319,9 @@ export async function updateOrderStatus(
   
   if (itemsError) {
       console.error(`Error fetching items for updated order ${updatedOrderData.order_id}:`, itemsError);
+      if ((itemsError as any)?.message?.includes('fetch failed')) {
+        console.warn(`Network error fetching items for updated order ${updatedOrderData.order_id}. Order details might be incomplete.`);
+      }
       // Decide if this is critical, for now, proceed but log
   }
 
@@ -1238,6 +1359,9 @@ export async function fetchActivePurchaseCycleTitle(): Promise<string> {
 
     if (error || !data) {
         console.warn('No active purchase cycle found or error fetching title:', error);
+        if ((error as any)?.message?.includes('fetch failed')) {
+           console.warn('Network error fetching active cycle title. Using default.');
+        }
         return "Temporada Atual"; // Default title
     }
     return data.name;
@@ -1261,6 +1385,9 @@ export async function fetchProductAvailabilityInActiveCycle(productId: string): 
 
     if (cycleError || !activeCycle) {
         console.warn("No active cycle to check product availability or error fetching cycle:", cycleError);
+        if ((cycleError as any)?.message?.includes('fetch failed')) {
+           console.warn('Network error fetching active cycle for availability check.');
+        }
         return false;
     }
 
@@ -1273,6 +1400,9 @@ export async function fetchProductAvailabilityInActiveCycle(productId: string): 
     
     if (cpError && cpError.code !== 'PGRST116') { // PGRST116 = no rows found, which is fine
         console.warn(`Error fetching cycle product for product ${productId} in active cycle:`, cpError);
+        if ((cpError as any)?.message?.includes('fetch failed')) {
+           console.warn(`Network error fetching cycle product for ${productId} in active cycle.`);
+        }
         return false;
     }
     
@@ -1290,6 +1420,9 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
 
     if (cycleError || !activeCycle) {
         console.error("No active cycle to set product availability or error fetching cycle:", cycleError);
+        if ((cycleError as any)?.message?.includes('fetch failed')) {
+           throw new Error("Network error: Unable to find active purchase cycle to set product availability.");
+        }
         throw new Error("No active purchase cycle found.");
     }
 
@@ -1303,6 +1436,9 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
 
     if (fetchCpError && fetchCpError.code !== 'PGRST116') { // PGRST116 = no rows found
         console.error(`Error checking existing cycle_product for product ${productId}:`, fetchCpError);
+        if ((fetchCpError as any)?.message?.includes('fetch failed')) {
+           throw new Error(`Network error: Unable to check existing cycle product for ${productId}.`);
+        }
         throw fetchCpError;
     }
 
@@ -1314,6 +1450,9 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
             .eq('cycle_product_id', existingCycleProduct.cycle_product_id);
         if (updateError) {
             console.error(`Error updating availability for cycle_product ${existingCycleProduct.cycle_product_id}:`, updateError);
+            if ((updateError as any)?.message?.includes('fetch failed')) {
+               throw new Error(`Network error: Unable to update availability for cycle product ${existingCycleProduct.cycle_product_id}.`);
+            }
             throw updateError;
         }
     } else if (isAvailable) {
@@ -1326,6 +1465,9 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
 
         if (masterProductError || !masterProduct) {
             console.error(`Master product ${productId} not found to create new cycle_product:`, masterProductError);
+            if ((masterProductError as any)?.message?.includes('fetch failed')) {
+               throw new Error(`Network error: Unable to fetch master product ${productId} for new cycle product.`);
+            }
             throw new Error(`Master product ${productId} not found.`);
         }
         
@@ -1341,6 +1483,9 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
             });
         if (insertError) {
             console.error(`Error inserting new cycle_product for product ${productId}:`, insertError);
+            if ((insertError as any)?.message?.includes('fetch failed')) {
+               throw new Error(`Network error: Unable to insert new cycle product for ${productId}.`);
+            }
             throw insertError;
         }
         console.log(`Created new cycle_product for ${masterProduct.name} in active cycle as it was made available.`);
@@ -1374,8 +1519,11 @@ export async function fetchActiveCycleMetrics(): Promise<AdminDashboardMetrics> 
         isActive: activeCycleData.is_active,
         createdAt: activeCycleData.created_at,
     };
-  } else if (cycleError && cycleError.code !== 'PGRST116') {
+  } else if (cycleError && cycleError.code !== 'PGRST116') { // PGRST116 means no rows found
     console.warn("Error fetching active cycle for metrics:", cycleError);
+    if ((cycleError as any)?.message?.includes('fetch failed')) {
+      // Network error, metrics will be default/zero
+    }
   }
 
 
@@ -1390,6 +1538,9 @@ export async function fetchActiveCycleMetrics(): Promise<AdminDashboardMetrics> 
 
     if (ordersError) {
       console.warn("Error fetching orders for active cycle metrics:", ordersError);
+      if ((ordersError as any)?.message?.includes('fetch failed')) {
+        // Network error, metrics will be default/zero
+      }
     } else if (ordersData) {
       pendingOrdersCount = ordersData.filter(
         (o: any) => o.order_status === "Pending Payment" || o.order_status === "Preparing" || o.order_status === "Payment Confirmed"
@@ -1434,6 +1585,9 @@ export async function fetchAdminUsers(): Promise<User[]> {
 
   if (error) {
     console.error("Error fetching admin users (profiles):", error);
+    if ((error as any)?.message?.includes('fetch failed')) {
+      throw new Error("Network error: Unable to fetch admin users.");
+    }
     throw error;
   }
 
