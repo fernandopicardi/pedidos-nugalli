@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { signInWithEmail, getCurrentUser } from '@/lib/supabasePlaceholders'; // Importar signInWithEmail e getCurrentUser
+import type { User } from '@/types';
 
 export function LoginForm() {
   const [email, setEmail] = useState('');
@@ -31,11 +32,21 @@ export function LoginForm() {
   const handleLogin = async (event: FormEvent) => {
     event.preventDefault();
     setIsSubmitting(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      toast({ title: "Erro no Login", description: error.message, variant: "destructive" });
+
+    // Usar a função signInWithEmail de supabasePlaceholders
+    const { user, error } = await signInWithEmail(email, password);
+
+    if (error || !user) {
+      toast({
+        title: "Erro no Login",
+        description: error?.message || "Ocorreu um erro desconhecido.",
+        variant: "destructive"
+      });
     } else {
       toast({ title: "Login Bem-Sucedido", description: "Bem-vindo de volta!" });
+      // getCurrentUser() aqui pode ser redundante se signInWithEmail já atualiza o localStorage
+      // e o Header reage ao onAuthStateChange. Mas não prejudica.
+      await getCurrentUser(); 
       redirectToStoredPathOrFallback('/');
     }
     setIsSubmitting(false);
