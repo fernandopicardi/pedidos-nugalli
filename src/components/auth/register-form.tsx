@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { signUpWithEmail, signInWithEmail, updateUserDetails } from '@/lib/supabasePlaceholders';
 
 export function RegisterForm() {
   const [email, setEmail] = useState('');
@@ -44,33 +45,33 @@ export function RegisterForm() {
     }
     setIsSubmitting(true);
 
-    const { error: signUpError } = await signUpWithEmail(email, password);
+    const { user: signedUpUser, error: signUpError } = await signUpWithEmail(email, password);
 
-    if (signUpError) {
-      toast({ title: "Erro no Cadastro", description: signUpError.message, variant: "destructive" });
+    if (signUpError || !signedUpUser) {
+      toast({ title: "Erro no Cadastro", description: signUpError?.message || "Não foi possível criar o usuário.", variant: "destructive" });
       setIsSubmitting(false);
       return;
     }
     
-    // If sign up is successful, Supabase often auto-signs in the user or sends a confirmation email.
-    // For this flow, we'll assume auto-signin or proceed to sign in manually to get a session.
-    // Then update details.
+    // Após o cadastro bem-sucedido, o Supabase geralmente loga o usuário ou envia um e-mail de confirmação.
+    // Para este fluxo, vamos assumir que o login automático ocorre ou prosseguir para o login manual para obter uma sessão.
 
-    // Attempt to sign in the new user to get a session, then update details
+    // Tenta logar o novo usuário para obter uma sessão e então atualizar os detalhes.
     const { user: loggedInUser, error: signInError } = await signInWithEmail(email, password);
 
     if (signInError || !loggedInUser) {
       toast({ title: "Erro no Login Pós-Cadastro", description: signInError?.message || "Não foi possível logar após o cadastro.", variant: "destructive" });
-      // Potentially redirect to login or show message to check email if confirmation is required
+      // Potencialmente redirecionar para login ou mostrar mensagem para verificar e-mail se a confirmação for necessária
       router.push('/auth'); 
       setIsSubmitting(false);
       return;
     }
 
-    // Now update the user details with the address.
-    // Use loggedInUser.userId which should be the same as signedUpUser.userId if the flow is correct.
+    // Agora atualiza os detalhes do usuário com o endereço.
+    // Usa loggedInUser.userId que deve ser o mesmo que signedUpUser.userId.
     const { error: updateError } = await updateUserDetails(loggedInUser.userId, {
-      // displayName will be set by default in signUpWithEmail or can be added as a field
+      displayName: loggedInUser.displayName, // Usar o displayName que pode ter vindo do profile
+      whatsapp: loggedInUser.whatsapp, // Usar o whatsapp que pode ter vindo do profile
       addressStreet,
       addressNumber,
       addressComplement,
@@ -81,8 +82,8 @@ export function RegisterForm() {
     });
 
     if (updateError) {
-      // User is created and logged in, but address update failed.
-      // Inform the user, they can update it later from their account page.
+      // Usuário criado e logado, mas a atualização do endereço falhou.
+      // Informar o usuário, ele pode atualizar depois na página da conta.
       toast({ title: "Cadastro Concluído com Alerta", description: `Sua conta foi criada, mas houve um erro ao salvar o endereço: ${updateError.message}. Você pode atualizá-lo em "Minha Conta".`, variant: "default" });
     } else {
       toast({ title: "Cadastro Bem-Sucedido", description: "Sua conta foi criada e o endereço salvo." });
@@ -252,3 +253,5 @@ export function RegisterForm() {
     </div>
   );
 }
+
+    
