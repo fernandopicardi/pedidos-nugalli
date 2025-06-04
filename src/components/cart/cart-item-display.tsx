@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MinusCircle, PlusCircle, Trash2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import { updateCartItemQuantity, removeFromCart } from '@/lib/supabasePlaceholders';
+import { supabase } from '@/lib/supabaseClient';
 
 interface CartItemDisplayProps {
   item: CartItem;
@@ -20,15 +20,24 @@ export function CartItemDisplay({ item, onQuantityChange, onRemove }: CartItemDi
 
   const handleIncreaseQuantity = async () => {
     const newQuantity = item.quantity + 1;
-    await updateCartItemQuantity(item.cycleProductId, newQuantity);
-    onQuantityChange(item.cycleProductId, newQuantity);
+    const { error } = await supabase.from('Cart Items').update({ quantity: newQuantity }).eq('cart_item_id', item.cartItemId);
+    if (error) {
+      toast({ title: "Erro ao atualizar quantidade", description: error.message, variant: "destructive" });
+    } else {
+      onQuantityChange(item.cycleProductId, newQuantity);
+    }
   };
 
   const handleDecreaseQuantity = async () => {
     if (item.quantity > 1) {
       const newQuantity = item.quantity - 1;
       await updateCartItemQuantity(item.cycleProductId, newQuantity);
-      onQuantityChange(item.cycleProductId, newQuantity);
+      const { error } = await supabase.from('Cart Items').update({ quantity: newQuantity }).eq('cart_item_id', item.cartItemId);
+      if (error) {
+        toast({ title: "Erro ao atualizar quantidade", description: error.message, variant: "destructive" });
+      } else {
+        onQuantityChange(item.cycleProductId, newQuantity);
+      }
     }
   };
   
@@ -39,17 +48,21 @@ export function CartItemDisplay({ item, onQuantityChange, onRemove }: CartItemDi
     } else if (newQuantity > 99) { // Optional: set a max quantity limit
         newQuantity = 99;
     }
-    await updateCartItemQuantity(item.cycleProductId, newQuantity);
-    onQuantityChange(item.cycleProductId, newQuantity);
+    const { error } = await supabase.from('Cart Items').update({ quantity: newQuantity }).eq('cart_item_id', item.cartItemId);
+    if (error) {
+      toast({ title: "Erro ao atualizar quantidade", description: error.message, variant: "destructive" });
+    } else {
+      onQuantityChange(item.cycleProductId, newQuantity);
+    }
   };
 
   const handleRemoveItem = async () => {
-    await removeFromCart(item.cycleProductId);
-    onRemove(item.cycleProductId);
-    toast({
-      title: `${item.name} removido do carrinho.`,
-      variant: "default",
-    });
+    const { error } = await supabase.from('Cart Items').delete().eq('cart_item_id', item.cartItemId);
+    if (error) {
+      toast({ title: "Erro ao remover item", description: error.message, variant: "destructive" });
+    } else {
+      onRemove(item.cycleProductId);
+    }
   };
 
   return (

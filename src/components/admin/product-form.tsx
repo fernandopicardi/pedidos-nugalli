@@ -11,7 +11,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { Loader2 } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient';
 import { fetchProductAvailabilityInActiveCycle, setProductAvailabilityInActiveCycle } from '@/lib/supabasePlaceholders';
 
 interface ProductFormProps {
@@ -128,10 +127,11 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
 
     try {
       const { data, error } = await supabase.storage
-        .from(bucketName)
+ .from('product-images') // Use the actual bucket name string
         .upload(filePath, selectedImage);
 
       if (error) {
+ // If the error is specifically about an existing file, try to overwrite (optional, depending on desired behavior)
         throw error;
       }
 
@@ -139,7 +139,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       setImageUrls(prevUrls => [...prevUrls.filter(url => url.trim() !== ''), publicUrlData.publicUrl]);
       toast({ title: "Upload Sucesso", description: "Imagem carregada com sucesso." });
     } catch (error: any) {
-      toast({ title: "Erro no Upload", description: `Não foi possível carregar a imagem: ${error.message}`, variant: "destructive" });
+ toast({ title: "Erro no Upload", description: `Não foi possível carregar a imagem: ${(error as Error).message}`, variant: "destructive" });
     } finally {
       setIsUploadingImage(false);
       setSelectedImage(null); 
@@ -155,10 +155,44 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
     if (!name.trim()) {
       toast({ title: "Erro de Validação", description: "Nome do produto é obrigatório.", variant: "destructive" });
       setIsSubmitting(false);
-      return;
+      return; // Exit if name is missing
     }
-    
-    const finalImageUrls = imageUrls.map(url => url.trim()).filter(url => url !== '');
+
+ let finalImageUrls = imageUrls.map(url => url.trim()).filter(url => url !== '');
+
+    // If a new image is selected, upload it first
+    if (selectedImage) {
+      setIsUploadingImage(true);
+      const filePath = `products/${Date.now()}_${selectedImage.name}`;
+      const bucketName = 'product-images';
+
+      try {
+ const { data, error: uploadError } = await supabase.storage
+ .from('product-images') // Use the actual bucket name string
+          .upload(filePath, selectedImage);
+
+ if (uploadError) {
+ throw uploadError;
+        }
+
+ const { data: publicUrlData, error: publicUrlError } = supabase.storage.from('product-images').getPublicUrl(data.path);
+        if (publicUrlError) {
+          throw publicUrlError;
+        }
+        finalImageUrls = [...finalImageUrls, publicUrlData.publicUrl]; // Add the new URL
+        toast({ title: "Upload Sucesso", description: "Imagem carregada com sucesso." });
+      } catch (error: any) {
+        console.error("Error uploading image:", error);
+ toast({ title: "Erro no Upload", description: `Não foi possível carregar a imagem: ${(error as Error).message}`, variant: "destructive" });
+      } finally {
+        setIsUploadingImage(false);
+        setSelectedImage(null);
+        const fileInput = document.getElementById('imageUpload') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
+      }
+    }
+
+    // If no images are available after processing, add a placeholder
     if (finalImageUrls.length === 0) {
         finalImageUrls.push('https://placehold.co/400x300.png?text=Produto');
     }
@@ -175,7 +209,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       const productMasterData = { 
         name, 
         description,
-        imageUrls: finalImageUrls,
+ imageUrls: finalImageUrls, // Use the potentially updated imageUrls after upload
         attributes: newAttributes,
         isSeasonal: masterIsSeasonalFlag, 
       };
@@ -196,9 +230,9 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       toast({ title: "Disponibilidade Atualizada", description: `Disponibilidade de "${name}" no ciclo ativo foi salva.` });
       
       onClose();
-    } catch (error) {
+ } catch (error: any) {
       console.error("Failed to save product or availability:", error);
-      toast({ title: "Erro ao Salvar", description: "Não foi possível salvar o produto ou sua disponibilidade.", variant: "destructive" });
+ toast({ title: "Erro ao Salvar", description: `Não foi possível salvar o produto ou sua disponibilidade: ${(error as Error).message}`, variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -234,8 +268,10 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         <Button type="button" variant="outline" size="sm" onClick={addImageUrlField} className="mt-2">
           Adicionar URL de Imagem
         </Button>
-        {imageUrls.filter(url => url.trim())[0] && <img src={imageUrls.filter(url => url.trim())[0]} data-ai-hint="chocolate product" alt="Preview" className="mt-2 h-24 w-24 object-cover rounded-md border"/>}
-      </div>
+        {imageUrls.filter(url => url.trim())[0] && (
+ <img src={imageUrls.filter(url => url.trim())[0]} data-ai-hint="chocolate product" alt="Preview" className="mt-2 h-24 w-24 object-cover rounded-md border"/>
+ )}
+ } {/* Consider replacing <img> with Next.js <Image> for optimization */}
 
       <div>
          <Label className="font-semibold">Carregar Imagem do Computador</Label>

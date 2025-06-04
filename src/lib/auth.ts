@@ -13,7 +13,7 @@ export const signUp = async (email: string, password: string) => {
   }
 
   // After successful sign-up, create a profile entry
-  const { data: profileData, error: profileError } = await supabase
+  const { error: profileError } = await supabase
     .from('profiles')
     .insert([{ id: data.user?.id, email: data.user?.email, role: 'customer' }]);
 
@@ -35,7 +35,7 @@ export const signOut = async () => {
   return { error };
 };
 
-export const getUser = async (): Promise<{ user: User | null; error: any }> => {
+export const getUser = async (): Promise<{ user: User | null; error: Error | null }> => {
   const { data: { user }, error } = await supabase.auth.getUser();
 
   if (error) {
@@ -64,7 +64,20 @@ export const getUser = async (): Promise<{ user: User | null; error: any }> => {
   }
 
   // Combine user and profile data, mapping snake_case to camelCase
-  return { user: { ...user, ...profile, userId: profile.id, displayName: profile.display_name, addressStreet: profile.address_street, addressNumber: profile.address_number, addressComplement: profile.address_complement, addressNeighborhood: profile.address_neighborhood, addressCity: profile.address_city, addressState: profile.address_state, addressZip: profile.address_zip }, error: null };
+  return {
+    user: {
+      ...user,
+      ...profile,
+      userId: profile.id,
+      displayName: profile.display_name,
+      addressStreet: profile.address_street,
+      addressNumber: profile.address_number,
+      addressComplement: profile.address_complement,
+      addressNeighborhood: profile.address_neighborhood,
+      addressCity: profile.address_city,
+      addressState: profile.address_state,
+      addressZip: profile.address_zip
+    }, error: null };
 };
 
 export const updateUserDetails = async (

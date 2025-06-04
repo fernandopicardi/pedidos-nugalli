@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { signUpWithEmail, updateUserDetails, signInWithEmail } from '@/lib/supabasePlaceholders';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -45,7 +44,7 @@ export function RegisterForm() {
     }
     setIsSubmitting(true);
 
-    const { error: signUpError, user: signedUpUser } = await signUpWithEmail(email, password);
+    const { error: signUpError } = await signUpWithEmail(email, password);
 
     if (signUpError) {
       toast({ title: "Erro no Cadastro", description: signUpError.message, variant: "destructive" });

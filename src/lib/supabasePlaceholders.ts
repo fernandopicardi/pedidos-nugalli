@@ -1,54 +1,28 @@
 
 import type { Product, PurchaseCycle, Order, CartItem, CycleProduct, User, DisplayableProduct, OrderItem } from '@/types';
 import { supabase } from './supabaseClient';
+import { v4 as uuidv4 } from 'uuid';
 
 // --- Cart Update Listener System ---
-// This remains largely the same as it interacts with localStorage, not Supabase.
-// We'll only update the function names to align with a potential future
-// migration to a server-side cart or to clarify they are client-side mocks.
-
 let cartUpdateListeners: Array<(cartItems: CartItem[]) => void> = [];
 
-function notifyCartUpdateListeners() {
-  const currentCart = getCartFromLocalStorage();
+async function notifyCartUpdateListeners() {
+  const currentCart = await fetchCartItems(); // Fetch from Supabase
   for (const listener of cartUpdateListeners) {
     try {
       listener(currentCart);
-    } catch (e) {
+    }catch (e) {
       console.error("Error in cart update listener:", e);
     }
-  }
 }
 
-function getCartFromLocalStorage(): CartItem[] {
-  if (typeof localStorage !== 'undefined') {
-    const storedCart = localStorage.getItem('mockCart'); // Keep mock name for clarity
-    if (storedCart) {
-      try {
-        return JSON.parse(storedCart);
-      } catch (e) {
-        console.error("Error parsing cart from localStorage:", e);
-        return []; // Return empty cart on error
-      }
-    }
-  }
-  return [];
-}
-
-export function subscribeToCartUpdates(callback: (cartItems: CartItem[]) => void): () => void {
+export function subscribeToCartUpdates(callback: (cartItems: CartItem[]) => void): () => void { // Corrected position of the closing curly brace
   cartUpdateListeners.push(callback);
   // Immediately call callback with current cart state for initial load
-  callback(getCartFromLocalStorage());
+  fetchCartItems().then(callback); // Fetch from Supabase on subscribe
   return () => {
     cartUpdateListeners = cartUpdateListeners.filter(cb => cb !== callback);
   };
-}
-
-// Persist cart to localStorage for a more realistic mock
-function saveCartToLocalStorage(cart: CartItem[]) {
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem('mockCart', JSON.stringify(cart)); // Keep mock name for clarity
-  }
 }
 
 // AUTH - Supabase Integration
@@ -68,7 +42,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
   if (error) {
     console.error('Supabase sign in error:', error);
     if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed'))) { // More robust check for fetch errors
-      return { user: null, error: { message: 'Network error: Unable to connect to authentication service. Please check your internet connection and ensure the Supabase service is reachable and configured correctly (URL/Key).' } };
+ return { user: null, error: { message: 'Network error: Unable to connect to authentication service. Please check your internet connection and ensure the Supabase service is reachable and configured correctly (URL/Key).' } as { message: string } }; // Added type assertion
     }
     return { user: null, error: { message: error.message } };
   }
@@ -102,7 +76,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
                addressState: '',
                addressZip: '',
            };
-           return { user: basicUser, error: { message: `Sign in successful, but failed to load profile: ${profileError.message}` } };
+ return { user: basicUser, error: { message: `Sign in successful, but failed to load profile: ${profileError.message}` } as { message: string } }; // Added type assertion
        }
         if (!userProfile) {
             console.warn('User profile not found after sign in for user ID:', data.user.id);
@@ -116,7 +90,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
                addressStreet: '', addressNumber: '', addressComplement: '', addressNeighborhood: '', addressCity: '', addressState: '', addressZip: '',
            };
            return { user: basicUser, error: { message: `Sign in successful, but profile was not found.` } };
-        }
+ }
 
 
        // Combine auth data with profile data, or just use profile data if comprehensive
@@ -167,12 +141,12 @@ export async function signUpWithEmail(email: string, password: string, displayNa
   if (authError) {
     console.error('Supabase sign up error:', authError);
     if (authError.message === 'Failed to fetch' || (authError as any)?.message?.includes('fetch failed'))) {
-      return { user: null, error: { message: 'Network error: Unable to connect to authentication service for sign up. Please check your internet connection and Supabase configuration.' } };
+ return { user: null, error: { message: 'Network error: Unable to connect to authentication service for sign up. Please check your internet connection and Supabase configuration.' } as { message: string } }; // Added type assertion
     }
     return { user: null, error: { message: authError.message } };
   }
-  
-  if (!authData.user) {
+
+ if (!authData.user) {
     return { user: null, error: {message: "User not created in auth table."}};
   }
 
@@ -201,7 +175,7 @@ export async function signUpWithEmail(email: string, password: string, displayNa
             addressStreet: '', addressNumber: '', addressComplement: '', addressNeighborhood: '', addressCity: '', addressState: '', addressZip: '',
         };
         return { user: basicUser, error: { message: `Signup successful, but failed to fetch profile immediately: ${profileError?.message || "Profile not found"}` } };
-    }
+ }
 
     const fullUser: User = {
         userId: profileData.id, // Corrected
@@ -235,7 +209,7 @@ export async function signUpWithEmail(email: string, password: string, displayNa
          createdAt: authData.user.created_at,
          addressStreet: '', addressNumber: '', addressComplement: '', addressNeighborhood: '', addressCity: '', addressState: '', addressZip: '',
      };
-     return { user: basicUser, error: { message: `Signup successful, but an exception occurred while fetching profile.` } };
+ return { user: basicUser, error: { message: `Signup successful, but an exception occurred while fetching profile.` } as { message: string } }; // Added type assertion
   }
 }
 
@@ -252,7 +226,7 @@ export async function signOut(): Promise<{ error: { message: string } | null }> 
         if (typeof localStorage !== 'undefined') {
           localStorage.removeItem('currentUser');
         }
-        return { error: { message: 'Network error during sign out. Local session cleared, but server state might be unchanged.' } };
+ return { error: { message: 'Network error during sign out. Local session cleared, but server state might be unchanged.' } as { message: string } }; // Added type assertion
       }
       return { error: { message: error.message } };
     }
@@ -268,7 +242,7 @@ export async function signOut(): Promise<{ error: { message: string } | null }> 
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('currentUser'); // Attempt to clear local session on any error
     }
-    return { error: { message: e.message || 'An unexpected error occurred during sign out.' } };
+ return { error: { message: e.message || 'An unexpected error occurred during sign out.' } as { message: string } }; // Added type assertion
   }
 }
 
@@ -403,7 +377,7 @@ export async function updateUserDetails(
   if (error) {
     console.error(`Error updating user details for user ${userId}:`, error);
     if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
-      return { user: null, error: { message: 'Network error: Unable to save user details. Please check your internet connection and Supabase configuration.' } };
+ return { user: null, error: { message: 'Network error: Unable to save user details. Please check your internet connection and Supabase configuration.' } as { message: string } }; // Added type assertion
     }
     return { user: null, error: { message: error.message } };
   }
@@ -435,7 +409,7 @@ export async function updateUserDetails(
         }
    }
 
-
+ 
   return { user: updatedUser, error: null };
 }
 
@@ -460,7 +434,7 @@ export async function fetchAdminProducts(): Promise<Product[]> {
   if (error) {
     console.error('Error fetching admin products:', error);
     if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
-      throw new Error('Network error: Unable to fetch admin products. Please check connection and Supabase config.');
+ throw new Error('Network error: Unable to fetch admin products. Please check connection and Supabase config.');
     }
     throw error;
   }
@@ -487,7 +461,7 @@ export async function createProduct(productData: Omit<Product, 'productId' | 'cr
   if (error) {
     console.error('Error creating product:', error);
     if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
-      throw new Error('Network error: Unable to create product. Please check connection and Supabase config.');
+ throw new Error('Network error: Unable to create product. Please check connection and Supabase config.');
     }
     throw error;
   }
@@ -515,7 +489,7 @@ export async function updateProduct(productId: string, productData: Partial<Omit
   if (error) {
     console.error('Error updating product:', error);
     if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
-      throw new Error('Network error: Unable to update product. Please check connection and Supabase config.');
+ throw new Error('Network error: Unable to update product. Please check connection and Supabase config.');
     }
     throw error;
   }
@@ -537,7 +511,7 @@ export async function deleteProduct(productId: string): Promise<void> {
   if (error) {
     console.error('Error deleting product:', error);
     if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
-      throw new Error('Network error: Unable to delete product. Please check connection and Supabase config.');
+ throw new Error('Network error: Unable to delete product. Please check connection and Supabase config.');
     }
     throw error;
   }
@@ -558,7 +532,7 @@ export async function fetchPurchaseCycles(): Promise<PurchaseCycle[]> {
   if (error) {
     console.error('Error fetching purchase cycles:', error);
     if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
-      throw new Error('Network error: Unable to fetch purchase cycles. Please check connection and Supabase config.');
+ throw new Error('Network error: Unable to fetch purchase cycles. Please check connection and Supabase config.');
     }
     throw error;
   }
@@ -603,7 +577,7 @@ export async function createPurchaseCycle(cycleData: Omit<PurchaseCycle, 'cycleI
   if (error) {
     console.error('Error creating purchase cycle:', error);
     if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
-      throw new Error('Network error: Unable to create purchase cycle. Please check connection and Supabase config.');
+ throw new Error('Network error: Unable to create purchase cycle. Please check connection and Supabase config.');
     }
     throw error;
   }
@@ -647,7 +621,7 @@ export async function updatePurchaseCycle(cycleId: string, cycleData: Partial<Om
   if (error) {
     console.error('Error updating purchase cycle:', error);
     if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
-      throw new Error('Network error: Unable to update purchase cycle. Please check connection and Supabase config.');
+ throw new Error('Network error: Unable to update purchase cycle. Please check connection and Supabase config.');
     }
     throw error;
   }
@@ -669,7 +643,7 @@ export async function deletePurchaseCycle(cycleId: string): Promise<void> {
   if (error) {
     console.error('Error deleting purchase cycle:', error);
     if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
-      throw new Error('Network error: Unable to delete purchase cycle. Please check connection and Supabase config.');
+ throw new Error('Network error: Unable to delete purchase cycle. Please check connection and Supabase config.');
     }
     throw error;
   }
@@ -691,7 +665,7 @@ export async function fetchCycleProducts(cycleId: string): Promise<CycleProduct[
   if (error) {
     console.error(`Error fetching cycle products for cycle ${cycleId}:`, error);
     if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
-      throw new Error(`Network error: Unable to fetch cycle products for cycle ${cycleId}. Please check connection and Supabase config.`);
+ throw new Error(`Network error: Unable to fetch cycle products for cycle ${cycleId}. Please check connection and Supabase config.`);
     }
     throw error;
   }
@@ -729,7 +703,7 @@ export async function createCycleProduct(cycleProductData: Omit<CycleProduct, 'c
   if (error) {
     console.error('Error creating cycle product:', error);
     if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
-      throw new Error('Network error: Unable to create cycle product. Please check connection and Supabase config.');
+ throw new Error('Network error: Unable to create cycle product. Please check connection and Supabase config.');
     }
     throw error;
   }
@@ -767,7 +741,7 @@ export async function updateCycleProduct(cycleProductId: string, cycleProductDat
   if (error) {
     console.error('Error updating cycle product:', error);
      if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
-      throw new Error('Network error: Unable to update cycle product. Please check connection and Supabase config.');
+ throw new Error('Network error: Unable to update cycle product. Please check connection and Supabase config.');
     }
     throw error;
   }
@@ -799,7 +773,7 @@ export async function deleteCycleProduct(cycleProductId: string): Promise<void> 
   if (error) {
     console.error('Error deleting cycle product:', error);
     if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
-      throw new Error('Network error: Unable to delete cycle product. Please check connection and Supabase config.');
+ throw new Error('Network error: Unable to delete cycle product. Please check connection and Supabase config.');
     }
     throw error;
   }
@@ -834,7 +808,7 @@ export async function fetchDisplayableProducts(): Promise<DisplayableProduct[]> 
     console.error(`Error details - Code: ${err.code}, Message: ${err.message}, Details: ${err.details}, Hint: ${err.hint}`);
     console.error('Full error stringified (if possible):', JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
     if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
-      throw new Error('Network error: Unable to fetch displayable products. Please check connection and Supabase config.');
+ throw new Error('Network error: Unable to fetch displayable products. Please check connection and Supabase config.');
     }
     throw err; // Re-throw the (potentially typed) error
   }
@@ -881,7 +855,7 @@ export async function fetchDisplayableProductById(cycleProductId: string): Promi
   if (error && error.code !== 'PGRST116') { 
     console.error(`Error fetching displayable product ${cycleProductId}:`, error);
      if (error.message === 'Failed to fetch' || (error as any)?.message?.includes('fetch failed')) {
-      throw new Error(`Network error: Unable to fetch displayable product ${cycleProductId}. Please check connection and Supabase config.`);
+ throw new Error(`Network error: Unable to fetch displayable product ${cycleProductId}. Please check connection and Supabase config.`);
     }
     throw error;
   }
@@ -907,124 +881,184 @@ export async function fetchDisplayableProductById(cycleProductId: string): Promi
 
 
 // CART - Local Storage based (client-side only)
-export async function fetchCartItems(): Promise<CartItem[]> {
-  console.log('fetchCartItems called (using localStorage)');
-  await new Promise(resolve => setTimeout(resolve, 100)); // Simulate async
-  return getCartFromLocalStorage();
+export async function fetchCartItems(): Promise<CartItem[]> { // Corrected function declaration
+  console.log('fetchCartItems called (from Supabase)');
+  const user = await getCurrentUser();
+  if (!user) {
+    console.warn('fetchCartItems called without a logged-in user.');
+    return []; // Return empty cart if no user is logged in
+  }
+
+  const { data, error } = await supabase
+    .from('cart_items')
+    .select(`
+      cart_item_id,
+      cycle_product_id,
+      quantity,
+      cycle_products (
+        product_id,
+        product_name_snapshot,
+        price_in_cycle,
+        display_image_url
+      )
+    `)
+    .eq('user_id', user.userId);
+
+  if (error) {
+    console.error('Error fetching cart items:', error);
+    if((error as any)?.message?.includes('fetch failed')) {
+ throw new Error('Network error: Unable to fetch cart items. Please check connection and Supabase config.');
+    }
+    throw error;
+  }
+
+  const cartItems: CartItem[] = data.map((item: any) => ({
+    cartItemId: item.cart_item_id,
+    cycleProductId: item.cycle_product_id,
+    // Data from cycle_products relationship
+    productId: item.cycle_products?.product_id || '', // Add product_id
+    name: item.cycle_products?.product_name_snapshot || 'Unknown Product',
+    price: item.cycle_products?.price_in_cycle || 0,
+    imageUrl: item.cycle_products?.display_image_url || 'https://placehold.co/400x300.png?text=Produto',
+    // Data from cart_items
+    quantity: item.quantity,
+    // Description is not in cart_items or the cycle_products select, so it's omitted or defaulted
+    description: '', // Description is not fetched here
+  }));
+
+  return cartItems;
 }
 
-export async function addToCart(product: DisplayableProduct, quantity: number): Promise<void> {
-  console.log('addToCart called for product:', product.cycleProductId, 'quantity:', quantity, '(using localStorage)');
-  await new Promise(resolve => setTimeout(resolve, 50)); // Simulate async
-  let cart = getCartFromLocalStorage();
-  const existingItemIndex = cart.findIndex(item => item.cycleProductId === product.cycleProductId);
+export async function addToCart(cycleProductId: string, quantity: number): Promise<void> {
+  console.log('addToCart called for cycleProductId:', cycleProductId, 'quantity:', quantity, '(to Supabase)');
+  const user = await getCurrentUser();
+  if (!user) {
+    console.error('addToCart called without a logged-in user.');
+    throw new Error("User not logged in. Cannot add to cart.");
+  }
 
-  if (existingItemIndex > -1) {
-    cart[existingItemIndex].quantity += quantity;
+  // Check if the item already exists for this user and cycle_product
+  const { data: existingItems, error: fetchError } = await supabase
+    .from('cart_items')
+    .select('cart_item_id, quantity')
+    .eq('user_id', user.userId)
+    .eq('cycle_product_id', cycleProductId);
+
+  if (fetchError) {
+    console.error('Error checking existing cart item:', fetchError);
+    if((fetchError as any)?.message?.includes('fetch failed')) {
+ throw new Error('Network error: Unable to check cart status. Please try again.');
+    }
+    throw fetchError;
+  }
+
+  if (existingItems && existingItems.length > 0) {
+    // Item exists, update quantity
+    const existingItem = existingItems[0];
+    const newQuantity = existingItem.quantity + quantity;
+    const { error: updateError } = await supabase
+      .from('cart_items')
+      .update({ quantity: newQuantity })
+      .eq('cart_item_id', existingItem.cart_item_id);
+
+    if (updateError) {
+      console.error('Error updating cart item quantity:', updateError);
+       if((updateError as any)?.message?.includes('fetch failed')) {
+ throw new Error('Network error: Unable to update cart item quantity. Please try again.');
+       }
+      throw updateError;
+    }
+    console.log(`Updated quantity for cart item ${existingItem.cart_item_id}`);
   } else {
-    cart.push({
-      cycleProductId: product.cycleProductId,
-      productId: product.productId,
-      name: product.name,
-      price: product.price,
-      quantity: quantity,
-      imageUrl: product.imageUrl,
-      description: product.description, 
-    });
+    // Item does not exist, insert new row
+    const { error: insertError } = await supabase
+      .from('cart_items')
+      .insert({
+        user_id: user.userId,
+        cycle_product_id: cycleProductId,
+        quantity: quantity,
+      });
+
+    if (insertError) {
+      console.error('Error adding new item to cart:', insertError);
+      if((insertError as any)?.message?.includes('fetch failed')) {
+ throw new Error('Network error: Unable to add item to cart. Please try again.');
+      }
+      throw insertError;
+    }
+    console.log(`Added new item ${cycleProductId} to cart for user ${user.userId}`);
   }
-  saveCartToLocalStorage(cart);
-  notifyCartUpdateListeners();
+
+  // After modifying the cart in DB, notify listeners to refetch
+  await notifyCartUpdateListeners();
 }
 
-export async function updateCartItemQuantity(cycleProductId: string, newQuantity: number): Promise<void> {
-  console.log('updateCartItemQuantity called for product:', cycleProductId, 'newQuantity:', newQuantity, '(using localStorage)');
-  await new Promise(resolve => setTimeout(resolve, 50)); // Simulate async
-  let cart = getCartFromLocalStorage();
-  const itemIndex = cart.findIndex(item => item.cycleProductId === cycleProductId);
-  if (itemIndex > -1) {
-    if (newQuantity > 0) {
-      cart[itemIndex].quantity = newQuantity;
+export async function updateCartItemQuantity(cartItemId: string, newQuantity: number): Promise<void> {
+  console.log('updateCartItemQuantity called for cartItemId:', cartItemId, 'newQuantity:', newQuantity, '(to Supabase)');
+  // Ensure user is logged in, although RLS should handle this
+  const user = await getCurrentUser();
+  if (!user) {
+      console.warn('updateCartItemQuantity called without a logged-in user.');
+      throw new Error("User not logged in. Cannot update cart.");
+  }
+
+  if (newQuantity <= 0) {
+    // If quantity is 0 or less, remove the item instead
+    await removeFromCart(cartItemId);
+    return;
+  }
+
+  const { error } = await supabase
+    .from('cart_items')
+    .update({ quantity: newQuantity })
+    .eq('cart_item_id', cartItemId)
+    .eq('user_id', user.userId); // Ensure the user owns the cart item
+
+  if (error) {
+    console.error(`Error updating cart item quantity for ${cartItemId}:`, error);
+    if((error as any)?.message?.includes('fetch failed')) {
+ throw new Error('Network error: Unable to update cart item quantity. Please try again.');
     } else {
-      cart.splice(itemIndex, 1); // Remove if quantity is 0 or less
+      throw error;
     }
-    saveCartToLocalStorage(cart);
-    notifyCartUpdateListeners();
   }
+  console.log(`Updated quantity for cart item ${cartItemId}`);
+
+  await notifyCartUpdateListeners(); // Notify listeners after DB update
 }
 
-export async function removeFromCart(cycleProductId: string): Promise<void> {
-  console.log('removeFromCart called for product:', cycleProductId, '(using localStorage)');
-  await new Promise(resolve => setTimeout(resolve, 50)); // Simulate async
-  let cart = getCartFromLocalStorage();
-  cart = cart.filter(item => item.cycleProductId !== cycleProductId);
-  saveCartToLocalStorage(cart);
-  notifyCartUpdateListeners();
-}
+export async function removeFromCart(cartItemId: string): Promise<void> {
+  console.log('removeFromCart called for cartItemId:', cartItemId, '(to Supabase)');
+  // Ensure user is logged in, although RLS should handle this
+  const user = await getCurrentUser();
+  if (!user) {
+      console.warn('removeFromCart called without a logged-in user.');
+      throw new Error("User not logged in. Cannot remove from cart.");
+  }
 
+  const { error } = await supabase
+    .from('cart_items')
+    .delete()
+    .eq('cart_item_id', cartItemId)
+    .eq('user_id', user.userId); // Ensure the user owns the cart item
 
-// ORDERS - Mocked (using localStorage for simplicity, would be Supabase in real app)
-
-let MOCK_ORDERS: Order[] = []; // Start with empty, rely on localStorage if exists
-
-if (typeof localStorage !== 'undefined') {
-    const storedMockOrders = localStorage.getItem('mockOrders');
-    if (storedMockOrders) {
-        try {
-            MOCK_ORDERS = JSON.parse(storedMockOrders);
-        } catch (e) {
-            console.error("Failed to parse mockOrders from localStorage", e);
-            MOCK_ORDERS = []; // Initialize to empty if parsing fails
-        }
+  if (error) {
+    console.error(`Error removing cart item ${cartItemId}:`, error);
+    if((error as any)?.message?.includes('fetch failed')) {
+ throw new Error('Network error: Unable to remove item from cart. Please try again.');
     } else {
-        // If nothing in localStorage, initialize with default mock orders and save
-        MOCK_ORDERS = [
-            {
-                orderId: 'ord-mock-1',
-                orderNumber: "ORD2024001",
-                userId: 'user-mock-customer-1', // John Doe
-                customerNameSnapshot: "John Doe",
-                customerWhatsappSnapshot: "5511999990001",
-                cycleId: 'cycle-easter-2025',
-                items: [
-                    { productId: 'prod-classic-dark-70', cycleProductId: 'cp-easter-classic-dark-70', productName: 'Barra Clássica Amargo 70% Cacau', quantity: 2, priceAtPurchase: 25.00, lineItemTotal: 50.00 },
-                    { productId: 'prod-truffle-box-assorted', cycleProductId: 'cp-easter-truffle-box-assorted', productName: 'Caixa de Trufas Sortidas (12 un)', quantity: 1, priceAtPurchase: 45.00, lineItemTotal: 45.00 }
-                ],
-                orderTotalAmount: 95.00,
-                orderStatus: "Completed",
-                paymentStatus: "Paid",
-                orderDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(), 
-            },
-            // ... other mock orders if needed ...
-        ];
-        localStorage.setItem('mockOrders', JSON.stringify(MOCK_ORDERS));
-    }
-}
-
-
-function getOrdersFromLocalStorage(): Order[] {
-  if (typeof localStorage !== 'undefined') {
-    const storedOrders = localStorage.getItem('mockOrders');
-    if (storedOrders) {
-        try {
-            return JSON.parse(storedOrders);
-        } catch (e) {
-            console.error("Failed to parse orders from localStorage", e);
-            return MOCK_ORDERS; // Fallback to in-memory MOCK_ORDERS if parsing fails
-        }
+      throw error;
     }
   }
-  return MOCK_ORDERS; // Fallback if localStorage is not available or no orders stored
+  console.log(`Removed cart item ${cartItemId}`);
+
+  await notifyCartUpdateListeners(); // Notify listeners after DB update
 }
 
-function saveOrdersToLocalStorage(orders: Order[]) {
-  MOCK_ORDERS = orders; // Update in-memory mock as well
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem('mockOrders', JSON.stringify(orders));
-  }
-}
+
 
 export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
-  console.log('processCheckout called with items:', cartItems, '(using localStorage)');
+  console.log('processCheckout called with items:', cartItems, '(to Supabase)');
   const currentUser = await getCurrentUser();
   if (!currentUser) {
     throw new Error("User not logged in. Cannot process checkout.");
@@ -1043,8 +1077,8 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
 
   if (cycleError || !activeCycleData) {
     console.error('Error fetching active cycle or no active cycle found:', cycleError);
-    if ((cycleError as any)?.message?.includes('fetch failed')) {
-       throw new Error("Network error: Unable to verify active purchase cycle. Cannot process checkout.");
+    if((cycleError as any)?.message?.includes('fetch failed')) {
+ throw new Error("Network error: Unable to verify active purchase cycle. Cannot process checkout.");
     }
     throw new Error("No active purchase cycle found or error fetching it. Cannot process checkout.");
   }
@@ -1070,8 +1104,8 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
     .limit(1)
     .single();
 
-  if (lastOrderError && lastOrderError.code !== 'PGRST116' && (lastOrderError as any)?.message?.includes('fetch failed')) { // PGRST116 means no rows found, which is fine for the first order
-      console.error("Network error fetching last order number:", lastOrderError);
+  if (lastOrderError && lastOrderError.code !== 'PGRST116' && (lastOrderError as any)?.message?.includes('fetch failed')) { // PGRST116 means no rows found, which is fine for the first order, but log network errors
+ console.error("Network error fetching last order number:", lastOrderError);
       throw new Error("Network error: Unable to generate order number. Cannot process checkout.");
   }
 
@@ -1104,8 +1138,8 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
   
   if (createOrderError || !createdOrderData) {
       console.error("Error creating order in database:", createOrderError);
-      if ((createOrderError as any)?.message?.includes('fetch failed')) {
-          throw new Error("Network error: Failed to save order. Please try again.");
+      if((createOrderError as any)?.message?.includes('fetch failed')) {
+ throw new Error("Network error: Failed to save order. Please try again.");
       }
       throw new Error("Failed to create order in database.");
   }
@@ -1128,14 +1162,25 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
       console.error("Error creating order items in database:", createOrderItemsError);
       // Potentially delete the order record if items fail to insert (rollback logic)
       await supabase.from('orders').delete().eq('order_id', createdOrderData.order_id);
-      if ((createOrderItemsError as any)?.message?.includes('fetch failed')) {
+ if((createOrderItemsError as any)?.message?.includes('fetch failed')) {
           throw new Error("Network error: Failed to save order items. Order has been cancelled.");
       }
       throw new Error("Failed to create order items in database. Order has been cancelled.");
   }
 
+  // Clear the user's cart in the database after a successful order
+  const { error: clearCartError } = await supabase
+    .from('cart_items')
+    .delete()
+    .eq('user_id', currentUser.userId);
 
-  saveCartToLocalStorage([]);
+  if (clearCartError) {
+      console.error("Error clearing user cart after checkout:", clearCartError);
+      // Decide how critical this is. Order is created, so maybe just log the error and don't block?
+ if ((clearCartError as any)?.message?.includes('fetch failed')) {
+         console.warn("Network error: Failed to clear user cart after checkout. Manual cleanup may be needed.");
+      }
+  }
   notifyCartUpdateListeners(); 
 
   return {
@@ -1166,8 +1211,8 @@ export async function fetchAdminOrders(): Promise<Order[]> {
 
   if (ordersError) {
     console.error("Error fetching admin orders:", ordersError);
-    if ((ordersError as any)?.message?.includes('fetch failed')) {
-      throw new Error("Network error: Unable to fetch admin orders.");
+    if((ordersError as any)?.message?.includes('fetch failed')) {
+ throw new Error("Network error: Unable to fetch admin orders.");
     }
     throw ordersError;
   }
@@ -1180,7 +1225,7 @@ export async function fetchAdminOrders(): Promise<Order[]> {
 
     if (itemsError) {
       console.error(`Error fetching items for order ${orderDto.order_id}:`, itemsError);
-      if ((itemsError as any)?.message?.includes('fetch failed')) {
+ if((itemsError as any)?.message?.includes('fetch failed')) {
         console.warn(`Network error fetching items for order ${orderDto.order_id}. Order items may be incomplete.`);
          // Continue with empty items or handle as critical error
       }
@@ -1223,8 +1268,8 @@ export async function fetchUserOrders(userId: string): Promise<Order[]> {
 
   if (ordersError) {
     console.error(`Error fetching orders for user ${userId}:`, ordersError);
-    if ((ordersError as any)?.message?.includes('fetch failed')) {
-      throw new Error(`Network error: Unable to fetch orders for user ${userId}.`);
+    if((ordersError as any)?.message?.includes('fetch failed')) {
+ throw new Error(`Network error: Unable to fetch orders for user ${userId}.`);
     }
     throw ordersError;
   }
@@ -1237,7 +1282,7 @@ export async function fetchUserOrders(userId: string): Promise<Order[]> {
 
     if (itemsError) {
       console.error(`Error fetching items for order ${orderDto.order_id} (user ${userId}):`, itemsError);
-       if ((itemsError as any)?.message?.includes('fetch failed')) {
+ if((itemsError as any)?.message?.includes('fetch failed')) {
         console.warn(`Network error fetching items for order ${orderDto.order_id} (user ${userId}). Order items may be incomplete.`);
       }
     }
@@ -1285,7 +1330,7 @@ export async function updateOrderStatus(
   } else {
     // Auto-update payment status based on order status if not explicitly provided
     if (newOrderStatus === "Payment Confirmed" || newOrderStatus === "Completed") {
-      const { data: currentOrder, error: fetchError } = await supabase.from('orders').select('payment_status').eq('order_id', orderId).single();
+      const { data: currentOrder, error: fetchError } = await supabase.from('orders').select('payment_status').eq('order_id', orderId).single(); // Use single() since we expect one order
       if (fetchError && (fetchError as any)?.message?.includes('fetch failed')) {
           throw new Error(`Network error: Unable to fetch current order status for ${orderId}. Status update aborted.`);
       }
@@ -1305,8 +1350,8 @@ export async function updateOrderStatus(
 
   if (error || !updatedOrderData) {
     console.error(`Error updating order status for ${orderId}:`, error);
-    if ((error as any)?.message?.includes('fetch failed')) {
-      throw new Error(`Network error: Failed to update order status for ${orderId}.`);
+    if((error as any)?.message?.includes('fetch failed')) {
+ throw new Error(`Network error: Failed to update order status for ${orderId}.`);
     }
     throw new Error(`Failed to update order status for ${orderId}.`);
   }
@@ -1318,8 +1363,8 @@ export async function updateOrderStatus(
       .eq('order_id', updatedOrderData.order_id);
   
   if (itemsError) {
-      console.error(`Error fetching items for updated order ${updatedOrderData.order_id}:`, itemsError);
-      if ((itemsError as any)?.message?.includes('fetch failed')) {
+      console.error(`Error fetching items for updated order ${updatedOrderData.order_id}:`, itemsError); // Log this error, but the main order update is successful
+ if ((itemsError as any)?.message?.includes('fetch failed')) {
         console.warn(`Network error fetching items for updated order ${updatedOrderData.order_id}. Order details might be incomplete.`);
       }
       // Decide if this is critical, for now, proceed but log
@@ -1359,8 +1404,8 @@ export async function fetchActivePurchaseCycleTitle(): Promise<string> {
 
     if (error || !data) {
         console.warn('No active purchase cycle found or error fetching title:', error);
-        if ((error as any)?.message?.includes('fetch failed')) {
-           console.warn('Network error fetching active cycle title. Using default.');
+        if((error as any)?.message?.includes('fetch failed')) {
+ console.warn('Network error fetching active cycle title. Using default.');
         }
         return "Temporada Atual"; // Default title
     }
@@ -1384,9 +1429,9 @@ export async function fetchProductAvailabilityInActiveCycle(productId: string): 
         .single();
 
     if (cycleError || !activeCycle) {
-        console.warn("No active cycle to check product availability or error fetching cycle:", cycleError);
+        console.warn("No active cycle to check product availability or error fetching cycle:", cycleError); // Log a warning, don't throw if it's just no active cycle
         if ((cycleError as any)?.message?.includes('fetch failed')) {
-           console.warn('Network error fetching active cycle for availability check.');
+ console.warn('Network error fetching active cycle for availability check.');
         }
         return false;
     }
@@ -1399,8 +1444,8 @@ export async function fetchProductAvailabilityInActiveCycle(productId: string): 
         .single();
     
     if (cpError && cpError.code !== 'PGRST116') { // PGRST116 = no rows found, which is fine
-        console.warn(`Error fetching cycle product for product ${productId} in active cycle:`, cpError);
-        if ((cpError as any)?.message?.includes('fetch failed')) {
+        console.warn(`Error fetching cycle product for product ${productId} in active cycle:`, cpError); // Log warning for other errors
+ if ((cpError as any)?.message?.includes('fetch failed')) {
            console.warn(`Network error fetching cycle product for ${productId} in active cycle.`);
         }
         return false;
@@ -1419,9 +1464,9 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
         .single();
 
     if (cycleError || !activeCycle) {
-        console.error("No active cycle to set product availability or error fetching cycle:", cycleError);
+        console.error("No active cycle to set product availability or error fetching cycle:", cycleError); // This is a critical error for setting availability
         if ((cycleError as any)?.message?.includes('fetch failed')) {
-           throw new Error("Network error: Unable to find active purchase cycle to set product availability.");
+ throw new Error("Network error: Unable to find active purchase cycle to set product availability.");
         }
         throw new Error("No active purchase cycle found.");
     }
@@ -1435,8 +1480,8 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
         .single();
 
     if (fetchCpError && fetchCpError.code !== 'PGRST116') { // PGRST116 = no rows found
-        console.error(`Error checking existing cycle_product for product ${productId}:`, fetchCpError);
-        if ((fetchCpError as any)?.message?.includes('fetch failed')) {
+        console.error(`Error checking existing cycle_product for product ${productId}:`, fetchCpError); // Log and throw for other errors during fetch
+ if ((fetchCpError as any)?.message?.includes('fetch failed')) {
            throw new Error(`Network error: Unable to check existing cycle product for ${productId}.`);
         }
         throw fetchCpError;
@@ -1449,8 +1494,8 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
             .update({ is_available_in_cycle: isAvailable })
             .eq('cycle_product_id', existingCycleProduct.cycle_product_id);
         if (updateError) {
-            console.error(`Error updating availability for cycle_product ${existingCycleProduct.cycle_product_id}:`, updateError);
-            if ((updateError as any)?.message?.includes('fetch failed')) {
+            console.error(`Error updating availability for cycle_product ${existingCycleProduct.cycle_product_id}:`, updateError); // Log and throw for update errors
+ if ((updateError as any)?.message?.includes('fetch failed')) {
                throw new Error(`Network error: Unable to update availability for cycle product ${existingCycleProduct.cycle_product_id}.`);
             }
             throw updateError;
@@ -1464,8 +1509,8 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
             .single();
 
         if (masterProductError || !masterProduct) {
-            console.error(`Master product ${productId} not found to create new cycle_product:`, masterProductError);
-            if ((masterProductError as any)?.message?.includes('fetch failed')) {
+            console.error(`Master product ${productId} not found to create new cycle_product:`, masterProductError); // Critical if master product is missing for a new entry
+ if ((masterProductError as any)?.message?.includes('fetch failed')) {
                throw new Error(`Network error: Unable to fetch master product ${productId} for new cycle product.`);
             }
             throw new Error(`Master product ${productId} not found.`);
@@ -1482,8 +1527,8 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
                 display_image_url: masterProduct.image_urls?.[0] || 'https://placehold.co/400x300.png?text=Produto',
             });
         if (insertError) {
-            console.error(`Error inserting new cycle_product for product ${productId}:`, insertError);
-            if ((insertError as any)?.message?.includes('fetch failed')) {
+            console.error(`Error inserting new cycle_product for product ${productId}:`, insertError); // Log and throw for insert errors
+ if ((insertError as any)?.message?.includes('fetch failed')) {
                throw new Error(`Network error: Unable to insert new cycle product for ${productId}.`);
             }
             throw insertError;
@@ -1520,9 +1565,9 @@ export async function fetchActiveCycleMetrics(): Promise<AdminDashboardMetrics> 
         createdAt: activeCycleData.created_at,
     };
   } else if (cycleError && cycleError.code !== 'PGRST116') { // PGRST116 means no rows found
-    console.warn("Error fetching active cycle for metrics:", cycleError);
+    console.warn("Error fetching active cycle for metrics:", cycleError); // Log warning for other errors
     if ((cycleError as any)?.message?.includes('fetch failed')) {
-      // Network error, metrics will be default/zero
+ // Network error, metrics will be default/zero
     }
   }
 
@@ -1537,8 +1582,8 @@ export async function fetchActiveCycleMetrics(): Promise<AdminDashboardMetrics> 
       .eq('cycle_id', activeCycle.cycleId);
 
     if (ordersError) {
-      console.warn("Error fetching orders for active cycle metrics:", ordersError);
-      if ((ordersError as any)?.message?.includes('fetch failed')) {
+      console.warn("Error fetching orders for active cycle metrics:", ordersError); // Log warning, don't block metrics if order fetch fails
+ if ((ordersError as any)?.message?.includes('fetch failed')) {
         // Network error, metrics will be default/zero
       }
     } else if (ordersData) {
@@ -1559,20 +1604,6 @@ export async function fetchActiveCycleMetrics(): Promise<AdminDashboardMetrics> 
 }
 
 
-// SEASONS - Deprecated, use Purchase Cycles. These are kept for completeness of the old spec but should be removed.
-export interface Season { // This type is still referenced in admin/seasons/page.tsx, so keep it for now.
-  id: string;
-  name: string;
-  startDate: string;
-  endDate: string;
-  isActive: boolean;
-}
-let MOCK_SEASONS: Season[] = [];
-export async function fetchSeasons(): Promise<Season[]> { console.warn("fetchSeasons is deprecated. Use fetchPurchaseCycles."); return MOCK_SEASONS; }
-export async function createSeason(seasonData: Omit<Season, 'id'>): Promise<Season> { console.warn("createSeason is deprecated. Use createPurchaseCycle."); const newSeason = { ...seasonData, id: `s-${Date.now()}` }; MOCK_SEASONS.push(newSeason); return newSeason; }
-export async function updateSeason(seasonId: string, seasonData: Partial<Season>): Promise<Season> { console.warn("updateSeason is deprecated. Use updatePurchaseCycle."); const index = MOCK_SEASONS.findIndex(s => s.id === seasonId); if (index === -1) throw new Error("Season not found"); MOCK_SEASONS[index] = { ...MOCK_SEASONS[index], ...seasonData }; return MOCK_SEASONS[index]; }
-export async function deleteSeason(seasonId: string): Promise<void> { console.warn("deleteSeason is deprecated. Use deletePurchaseCycle."); MOCK_SEASONS = MOCK_SEASONS.filter(s => s.id !== seasonId); }
-
 
 export async function fetchAdminUsers(): Promise<User[]> {
   console.log('fetchAdminUsers called (from Supabase)');
@@ -1586,7 +1617,7 @@ export async function fetchAdminUsers(): Promise<User[]> {
   if (error) {
     console.error("Error fetching admin users (profiles):", error);
     if ((error as any)?.message?.includes('fetch failed')) {
-      throw new Error("Network error: Unable to fetch admin users.");
+ throw new Error("Network error: Unable to fetch admin users.");
     }
     throw error;
   }

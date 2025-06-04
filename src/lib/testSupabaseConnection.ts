@@ -34,9 +34,9 @@ async function testSupabaseConnection() {
         console.error('\n--- Supabase Connection Test FAILED ---');
         console.error('Error details:');
         console.error('  Message:', error.message);
-        if (error.details) console.error('  Details:', error.details);
-        if ((error as any).hint) console.error('  Hint:', (error as any).hint);
-        if ((error as any).code) console.error('  Code:', (error as any).code);
+        if (error.details) console.error('  Details:', (error.details as any)); // Keep any here if details can be non-string
+        if ((error as { hint?: string }).hint) console.error('  Hint:', (error as { hint: string }).hint);
+        if ((error as { code?: string }).code) console.error('  Code:', (error as { code: string }).code);
         
         if (error.message.includes('fetch failed') || error.message.includes('NetworkError')) {
             console.error('\nPossible Solutions for "Failed to fetch":');

@@ -11,7 +11,6 @@ import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { PageContainer } from '@/components/shared/page-container';
 import { ProductForm } from '@/components/admin/product-form';
 import { PlusCircle, Edit3, Trash2 } from 'lucide-react';
-import { fetchAdminProducts, createProduct, updateProduct, deleteProduct } from '@/lib/supabasePlaceholders';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -24,6 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { supabase } from '@/lib/supabaseClient'; // Import supabase client
 
 export default function ProductManagementPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -35,10 +35,13 @@ export default function ProductManagementPage() {
   async function loadMasterProducts() {
     setIsLoading(true);
     try {
-      const productsData = await fetchAdminProducts();
-      setProducts(productsData);
+      const { data, error } = await supabase
+        .from('Products')
+        .select('*');
+      if (error) throw error;
+      setProducts(data as Product[]);
     } catch (error) {
-      console.error("Failed to fetch master products:", error);
+      // Consider more specific error messages if needed
       toast({ title: "Erro ao Carregar Produtos", description: "Não foi possível carregar a lista de produtos mestre.", variant: "destructive" });
     } finally {
       setIsLoading(false);
@@ -47,24 +50,34 @@ export default function ProductManagementPage() {
 
   useEffect(() => {
     loadMasterProducts();
-  }, []);
+  }, [toast]); // Add toast as a dependency
 
   const handleFormSubmit = async (data: Omit<Product, 'productId' | 'createdAt' | 'updatedAt'> | (Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>> & { productId: string })): Promise<Product> => {
     // This function is now a bit more complex because ProductForm also calls setProductAvailabilityInActiveCycle
     // The main purpose here is to handle the master product CRUD.
     try {
       if ('productId' in data && data.productId) { // Editing
-        const updated = await updateProduct(data.productId, data as Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>>);
+        const { productId, ...updateData } = data;
+        const { data: updatedProduct, error } = await supabase
+          .from('Products')
+          .update(updateData)
+          .eq('product_id', productId)
+          .select()
+          .single(); // Assuming update returns the single updated record
+        if (error) throw error;
         await loadMasterProducts(); 
-        return updated;
+        return updatedProduct as Product;
       } else { // Creating
-        const created = await createProduct(data as Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>);
+        const { data: newProduct, error } = await supabase
+          .from('Products')
+          .insert([data as Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>])
+          .select()
+          .single(); // Assuming insert returns the single created record
+        if (error) throw error;
         await loadMasterProducts(); 
-        return created;
+        return newProduct as Product;
       }
     } catch (error) {
-      // Toast is handled within ProductForm or supabasePlaceholders for more specific messages
-      console.error("Error in handleFormSubmit (ProductManagementPage):", error);
       throw error; // Re-throw to be caught by ProductForm's handler
     }
   };
@@ -81,7 +94,10 @@ export default function ProductManagementPage() {
 
   const handleDeleteProduct = async (productId: string, productName: string) => {
     try {
-      await deleteProduct(productId);
+      const { error } = await supabase
+        .from('Products')
+        .delete()
+ .eq('product_id', productId);
       toast({ title: "Produto Deletado", description: `O produto "${productName}" foi deletado da lista mestre.` });
       await loadMasterProducts(); 
     } catch (error) {
@@ -141,14 +157,13 @@ export default function ProductManagementPage() {
             <TableBody>
               {products.map((product) => (
                 <TableRow key={product.productId}>
-                  <TableCell>
+ <TableCell>
                     <Image
                       src={product.imageUrls[0] || 'https://placehold.co/80x80.png?text=Img'}
                       alt={product.name}
                       width={60}
                       height={60}
                       className="rounded-md object-cover"
-                      data-ai-hint="chocolate thumbnail"
                     />
                   </TableCell>
                   <TableCell className="font-medium">{product.name}</TableCell>
@@ -166,7 +181,7 @@ export default function ProductManagementPage() {
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Confirmar Deleção</AlertDialogTitle>
+ <AlertDialogTitle>Confirmar Deleção</AlertDialogTitle>
                           <AlertDialogDescription>
                             Tem certeza que deseja deletar o produto mestre "{product.name}"? Esta ação não pode ser desfeita e removerá o produto de futuros ciclos.
                           </AlertDialogDescription>

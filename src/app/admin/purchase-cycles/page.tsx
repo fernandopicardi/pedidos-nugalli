@@ -9,8 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { PageContainer } from '@/components/shared/page-container';
 import { PurchaseCycleForm } from '@/components/admin/purchase-cycle-form';
-import { PlusCircle, Edit3, Trash2 } from 'lucide-react';
-import { fetchPurchaseCycles, createPurchaseCycle, updatePurchaseCycle, deletePurchaseCycle } from '@/lib/supabasePlaceholders';
+import { PlusCircle, Edit3, Trash2, Loader2,  } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -24,6 +23,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function PurchaseCycleManagementPage() {
   const [purchaseCycles, setPurchaseCycles] = useState<PurchaseCycle[]>([]);
@@ -35,8 +35,12 @@ export default function PurchaseCycleManagementPage() {
   async function loadPurchaseCycles() {
     setIsLoading(true);
     try {
-      const data = await fetchPurchaseCycles();
-      setPurchaseCycles(data);
+      const { data, error } = await supabase
+        .from('Purchase Cycles')
+        .select('*')
+        .order('start_date', { ascending: false });
+      if (error) throw error;
+      setPurchaseCycles(data.map(cycle => ({ ...cycle, cycleId: cycle.id, isActive: cycle.is_active, startDate: cycle.start_date, endDate: cycle.end_date })));
     } catch (error) {
       console.error("Failed to fetch purchase cycles:", error);
       toast({ title: "Erro ao Carregar", description: "Não foi possível carregar os ciclos de compra.", variant: "destructive" });
@@ -46,15 +50,26 @@ export default function PurchaseCycleManagementPage() {
   }
 
   useEffect(() => {
-    loadPurchaseCycles();
+    loadPurchaseCycles(); // loadCustomers is now in dependency array
   }, []);
 
   const handleFormSubmit = async (data: Omit<PurchaseCycle, 'cycleId' | 'createdAt'> | (Partial<Omit<PurchaseCycle, 'cycleId' | 'createdAt'>> & { cycleId: string })) => {
     try {
+      let error = null;
       if ('cycleId' in data && data.cycleId) { // Editing existing cycle
-        await updatePurchaseCycle(data.cycleId, data);
+        const { error: updateError } = await supabase
+          .from('Purchase Cycles')
+          .update({
+            name: data.name,
+            start_date: data.startDate,
+            end_date: data.endDate,
+            is_active: data.isActive,
+          })
+          .eq('id', data.cycleId);
+        error = updateError;
       } else { // Creating new cycle
-        await createPurchaseCycle(data as Omit<PurchaseCycle, 'cycleId' | 'createdAt'>);
+        const { error: insertError } = await supabase.from('Purchase Cycles').insert({ name: data.name, start_date: data.startDate, end_date: data.endDate, is_active: data.isActive });
+ error = insertError;
       }
       setIsModalOpen(false);
       setEditingCycle(null);
@@ -77,8 +92,11 @@ export default function PurchaseCycleManagementPage() {
 
   const handleDeleteCycle = async (cycleId: string, cycleName: string) => {
     try {
-      await deletePurchaseCycle(cycleId);
-      toast({ title: "Ciclo de Compra Deletado", description: `O ciclo "${cycleName}" foi deletado.` });
+      const { error } = await supabase
+        .from('Purchase Cycles')
+        .delete()
+        .eq('id', cycleId);
+ toast({ title: "Ciclo de Compra Deletado", description: `O ciclo "${cycleName}" foi deletado.` });
       await loadPurchaseCycles(); // Refresh list
     } catch (error) {
       console.error("Failed to delete purchase cycle:", error);
@@ -117,13 +135,16 @@ export default function PurchaseCycleManagementPage() {
       </Dialog>
 
       {isLoading ? (
-        <p>Carregando ciclos de compra...</p>
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mr-3" />
+          <p>Carregando ciclos de compra...</p>
+        </div>
       ) : purchaseCycles.length === 0 ? (
-         <div className="text-center py-12 bg-card rounded-lg shadow">
+        <div className="text-center py-12 bg-card rounded-lg shadow">
             <p className="text-xl text-muted-foreground mb-4">Nenhum ciclo de compra cadastrado.</p>
-            <Button onClick={openNewCycleModal}>
-              <PlusCircle size={18} className="mr-2" />
-              Criar Primeiro Ciclo
+          <Button onClick={openNewCycleModal}>
+            <PlusCircle size={18} className="mr-2" />
+ Criar Primeiro Ciclo
             </Button>
           </div>
       ) : (
@@ -153,7 +174,7 @@ export default function PurchaseCycleManagementPage() {
                     <Button variant="outline" size="sm" onClick={() => openEditCycleModal(cycle)}>
                       <Edit3 size={16} className="mr-1" /> Editar
                     </Button>
-                     <AlertDialog>
+                    <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="sm">
                           <Trash2 size={16} className="mr-1" /> Deletar

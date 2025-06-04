@@ -9,8 +9,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Input } from '@/components/ui/input';
 import { ShoppingCart, PlusCircle, MinusCircle } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import { addToCart } from '@/lib/supabasePlaceholders';
-import { Badge } from '@/components/ui/badge';
+import { addToCart } from '@/lib/supabasePlaceholders'; // Assuming addToCart is used
 
 interface ProductCardProps {
   product: DisplayableProduct;

@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import type { DisplayableProduct } from '@/types';
 import { ProductGrid } from '@/components/products/product-grid';
 import { PageContainer } from '@/components/shared/page-container';
-import { fetchActivePurchaseCycleProducts, fetchActivePurchaseCycleTitle } from '@/lib/supabasePlaceholders';
+import { createClient } from '@/lib/supabaseClient';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -39,37 +39,91 @@ export default function HomePage() {
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
-      try {
-        const [productsData, titleData] = await Promise.all([
-          fetchActivePurchaseCycleProducts(),
-          fetchActivePurchaseCycleTitle()
-        ]);
-        setAllProducts(productsData);
-        setFilteredProducts(productsData);
-        setCycleTitle(titleData);
+      const supabase = createClient();
+ try {
+        // Fetch active purchase cycle
+        const { data: cycleData, error: cycleError } = await supabase
+          .from('Purchase Cycles')
+          .select('cycle_id, name')
+          .eq('is_active', true)
+          .single();
+
+        if (cycleError) {
+          console.error("Error fetching active purchase cycle:", cycleError);
+ setCycleTitle("Erro ao carregar ciclo de compra");
+ setAllProducts([]);
+          return;
+        }
+
+        if (!cycleData) {
+          setCycleTitle("Nenhum Ciclo de Compra Ativo");
+          setAllProducts([]);
+          setFilteredProducts([]);
+          setIsLoading(false);
+          return;
+        }
+
+        setCycleTitle(cycleData.name);
+
+        // Fetch products for the active cycle
+        const { data: productsData, error: productsError } = await supabase
+          .from('Cycle Products')
+          .select('*, Products (product_id, name, description, image_urls, attributes, isSeasonal)') // Join with Products table
+          .eq('cycle_id', cycleData.cycle_id)
+          .eq('is_available_in_cycle', true);
+
+        if (productsError) {
+          console.error("Error fetching cycle products:", productsError);
+ setAllProducts([]);
+ setFilteredProducts([]);
+ return;
+        }
+
+        // Map fetched data to DisplayableProduct type
+        const displayableProducts: DisplayableProduct[] = productsData ? productsData.map(cp => ({
+ productId: cp.Products?.product_id || cp.product_id, // Use product_id from Products if available, fallback to Cycle Products
+ name: cp.Products?.name || 'Unknown Product',
+ description: cp.Products?.description || '',
+ imageUrls: cp.Products?.image_urls || [],
+ attributes: cp.Products?.attributes || {},
+ price: cp.price_in_cycle, // Use price_in_cycle from Cycle Products
+ isSeasonal: cp.Products?.isSeasonal || false, // Use isSeasonal from Products
+ // Map other properties from DisplayableProduct if needed and available in Cycle Products or joined Products
+        })) : [];
+
+        setAllProducts(displayableProducts);
       } catch (error) {
         console.error("Failed to load homepage data:", error);
+ setCycleTitle("Erro ao carregar produtos");
+ setAllProducts([]);
       } finally {
-        setIsLoading(false);
+ setIsLoading(false);
       }
     }
-    loadData();
+ loadData();
   }, []);
 
   const extractAttributeValues = (attributeKey: string) => {
     const values = new Set<string>();
     allProducts.forEach(p => {
-      if (p.attributes?.[attributeKey]) {
-        (Array.isArray(p.attributes[attributeKey]) ? p.attributes[attributeKey] : [p.attributes[attributeKey]]).forEach(v => values.add(String(v)));
+      // Ensure attributes property exists before accessing keys and it is an object
+      if (p.attributes && typeof p.attributes === 'object' && p.attributes[attributeKey]) {
+        const attributeValue = p.attributes[attributeKey];
+        // Handle both array and non-array attribute values
+        if (Array.isArray(attributeValue)) {
+          attributeValue.forEach(v => values.add(String(v)));
+        } else if (typeof attributeValue === 'string') {
+           values.add(attributeValue);
+        } // Add other types if necessary
       }
     });
     return Array.from(values).sort();
   };
 
-  const categoryOptions = useMemo(() => extractAttributeValues(CATEGORY_ATTRIBUTE_KEY), [allProducts]);
-  const cacaoOptions = useMemo(() => extractAttributeValues(CACAO_ATTRIBUTE_KEY), [allProducts]);
-  const dietaryOptions = useMemo(() => extractAttributeValues(DIETARY_ATTRIBUTE_KEY), [allProducts]);
-  const weightOptions = useMemo(() => extractAttributeValues(WEIGHT_ATTRIBUTE_KEY), [allProducts]);
+  const categoryOptions = useMemo(() => extractAttributeValues(CATEGORY_ATTRIBUTE_KEY), [allProducts, extractAttributeValues]);
+  const cacaoOptions = useMemo(() => extractAttributeValues(CACAO_ATTRIBUTE_KEY), [allProducts, extractAttributeValues]);
+  const dietaryOptions = useMemo(() => extractAttributeValues(DIETARY_ATTRIBUTE_KEY), [allProducts, extractAttributeValues]);
+  const weightOptions = useMemo(() => extractAttributeValues(WEIGHT_ATTRIBUTE_KEY), [allProducts, extractAttributeValues]);
 
   useEffect(() => {
     let products = [...allProducts];
@@ -81,22 +135,23 @@ export default function HomePage() {
     }
     if (selectedCategories.length > 0) {
       products = products.filter(p =>
-        selectedCategories.some(cat => p.attributes?.[CATEGORY_ATTRIBUTE_KEY]?.includes(cat))
+        // Check if attributes and the specific attribute key exist, is an object and is an array
+        p.attributes?.[CATEGORY_ATTRIBUTE_KEY] && typeof p.attributes[CATEGORY_ATTRIBUTE_KEY] === 'object' && Array.isArray(p.attributes[CATEGORY_ATTRIBUTE_KEY]) &&
+        selectedCategories.some(cat => p.attributes[CATEGORY_ATTRIBUTE_KEY].includes(cat))
       );
     }
     if (selectedCacao.length > 0) {
       products = products.filter(p =>
-        selectedCacao.some(c => p.attributes?.[CACAO_ATTRIBUTE_KEY]?.includes(c))
+        // Check if attributes and the specific attribute key exist, is an object and is an array
+         p.attributes?.[CACAO_ATTRIBUTE_KEY] && typeof p.attributes[CACAO_ATTRIBUTE_KEY] === 'object' && Array.isArray(p.attributes[CACAO_ATTRIBUTE_KEY]) &&
+        selectedCacao.some(c => p.attributes[CACAO_ATTRIBUTE_KEY].includes(c))
       );
     }
     if (selectedDietary.length > 0) {
       products = products.filter(p =>
-        selectedDietary.every(diet => p.attributes?.[DIETARY_ATTRIBUTE_KEY]?.includes(diet))
-      );
-    }
-    if (selectedWeights.length > 0) {
-      products = products.filter(p =>
-        selectedWeights.some(w => p.attributes?.[WEIGHT_ATTRIBUTE_KEY]?.includes(w))
+        // Check if attributes and the specific attribute key exist, is an object and is an array
+        p.attributes?.[DIETARY_ATTRIBUTE_KEY] && typeof p.attributes[DIETARY_ATTRIBUTE_KEY] === 'object' && Array.isArray(p.attributes[DIETARY_ATTRIBUTE_KEY]) &&
+        selectedDietary.every(diet => p.attributes[DIETARY_ATTRIBUTE_KEY].includes(diet))
       );
     }
     const numMinPrice = parseFloat(minPrice);
@@ -262,7 +317,7 @@ export default function HomePage() {
                     <FilterCheckboxGroup title="Dietas e Restrições" options={dietaryOptions} selectedValues={selectedDietary} onChange={(val) => handleMultiCheckboxChange(setSelectedDietary, val)} />
                     <FilterCheckboxGroup title="Peso do Produto" options={weightOptions} selectedValues={selectedWeights} onChange={(val) => handleMultiCheckboxChange(setSelectedWeights, val)} />
                   </div>
-                  
+
                   {hasActiveFilters && (
                     <div className="mt-6 pt-4 border-t border-border flex justify-end">
                       <Button variant="ghost" onClick={clearFilters} className="text-sm">

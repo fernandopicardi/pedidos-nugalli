@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { signInWithEmail } from '@/lib/supabasePlaceholders';
+import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -31,7 +31,7 @@ export function LoginForm() {
   const handleLogin = async (event: FormEvent) => {
     event.preventDefault();
     setIsSubmitting(true);
-    const { error } = await signInWithEmail(email, password);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       toast({ title: "Erro no Login", description: error.message, variant: "destructive" });
     } else {

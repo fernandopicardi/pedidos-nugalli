@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { PageContainer } from '@/components/shared/page-container';
 import { CartItemDisplay } from '@/components/cart/cart-item-display';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { fetchCartItems, processCheckout, getCurrentUser } from '@/lib/supabasePlaceholders';
+import { supabase } from '@/lib/supabaseClient';
 import { useToast } from "@/hooks/use-toast";
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -21,7 +21,17 @@ export default function CartPage() {
   useEffect(() => {
     async function loadCartItems() {
       setIsLoading(true);
-      const items = await fetchCartItems();
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError || !sessionData?.session) {
+        toast({ title: "Erro", description: "Usuário não autenticado.", variant: "destructive" });
+        setIsLoading(false);
+        return;
+      }
+
+      const userId = sessionData.session.user.id;
+      const { data: items, error } = await supabase.from('Cart Items').select('*, cycle_products(*)').eq('user_id', userId);
+      // TODO: Map the fetched data to the CartItem type expected by the component
       setCartItems(items);
       setIsLoading(false);
     }
@@ -48,7 +58,7 @@ export default function CartPage() {
       return;
     }
 
-    const currentUser = await getCurrentUser();
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     if (!currentUser) {
       toast({ title: "Login Necessário", description: "Você precisa estar logado para finalizar o pedido.", variant: "default" });
       sessionStorage.setItem('redirectAfterLogin', '/cart');

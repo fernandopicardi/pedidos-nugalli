@@ -3,11 +3,14 @@
 
 import { useState, useEffect, type FormEvent } from 'react';
 import type { PurchaseCycle } from '@/types';
+import type { Product } from '@/types'; // Import Product type
+import type { CycleProduct } from '@/types'; // Import CycleProduct type
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabaseClient'; // Import supabase client
 
 interface PurchaseCycleFormProps {
   initialData?: PurchaseCycle | null;
@@ -21,6 +24,7 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose }: PurchaseCy
   const [endDate, setEndDate] = useState('');
   const [isActive, setIsActive] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -46,6 +50,26 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose }: PurchaseCy
       setIsActive(false);
     }
   }, [initialData]);
+
+  useEffect(() => {
+    // This effect is currently empty, consider removing if not needed or implementing product fetching
+  }, [initialData]);
+
+  useEffect(() => {
+    async function fetchProducts() {
+      setIsLoadingProducts(true);
+      const { data, error } = await supabase.from('Products').select('*');
+      if (error) {
+        console.error('Error fetching products:', error);
+        toast({ title: 'Erro ao Carregar Produtos', description: 'Não foi possível carregar a lista de produtos.', variant: 'destructive' });
+        setAllProducts([]);
+      } else {
+        // setAllProducts(data as Product[]); // This state is not used, consider removing
+      }
+      setIsLoadingProducts(false);
+    }
+    fetchProducts();
+  }, [toast]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();

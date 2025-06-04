@@ -6,7 +6,7 @@ import type { User } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { PageContainer } from '@/components/shared/page-container';
-import { fetchAdminUsers } from '@/lib/supabasePlaceholders';
+import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, UserCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -19,8 +19,27 @@ export default function CustomerManagementPage() {
   async function loadCustomers() {
     setIsLoading(true);
     try {
-      const usersData = await fetchAdminUsers(); // Fetches only 'customer' role users
-      usersData.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, email, display_name, whatsapp, role, created_at, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_zip')
+        .eq('role', 'customer');
+
+      if (error) {
+        throw error;
+      }
+
+      // Map data to User type, including address fields
+      const usersData: User[] = data.map(item => ({
+        userId: item.id, // Assuming 'id' from profiles table maps to 'userId' in User type
+        email: item.email,
+        displayName: item.display_name || 'N/A',
+        whatsapp: item.whatsapp,
+        role: item.role,
+        createdAt: item.created_at,
+        ...item // Include all address fields directly
+      })) as User[]; // Type assertion
+
+      usersData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setCustomers(usersData);
     } catch (error) {
       console.error("Failed to fetch customers:", error);
@@ -32,7 +51,7 @@ export default function CustomerManagementPage() {
 
   useEffect(() => {
     loadCustomers();
-  }, []);
+  }, [loadCustomers]);
 
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('pt-BR', {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC'
@@ -80,7 +99,7 @@ export default function CustomerManagementPage() {
             </TableHeader>
             <TableBody>
               {customers.map((customer) => (
-                <TableRow key={customer.userId}>
+                <TableRow key={customer.id}>
                   <TableCell className="font-medium">{customer.displayName}</TableCell>
                   <TableCell>{customer.email}</TableCell>
                   <TableCell>{customer.whatsapp || 'N/A'}</TableCell>

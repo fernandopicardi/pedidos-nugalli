@@ -4,7 +4,6 @@
 import { useState, useEffect } from 'react';
 import { PageContainer } from '@/components/shared/page-container';
 import { AdminPageHeader } from '@/components/admin/admin-page-header';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { fetchActiveCycleMetrics } from '@/lib/supabasePlaceholders';

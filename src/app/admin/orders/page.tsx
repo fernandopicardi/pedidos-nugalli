@@ -2,16 +2,13 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import type { Order } from '@/types';
-import { Button } from '@/components/ui/button';
+import type { Order, Profile } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { PageContainer } from '@/components/shared/page-container';
-import { fetchAdminOrders, updateOrderStatus } from '@/lib/supabasePlaceholders';
+import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { HelpCircle } from 'lucide-react';
 
@@ -44,10 +41,19 @@ export default function OrderVisualizationPage() {
   async function loadOrders() {
     setIsLoading(true);
     try {
-      const data = await fetchAdminOrders();
-      data.sort((a,b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
-      setOrders(data);
-    } catch (error) {
+      const { data, error: fetchError } = await supabase
+        .from('Orders')
+        .select('*, profiles ( display_name )') // Select all from orders, join with profiles to get display_name
+        .order('created_at', { ascending: false }); // Order by creation date descending
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      // Map the data to the Order type, including the customer name from the join
+      setOrders(data.map(order => ({
+        ...order, customerNameSnapshot: (order.profiles as Profile | null)?.display_name || 'N/A' })));
+    } catch (error: any) {
       toast({ title: "Erro ao Carregar Pedidos", description: "Não foi possível carregar os pedidos.", variant: "destructive" });
     } finally {
       setIsLoading(false);
@@ -59,9 +65,18 @@ export default function OrderVisualizationPage() {
   }, []);
 
   const handleStatusChange = async (orderId: string, newOrderStatus: Order['orderStatus'], newPaymentStatus?: Order['paymentStatus']) => {
+    setIsLoading(true); // Show loading state while updating
     try {
-      await updateOrderStatus(orderId, newOrderStatus, newPaymentStatus);
-      toast({ title: "Status Atualizado", description: `Status do pedido #${orderId.slice(-5)} atualizado.` });
+      const updateData: { order_status: Order['orderStatus']; payment_status?: Order['paymentStatus'] } = { order_status: newOrderStatus };
+      if (newPaymentStatus !== undefined) {
+        updateData.payment_status = newPaymentStatus;
+      }
+      const { error: updateError } = await supabase
+        .from('Orders')
+        .update(updateData)
+        .eq('order_id', orderId);
+
+      if (updateError) throw updateError;
       await loadOrders(); 
     } catch (error) {
       toast({ title: "Erro ao Atualizar", description: "Não foi possível atualizar o status do pedido.", variant: "destructive" });

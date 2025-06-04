@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { getCurrentUser, updateUserDetails, signOut, fetchUserOrders } from '@/lib/supabasePlaceholders';
+import { supabase } from '@/lib/supabaseClient';
 import type { User as AppUser, Order } from '@/types';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
