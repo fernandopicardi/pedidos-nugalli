@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { signInWithEmail, signUpWithEmail } from '@/lib/supabasePlaceholders';
 import { useToast } from '@/hooks/use-toast';
-import { updateUserDetails } from '@/lib/supabasePlaceholders'; // Rewritten import
+import { updateUserDetails } from '@/lib/supabasePlaceholders';
 import { useRouter } from 'next/navigation';
 import { Separator } from '../ui/separator';
 
@@ -55,13 +55,11 @@ export function AuthForm() {
   const handleRegister = async (event: FormEvent) => {
     event.preventDefault();
     if (password !== confirmPassword) {
-
       toast({ title: "Erro no Cadastro", description: "As senhas não coincidem.", variant: "destructive" });
       return;
     }
     setIsSubmitting(true);
 
-    // Attempt to sign up the user first
     const { error, user } = await signUpWithEmail(email, password);
 
     if (error) {
@@ -70,16 +68,13 @@ export function AuthForm() {
       return;
     }
 
-    // If signup is successful, attempt to log in the new user
-    const loginResult = await signInWithEmail(email, password); // Auto-login the newly created user
+    const loginResult = await signInWithEmail(email, password);
 
     if (loginResult.error) {
-      // If auto-login fails, redirect to auth page
       toast({ title: "Erro no Login Automático", description: loginResult.error.message, variant: "destructive" });
       redirectToStoredPathOrFallback('/auth');
     } else if (loginResult.user) {
-      // If auto-login is successful, update the user's profile with address data
-      const updateResult = await updateUserDetails(loginResult.user.userId, {
+      await updateUserDetails(loginResult.user.userId, {
         addressStreet,
         addressNumber,
         addressComplement,
@@ -90,17 +85,16 @@ export function AuthForm() {
       });
 
       toast({ title: "Cadastro Bem-Sucedido", description: "Sua conta foi criada." });
-      redirectToStoredPathOrFallback('/'); // Redirect after successful registration and profile update
+      redirectToStoredPathOrFallback('/');
     } else {
-       // This case should ideally not be reached if signup was successful
        toast({ title: "Erro Inesperado", description: "Ocorreu um erro durante o cadastro. Tente novamente.", variant: "destructive"});
     }
     setIsSubmitting(false);
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-160px)] bg-background p-4"> {/* Adjusted min-height to account for header/footer */}
-      <Tabs defaultValue="login" className="w-full max-w-md">
+    <div className="flex items-center justify-center min-h-[calc(100vh-160px)] bg-background p-4">
+      <Tabs defaultValue="login" className="w-full max-w-md md:max-w-3xl lg:max-w-4xl">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="login">Entrar</TabsTrigger>
           <TabsTrigger value="register">Criar Conta</TabsTrigger>
@@ -148,55 +142,56 @@ export function AuthForm() {
         </TabsContent>
         <TabsContent value="register">
           <Card className="shadow-xl">
-            <CardHeader>
-              <CardTitle className="font-headline text-3xl text-center">Criar Conta</CardTitle>
-              <CardDescription className="text-center">Crie uma nova conta para explorar nossos chocolates.</CardDescription>
-            </CardHeader>
             <form onSubmit={handleRegister}>
-              <CardContent className="space-y-6">
-                {/* Dados da Conta */}
-                <div className="space-y-2">
-                  <Label htmlFor="register-email">Email</Label>
-                  <Input
-                    id="register-email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="bg-input"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="register-password">Senha</Label>
-                  <Input
-                    id="register-password"
-                    type="password"
-                    placeholder="Crie uma senha (mín. 6 caracteres)"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className="bg-input"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirmar Senha</Label>
-                  <Input
-                    id="confirm-password"
-                    type="password"
-                    placeholder="Confirme sua senha"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                    className="bg-input"
-                  />
+              <CardHeader>
+                <CardTitle className="font-headline text-3xl text-center">Criar Conta</CardTitle>
+                <CardDescription className="text-center">Crie uma nova conta para explorar nossos chocolates.</CardDescription>
+              </CardHeader>
+              <CardContent className="md:grid md:grid-cols-2 md:gap-x-8">
+                {/* Coluna 1: Dados da Conta */}
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="register-email">Email</Label>
+                    <Input
+                      id="register-email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      className="bg-input"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="register-password">Senha</Label>
+                    <Input
+                      id="register-password"
+                      type="password"
+                      placeholder="Crie uma senha (mín. 6 caracteres)"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      className="bg-input"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-password">Confirmar Senha</Label>
+                    <Input
+                      id="confirm-password"
+                      type="password"
+                      placeholder="Confirme sua senha"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      className="bg-input"
+                    />
+                  </div>
                 </div>
 
-                <Separator />
-
-                {/* Endereço - Opcional */}
-                <div className="space-y-4">
-                  <h3 className="text-md font-medium text-muted-foreground pt-1">Endereço (Opcional)</h3>
+                {/* Coluna 2: Endereço */}
+                <div className="space-y-4 mt-6 md:mt-0 md:border-l md:pl-8 md:border-border/50">
+                  <h3 className="text-lg font-medium text-foreground pt-1">Endereço (Opcional)</h3>
+                  <p className="text-xs text-muted-foreground pb-2">Utilizado apenas para referência interna, não para entregas.</p>
                   
                   <div className="space-y-2">
                     <Label htmlFor="address-street">Logradouro (Rua, Avenida)</Label>
@@ -210,7 +205,7 @@ export function AuthForm() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="address-number">Número</Label>
                       <Input
@@ -235,7 +230,7 @@ export function AuthForm() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="address-neighborhood">Bairro</Label>
                       <Input
@@ -260,7 +255,7 @@ export function AuthForm() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="address-state">Estado (UF)</Label>
                       <Input
@@ -285,10 +280,9 @@ export function AuthForm() {
                       />
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground pt-1">O endereço é opcional e utilizado apenas para referência interna, não para entregas.</p>
                 </div>
               </CardContent>
-              <CardFooter>
+              <CardFooter className="pt-6">
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
                   {isSubmitting ? 'Criando...' : 'Criar Conta'}
                 </Button>
