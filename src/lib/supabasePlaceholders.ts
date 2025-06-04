@@ -46,35 +46,36 @@ export async function signInWithEmail(email: string, password: string): Promise<
 
        if (profileError) {
            console.error('Error fetching user profile after sign in:', profileError);
+           // Return basic user info even if profile fetch fails, as auth succeeded
            const basicUser: User = {
                userId: data.user.id,
                email: data.user.email || 'N/A',
                displayName: data.user.user_metadata?.displayName || data.user.email?.split('@')[0] || 'User',
                whatsapp: data.user.user_metadata?.whatsapp || '',
                role: (data.user.user_metadata?.role as 'customer' | 'admin') || 'customer',
-               createdAt: data.user.created_at,
-               addressStreet: '',
-               addressNumber: '',
-               addressComplement: '',
-               addressNeighborhood: '',
-               addressCity: '',
-               addressState: '',
-               addressZip: '',
+               createdAt: data.user.created_at || new Date().toISOString(),
+               addressStreet: data.user.user_metadata?.addressStreet || '',
+               addressNumber: data.user.user_metadata?.addressNumber || '',
+               addressComplement: data.user.user_metadata?.addressComplement || '',
+               addressNeighborhood: data.user.user_metadata?.addressNeighborhood || '',
+               addressCity: data.user.user_metadata?.addressCity || '',
+               addressState: data.user.user_metadata?.addressState || '',
+               addressZip: data.user.user_metadata?.addressZip || '',
            };
-           return { user: basicUser, error: { message: `Sign in successful, but failed to load profile: ${profileError.message}` } };
+           return { user: basicUser, error: { message: `Sign in successful, but failed to load full profile: ${profileError.message}` } };
        }
-        if (!userProfile) {
-            console.warn('User profile not found after sign in for user ID:', data.user.id);
-             const basicUser: User = {
+        if (!userProfile) { // Should not happen if profileError is not set, but defensive
+            console.warn('User profile not found after sign in for user ID (no error, but no data):', data.user.id);
+             const basicUser: User = { // Similar fallback
                userId: data.user.id,
                email: data.user.email || 'N/A',
                displayName: data.user.user_metadata?.displayName || data.user.email?.split('@')[0] || 'User',
                whatsapp: data.user.user_metadata?.whatsapp || '',
                role: (data.user.user_metadata?.role as 'customer' | 'admin') || 'customer',
-               createdAt: data.user.created_at,
+               createdAt: data.user.created_at || new Date().toISOString(),
                addressStreet: '', addressNumber: '', addressComplement: '', addressNeighborhood: '', addressCity: '', addressState: '', addressZip: '',
            };
-           return { user: basicUser, error: { message: `Sign in successful, but profile was not found.` } };
+           return { user: basicUser, error: { message: `Sign in successful, but profile data was unexpectedly missing.` } };
         }
 
        const fullUser: User = {
@@ -98,7 +99,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
         }
        return { user: fullUser, error: null };
   }
-  return { user: null, error: { message: 'Unknown sign in error.' } };
+  return { user: null, error: { message: 'Unknown sign in error: No user data returned after sign in.' } };
 }
 
 export async function signUpWithEmail(email: string, password: string, displayName?: string, whatsapp?: string): Promise<{ user: User | null, error: { message: string } | null }> {
@@ -107,9 +108,10 @@ export async function signUpWithEmail(email: string, password: string, displayNa
     email,
     password,
     options: {
-        data: {
+        data: { // This data goes to user_metadata in auth.users
             displayName: displayName || email.split('@')[0],
             whatsapp: whatsapp || '',
+            role: 'customer' // Explicitly set role if needed in metadata
         }
     }
   });
@@ -123,10 +125,13 @@ export async function signUpWithEmail(email: string, password: string, displayNa
   }
 
  if (!authData.user) {
-    return { user: null, error: {message: "User not created in auth table."}};
+    return { user: null, error: {message: "User not created in Supabase auth table."}};
   }
 
+  // The public.profiles table should be populated by a trigger on auth.users
+  // We will attempt to fetch it, but handle cases where it might not be immediately available.
   try {
+    // Short delay to allow trigger to potentially complete
     await new Promise(resolve => setTimeout(resolve, 500));
 
     const { data: profileData, error: profileError } = await supabase
@@ -136,17 +141,23 @@ export async function signUpWithEmail(email: string, password: string, displayNa
         .single();
 
     if (profileError || !profileData) {
-        console.error('Error fetching profile after signup or profile not found:', profileError);
+        console.warn('Error fetching profile after signup or profile not found (may be due to trigger delay or issue):', profileError);
+        // Fallback to using authData and its metadata
         const basicUser: User = {
             userId: authData.user.id,
             email: authData.user.email || 'N/A',
-            displayName: authData.user.user_metadata?.displayName || authData.user.email?.split('@')[0] || 'User',
+            displayName: authData.user.user_metadata?.displayName || email.split('@')[0] || 'User',
             whatsapp: authData.user.user_metadata?.whatsapp || '',
-            role: 'customer',
-            createdAt: authData.user.created_at,
+            role: (authData.user.user_metadata?.role as 'customer' | 'admin') || 'customer',
+            createdAt: authData.user.created_at || new Date().toISOString(),
             addressStreet: '', addressNumber: '', addressComplement: '', addressNeighborhood: '', addressCity: '', addressState: '', addressZip: '',
         };
-        return { user: basicUser, error: { message: `Signup successful, but failed to fetch profile immediately: ${profileError?.message || "Profile not found"}` } };
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('currentUser', JSON.stringify(basicUser));
+        }
+        // It's a successful signup, but profile data from 'profiles' table isn't fully resolved yet.
+        // This isn't necessarily an error for the user, but something to be aware of.
+        return { user: basicUser, error: null }; // No error for user, but log indicates potential sync delay
     }
 
     const fullUser: User = {
@@ -171,17 +182,18 @@ export async function signUpWithEmail(email: string, password: string, displayNa
     return { user: fullUser, error: null };
 
   } catch (e: any) {
-      console.error("Error in signUpWithEmail post-profile fetch:", e);
+      console.error("Unexpected error in signUpWithEmail after profile fetch attempt:", e);
+      // Fallback if the try-catch itself fails unexpectedly
       const basicUser: User = {
          userId: authData.user.id,
          email: authData.user.email || 'N/A',
-         displayName: authData.user.user_metadata?.displayName || authData.user.email?.split('@')[0] || 'User',
+         displayName: authData.user.user_metadata?.displayName || email.split('@')[0] || 'User',
          whatsapp: authData.user.user_metadata?.whatsapp || '',
-         role: 'customer',
-         createdAt: authData.user.created_at,
+         role: (authData.user.user_metadata?.role as 'customer' | 'admin') || 'customer',
+         createdAt: authData.user.created_at || new Date().toISOString(),
          addressStreet: '', addressNumber: '', addressComplement: '', addressNeighborhood: '', addressCity: '', addressState: '', addressZip: '',
      };
-     return { user: basicUser, error: { message: `Signup successful, but an exception occurred while fetching profile: ${e.message}` } };
+     return { user: basicUser, error: { message: `Signup successful, but an exception occurred during profile processing: ${e.message}` } };
   }
 }
 
@@ -195,7 +207,7 @@ export async function signOut(): Promise<{ error: { message: string } | null }> 
       console.error('Supabase sign out error:', error);
       if (error && typeof error.message === 'string' && (error.message === 'Failed to fetch' || error.message.includes('fetch failed'))) {
         if (typeof localStorage !== 'undefined') {
-          localStorage.removeItem('currentUser');
+          localStorage.removeItem('currentUser'); // Clear local session even if server fails
         }
         return { error: { message: 'Network error during sign out. Local session cleared, but server state might be unchanged.' } };
       }
@@ -209,7 +221,7 @@ export async function signOut(): Promise<{ error: { message: string } | null }> 
 
   } catch (e: any) {
     console.error('Unexpected error during signOut:', e);
-    if (typeof localStorage !== 'undefined') {
+    if (typeof localStorage !== 'undefined') { // Ensure local cleanup on any error
       localStorage.removeItem('currentUser');
     }
     return { error: { message: e.message || 'An unexpected error occurred during sign out.' } };
@@ -222,10 +234,10 @@ export async function getCurrentUser(): Promise<User | null> {
     const { data: authData, error: authError } = await supabase.auth.getUser();
 
     if (authError) {
-      if (authError && typeof authError.message === 'string' && (authError.message === 'Failed to fetch' || authError.message.includes('fetch failed'))) {
+      if (authError.message.includes('Auth session missing')) {
+         // This is common if user is not logged in, not necessarily an "error" to spam console with
+      } else if (authError && typeof authError.message === 'string' && (authError.message === 'Failed to fetch' || authError.message.includes('fetch failed'))) {
         console.warn('Supabase authError in getCurrentUser (Network Error - will return null):', authError.message);
-      } else if (authError.name === 'AuthSessionMissingError') {
-        console.warn('Supabase authError in getCurrentUser (AuthSessionMissingError - will return null):', authError.message);
       } else {
         console.warn('Supabase authError in getCurrentUser (will return null):', authError.message);
       }
@@ -250,33 +262,40 @@ export async function getCurrentUser(): Promise<User | null> {
 
     if (profileError) {
       console.warn('Error fetching current user profile (will return basic user info or null if critical):', profileError.message, '- User ID:', authData.user.id);
-      if (typeof localStorage !== 'undefined') {
+      if (typeof localStorage !== 'undefined') { // Clear potentially stale/incomplete profile
         localStorage.removeItem('currentUser');
       }
+      // Fallback to basic info from auth.user if profile is missing or errored
       const basicUser: User = {
         userId: authData.user.id,
         email: authData.user.email || 'N/A',
         displayName: authData.user.user_metadata?.displayName || authData.user.email?.split('@')[0] || 'User',
         whatsapp: authData.user.user_metadata?.whatsapp || '',
         role: (authData.user.user_metadata?.role as 'customer' | 'admin') || 'customer',
-        createdAt: authData.user.created_at,
-        addressStreet: '', addressNumber: '', addressComplement: '', addressNeighborhood: '', addressCity: '', addressState: '', addressZip: '',
+        createdAt: authData.user.created_at || new Date().toISOString(),
+        addressStreet: authData.user.user_metadata?.addressStreet || '',
+        addressNumber: authData.user.user_metadata?.addressNumber || '',
+        addressComplement: authData.user.user_metadata?.addressComplement || '',
+        addressNeighborhood: authData.user.user_metadata?.addressNeighborhood || '',
+        addressCity: authData.user.user_metadata?.addressCity || '',
+        addressState: authData.user.user_metadata?.addressState || '',
+        addressZip: authData.user.user_metadata?.addressZip || '',
       };
       return basicUser;
     }
     
-    if (!userProfile) {
+    if (!userProfile) { // Should be caught by profileError, but as a safeguard
         console.warn('User profile not found for authenticated user ID (will return basic user info):', authData.user.id);
         if (typeof localStorage !== 'undefined') {
             localStorage.removeItem('currentUser');
         }
-        const basicUser: User = {
+        const basicUser: User = { // Fallback
             userId: authData.user.id,
             email: authData.user.email || 'N/A',
             displayName: authData.user.user_metadata?.displayName || authData.user.email?.split('@')[0] || 'User',
             whatsapp: authData.user.user_metadata?.whatsapp || '',
             role: (authData.user.user_metadata?.role as 'customer' | 'admin') || 'customer',
-            createdAt: authData.user.created_at,
+            createdAt: authData.user.created_at || new Date().toISOString(),
             addressStreet: '', addressNumber: '', addressComplement: '', addressNeighborhood: '', addressCity: '', addressState: '', addressZip: '',
         };
         return basicUser;
@@ -337,7 +356,8 @@ export async function updateUserDetails(
     .single();
 
   if (error) {
-    console.error(\`Error updating user details for user \${userId}:\`, error);
+    // Corrected console.error line:
+    console.error('Error updating user details for user ' + userId + ':', error);
     if (error && typeof error.message === 'string' && (error.message === 'Failed to fetch' || error.message.includes('fetch failed'))) {
       return { user: null, error: { message: 'Network error: Unable to save user details. Please check your internet connection and Supabase configuration.' } };
     }
@@ -345,7 +365,7 @@ export async function updateUserDetails(
   }
 
    if (!updatedData) {
-       return { user: null, error: { message: "User not found after update attempt." } };
+       return { user: null, error: { message: "User profile not found after update attempt." } };
    }
 
    const updatedUser: User = {
@@ -364,9 +384,9 @@ export async function updateUserDetails(
        addressZip: updatedData.address_zip,
    };
 
-   const currentUserFromStorage = await getCurrentUser();
+   const currentUserFromStorage = await getCurrentUser(); // Re-fetch to get latest overall state
    if (currentUserFromStorage && currentUserFromStorage.userId === userId) {
-        if (typeof localStorage !== 'undefined') {
+        if (typeof localStorage !== 'undefined') { // Update localStorage if this is the currently logged-in user
             localStorage.setItem('currentUser', JSON.stringify(updatedUser));
         }
    }
@@ -383,7 +403,7 @@ export async function checkAdminRole(): Promise<boolean> {
 export async function fetchAdminProducts(): Promise<Product[]> {
   console.log('fetchAdminProducts called');
   const { data, error } = await supabase
-    .from('Products') // Corrected table name
+    .from('Products')
     .select('*')
     .order('created_at', { ascending: false });
 
@@ -394,13 +414,22 @@ export async function fetchAdminProducts(): Promise<Product[]> {
     }
     throw error;
   }
-  return data.map(p => ({ ...p, productId: p.product_id, imageUrls: p.image_urls, isSeasonal: p.is_seasonal, createdAt: p.created_at, updatedAt: p.updated_at })) as Product[];
+  return data.map(p => ({
+    productId: p.product_id,
+    name: p.name,
+    description: p.description,
+    imageUrls: p.image_urls,
+    attributes: p.attributes,
+    isSeasonal: p.is_seasonal,
+    createdAt: p.created_at,
+    updatedAt: p.updated_at
+  })) as Product[];
 }
 
 export async function createProduct(productData: Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>): Promise<Product> {
   console.log('createProduct called with:', productData);
   const { data, error } = await supabase
-    .from('Products') // Corrected table name
+    .from('Products')
     .insert([
       {
         name: productData.name,
@@ -420,7 +449,16 @@ export async function createProduct(productData: Omit<Product, 'productId' | 'cr
     }
     throw error;
   }
-  return { ...data, productId: data.product_id, imageUrls: data.image_urls, isSeasonal: data.is_seasonal, createdAt: data.created_at, updatedAt: data.updated_at } as Product;
+  return {
+    productId: data.product_id,
+    name: data.name,
+    description: data.description,
+    imageUrls: data.image_urls,
+    attributes: data.attributes,
+    isSeasonal: data.is_seasonal,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at
+  } as Product;
 }
 
 export async function updateProduct(productId: string, productData: Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>>): Promise<Product> {
@@ -433,7 +471,7 @@ export async function updateProduct(productId: string, productData: Partial<Omit
   if (productData.isSeasonal !== undefined) updatePayload.is_seasonal = productData.isSeasonal;
 
   const { data, error } = await supabase
-    .from('Products') // Corrected table name
+    .from('Products')
     .update(updatePayload)
     .eq('product_id', productId)
     .select()
@@ -449,13 +487,22 @@ export async function updateProduct(productId: string, productData: Partial<Omit
   if (!data) {
      throw new Error("Product not found after update");
   }
-  return { ...data, productId: data.product_id, imageUrls: data.image_urls, isSeasonal: data.is_seasonal, createdAt: data.created_at, updatedAt: data.updated_at } as Product;
+  return {
+    productId: data.product_id,
+    name: data.name,
+    description: data.description,
+    imageUrls: data.image_urls,
+    attributes: data.attributes,
+    isSeasonal: data.is_seasonal,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at
+  } as Product;
 }
 
 export async function deleteProduct(productId: string): Promise<void> {
   console.log('deleteProduct called for ID:', productId);
   const { error } = await supabase
-    .from('Products') // Corrected table name
+    .from('Products')
     .delete()
     .eq('product_id', productId);
 
@@ -472,7 +519,7 @@ export async function deleteProduct(productId: string): Promise<void> {
 export async function fetchPurchaseCycles(): Promise<PurchaseCycle[]> {
   console.log('fetchPurchaseCycles called');
   const { data, error } = await supabase
-    .from('Purchase Cycles') // Corrected table name
+    .from('Purchase Cycles')
     .select('*')
     .order('start_date', { ascending: false });
 
@@ -483,14 +530,21 @@ export async function fetchPurchaseCycles(): Promise<PurchaseCycle[]> {
     }
     throw error;
   }
-  return data.map(pc => ({...pc, cycleId: pc.cycle_id, startDate: pc.start_date, endDate: pc.end_date, isActive: pc.is_active, createdAt: pc.created_at })) as PurchaseCycle[];
+  return data.map(pc => ({
+    cycleId: pc.cycle_id,
+    name: pc.name,
+    startDate: pc.start_date,
+    endDate: pc.end_date,
+    isActive: pc.is_active,
+    createdAt: pc.created_at
+  })) as PurchaseCycle[];
 }
 
 export async function createPurchaseCycle(cycleData: Omit<PurchaseCycle, 'cycleId' | 'createdAt'>): Promise<PurchaseCycle> {
   console.log('createPurchaseCycle called with:', cycleData);
   if (cycleData.isActive) {
       const { error: updateError } = await supabase
-          .from('Purchase Cycles') // Corrected table name
+          .from('Purchase Cycles')
           .update({ is_active: false })
           .eq('is_active', true);
       if (updateError) {
@@ -504,7 +558,7 @@ export async function createPurchaseCycle(cycleData: Omit<PurchaseCycle, 'cycleI
   }
 
   const { data, error } = await supabase
-    .from('Purchase Cycles') // Corrected table name
+    .from('Purchase Cycles')
     .insert([
       {
         name: cycleData.name,
@@ -523,17 +577,24 @@ export async function createPurchaseCycle(cycleData: Omit<PurchaseCycle, 'cycleI
     }
     throw error;
   }
-  return {...data, cycleId: data.cycle_id, startDate: data.start_date, endDate: data.end_date, isActive: data.is_active, createdAt: data.created_at } as PurchaseCycle;
+  return {
+    cycleId: data.cycle_id,
+    name: data.name,
+    startDate: data.start_date,
+    endDate: data.end_date,
+    isActive: data.is_active,
+    createdAt: data.created_at
+  } as PurchaseCycle;
 }
 
 export async function updatePurchaseCycle(cycleId: string, cycleData: Partial<Omit<PurchaseCycle, 'cycleId' | 'createdAt'>>): Promise<PurchaseCycle> {
   console.log('updatePurchaseCycle called for ID', cycleId, 'with:', cycleData);
-  if (cycleData.isActive === true) {
+  if (cycleData.isActive === true) { // Only deactivate others if this one is being set to active
       const { error: updateError } = await supabase
-          .from('Purchase Cycles') // Corrected table name
+          .from('Purchase Cycles')
           .update({ is_active: false })
           .eq('is_active', true)
-          .neq('cycle_id', cycleId);
+          .neq('cycle_id', cycleId); // Don't deactivate itself
       if (updateError) {
           console.error('Error deactivating other active cycles:', updateError);
           if (updateError && typeof updateError.message === 'string' && (updateError.message === 'Failed to fetch' || updateError.message.includes('fetch failed'))) {
@@ -551,7 +612,7 @@ export async function updatePurchaseCycle(cycleId: string, cycleData: Partial<Om
   if (cycleData.isActive !== undefined) updatePayload.is_active = cycleData.isActive;
 
   const { data, error } = await supabase
-    .from('Purchase Cycles') // Corrected table name
+    .from('Purchase Cycles')
     .update(updatePayload)
     .eq('cycle_id', cycleId)
     .select()
@@ -567,13 +628,20 @@ export async function updatePurchaseCycle(cycleId: string, cycleData: Partial<Om
   if (!data) {
      throw new Error("PurchaseCycle not found after update");
   }
-  return {...data, cycleId: data.cycle_id, startDate: data.start_date, endDate: data.end_date, isActive: data.is_active, createdAt: data.created_at } as PurchaseCycle;
+  return {
+    cycleId: data.cycle_id,
+    name: data.name,
+    startDate: data.start_date,
+    endDate: data.end_date,
+    isActive: data.is_active,
+    createdAt: data.created_at
+  } as PurchaseCycle;
 }
 
 export async function deletePurchaseCycle(cycleId: string): Promise<void> {
   console.log('deletePurchaseCycle called for ID:', cycleId);
   const { error } = await supabase
-    .from('Purchase Cycles') // Corrected table name
+    .from('Purchase Cycles')
     .delete()
     .eq('cycle_id', cycleId);
 
@@ -590,14 +658,14 @@ export async function deletePurchaseCycle(cycleId: string): Promise<void> {
 export async function fetchCycleProducts(cycleId: string): Promise<CycleProduct[]> {
   console.log('fetchCycleProducts called for cycle ID:', cycleId);
   const { data, error } = await supabase
-    .from('Cycle Products') // Corrected table name
-    .select('*')
+    .from('Cycle Products')
+    .select('*, Products(product_id, name, description, image_urls, attributes, is_seasonal)') // fetch related Product
     .eq('cycle_id', cycleId);
 
   if (error) {
-    console.error(\`Error fetching cycle products for cycle \${cycleId}:\`, error);
+    console.error('Error fetching cycle products for cycle ' + cycleId + ':', error);
     if (error && typeof error.message === 'string' && (error.message === 'Failed to fetch' || error.message.includes('fetch failed'))) {
-      throw new Error(\`Network error: Unable to fetch cycle products for cycle \${cycleId}. Please check connection and Supabase config.\`);
+      throw new Error('Network error: Unable to fetch cycle products for cycle ' + cycleId + '. Please check connection and Supabase config.');
     }
     throw error;
   }
@@ -605,10 +673,10 @@ export async function fetchCycleProducts(cycleId: string): Promise<CycleProduct[
       cycleProductId: cp.cycle_product_id,
       cycleId: cp.cycle_id,
       productId: cp.product_id,
-      productNameSnapshot: cp.product_name_snapshot,
+      productNameSnapshot: cp.product_name_snapshot || cp.Products?.name || 'N/A',
       priceInCycle: cp.price_in_cycle,
       isAvailableInCycle: cp.is_available_in_cycle,
-      displayImageUrl: cp.display_image_url,
+      displayImageUrl: cp.display_image_url || cp.Products?.image_urls?.[0] || 'https://placehold.co/400x300.png?text=Produto',
       createdAt: cp.created_at,
       updatedAt: cp.updated_at
   })) as CycleProduct[];
@@ -617,7 +685,7 @@ export async function fetchCycleProducts(cycleId: string): Promise<CycleProduct[
 export async function createCycleProduct(cycleProductData: Omit<CycleProduct, 'cycleProductId' | 'createdAt' | 'updatedAt'>): Promise<CycleProduct> {
   console.log('createCycleProduct called with:', cycleProductData);
   const { data, error } = await supabase
-    .from('Cycle Products') // Corrected table name
+    .from('Cycle Products')
     .insert([
       {
         cycle_id: cycleProductData.cycleId,
@@ -662,7 +730,7 @@ export async function updateCycleProduct(cycleProductId: string, cycleProductDat
   if (cycleProductData.displayImageUrl !== undefined) updatePayload.display_image_url = cycleProductData.displayImageUrl;
 
   const { data, error } = await supabase
-    .from('Cycle Products') // Corrected table name
+    .from('Cycle Products')
     .update(updatePayload)
     .eq('cycle_product_id', cycleProductId)
     .select()
@@ -694,7 +762,7 @@ export async function updateCycleProduct(cycleProductId: string, cycleProductDat
 export async function deleteCycleProduct(cycleProductId: string): Promise<void> {
   console.log('deleteCycleProduct called for ID:', cycleProductId);
   const { error } = await supabase
-    .from('Cycle Products') // Corrected table name
+    .from('Cycle Products')
     .delete()
     .eq('cycle_product_id', cycleProductId);
 
@@ -707,11 +775,12 @@ export async function deleteCycleProduct(cycleProductId: string): Promise<void> 
   }
 }
 
+// Fetches products that are available in an active purchase cycle
 export async function fetchDisplayableProducts(): Promise<DisplayableProduct[]> {
   console.log('fetchDisplayableProducts called');
   const { data, error } = await supabase
-    .from('Cycle Products') // Corrected table name
-    .select(\`
+    .from('Cycle Products')
+    .select(`
       cycle_product_id,
       cycle_id,
       product_id,
@@ -723,33 +792,32 @@ export async function fetchDisplayableProducts(): Promise<DisplayableProduct[]> 
         description,
         attributes,
         image_urls,
-        is_seasonal
+        is_seasonal 
       )
-    \`)
+    `)
     .eq('is_available_in_cycle', true)
-    .filter('cycle_id', 'in', '(select cycle_id from "Purchase Cycles" where is_active = true)'); // Corrected subquery table name
+    .filter('cycle_id', 'in', '(select cycle_id from "Purchase Cycles" where is_active = true)');
 
   if (error) {
     console.error('Error fetching displayable products. Raw error object:', error);
-    const err = error as any;
-    console.error(\`Error details - Code: \${err.code}, Message: \${err.message}, Details: \${err.details}, Hint: \${err.hint}\`);
-    if (err && typeof err.message === 'string' && (err.message === 'Failed to fetch' || err.message.includes('fetch failed'))) {
+    console.error('Error details - Code:', error.code, 'Message:', error.message, 'Details:', error.details, 'Hint:', error.hint);
+    if (error && typeof error.message === 'string' && (error.message === 'Failed to fetch' || error.message.includes('fetch failed'))) {
       throw new Error('Network error: Unable to fetch displayable products. Please check connection and Supabase config.');
     }
-    throw err;
+    throw error; // Re-throw the original error for further context if needed
   }
 
   const displayableProducts: DisplayableProduct[] = data.map((item: any) => ({
     cycleProductId: item.cycle_product_id,
     cycleId: item.cycle_id,
     productId: item.product_id,
-    name: item.product_name_snapshot,
-    description: item.Products?.description || '', // Updated to Products
+    name: item.product_name_snapshot || item.Products?.name || 'Unknown Product',
+    description: item.Products?.description || '',
     price: item.price_in_cycle || 0,
-    isAvailable: item.is_available_in_cycle,
-    imageUrl: item.display_image_url || item.Products?.image_urls?.[0] || 'https://placehold.co/400x300.png?text=Produto', // Updated to Products
-    attributes: item.Products?.attributes || {}, // Updated to Products
-    isSeasonal: item.Products?.is_seasonal || false, // Updated to Products
+    isAvailable: item.is_available_in_cycle, // This should always be true due to the query filter
+    imageUrl: item.display_image_url || item.Products?.image_urls?.[0] || 'https://placehold.co/400x300.png?text=Produto',
+    attributes: item.Products?.attributes || {},
+    isSeasonal: item.Products?.is_seasonal || false, // Ensure this is correctly mapped
   }));
   return displayableProducts;
 }
@@ -757,8 +825,8 @@ export async function fetchDisplayableProducts(): Promise<DisplayableProduct[]> 
 export async function fetchDisplayableProductById(cycleProductId: string): Promise<DisplayableProduct | null> {
   console.log('fetchDisplayableProductById called for ID:', cycleProductId);
   const { data, error } = await supabase
-    .from('Cycle Products') // Corrected table name
-    .select(\`
+    .from('Cycle Products')
+    .select(`
       cycle_product_id,
       cycle_id,
       product_id,
@@ -772,16 +840,16 @@ export async function fetchDisplayableProductById(cycleProductId: string): Promi
         image_urls,
         is_seasonal
       )
-    \`)
+    `)
     .eq('cycle_product_id', cycleProductId)
-     .eq('is_available_in_cycle', true)
-    .filter('cycle_id', 'in', '(select cycle_id from "Purchase Cycles" where is_active = true)') // Corrected subquery table name
+    .eq('is_available_in_cycle', true) // Ensure it's available
+    .filter('cycle_id', 'in', '(select cycle_id from "Purchase Cycles" where is_active = true)') // And in an active cycle
     .single();
 
-  if (error && error.code !== 'PGRST116') {
-    console.error(\`Error fetching displayable product \${cycleProductId}:\`, error);
+  if (error && error.code !== 'PGRST116') { // PGRST116 means "response contains 0 rows", which is fine for a "find by ID"
+    console.error('Error fetching displayable product ' + cycleProductId + ':', error);
      if (error && typeof error.message === 'string' && (error.message === 'Failed to fetch' || error.message.includes('fetch failed'))) {
-      throw new Error(\`Network error: Unable to fetch displayable product \${cycleProductId}. Please check connection and Supabase config.\`);
+      throw new Error('Network error: Unable to fetch displayable product ' + cycleProductId + '. Please check connection and Supabase config.');
     }
     throw error;
   }
@@ -793,13 +861,13 @@ export async function fetchDisplayableProductById(cycleProductId: string): Promi
     cycleProductId: data.cycle_product_id,
     cycleId: data.cycle_id,
     productId: data.product_id,
-    name: data.product_name_snapshot,
-    description: data.Products?.description || '', // Updated to Products
+    name: data.product_name_snapshot || data.Products?.name || 'Unknown Product',
+    description: data.Products?.description || '',
     price: data.price_in_cycle || 0,
     isAvailable: data.is_available_in_cycle,
-    imageUrl: data.display_image_url || data.Products?.image_urls?.[0] || 'https://placehold.co/400x300.png?text=Produto', // Updated to Products
-    attributes: data.Products?.attributes || {}, // Updated to Products
-    isSeasonal: data.Products?.is_seasonal || false, // Updated to Products
+    imageUrl: data.display_image_url || data.Products?.image_urls?.[0] || 'https://placehold.co/400x300.png?text=Produto',
+    attributes: data.Products?.attributes || {},
+    isSeasonal: data.Products?.is_seasonal || false,
   };
   return displayableProduct;
 }
@@ -814,8 +882,8 @@ export async function fetchCartItems(): Promise<CartItem[]> {
   }
 
   const { data, error } = await supabase
-    .from('Cart Items') // Corrected table name
-    .select(\`
+    .from('Cart Items')
+    .select(`
       cart_item_id,
       cycle_product_id,
       quantity,
@@ -826,7 +894,7 @@ export async function fetchCartItems(): Promise<CartItem[]> {
         display_image_url,
         Products ( description ) 
       )
-    \`)
+    `)
     .eq('user_id', user.userId);
 
   if (error) {
@@ -838,14 +906,14 @@ export async function fetchCartItems(): Promise<CartItem[]> {
   }
 
   const cartItems: CartItem[] = data.map((item: any) => ({
-    cartItemId: item.cart_item_id,
+    cartItemId: item.cart_item_id, // This field should be in CartItem type if it's being used
     cycleProductId: item.cycle_product_id,
     productId: item.cycle_products?.product_id || '',
     name: item.cycle_products?.product_name_snapshot || 'Unknown Product',
     price: item.cycle_products?.price_in_cycle || 0,
     imageUrl: item.cycle_products?.display_image_url || 'https://placehold.co/400x300.png?text=Produto',
     quantity: item.quantity,
-    description: item.cycle_products?.Products?.description || '', // Updated to Products
+    description: item.cycle_products?.Products?.description || '',
   }));
   return cartItems;
 }
@@ -859,7 +927,7 @@ export async function addToCart(displayableProduct: DisplayableProduct, quantity
   }
 
   const { data: existingItems, error: fetchError } = await supabase
-    .from('Cart Items') // Corrected table name
+    .from('Cart Items')
     .select('cart_item_id, quantity')
     .eq('user_id', user.userId)
     .eq('cycle_product_id', displayableProduct.cycleProductId);
@@ -876,7 +944,7 @@ export async function addToCart(displayableProduct: DisplayableProduct, quantity
     const existingItem = existingItems[0];
     const newQuantity = existingItem.quantity + quantity;
     const { error: updateError } = await supabase
-      .from('Cart Items') // Corrected table name
+      .from('Cart Items')
       .update({ quantity: newQuantity })
       .eq('cart_item_id', existingItem.cart_item_id);
 
@@ -889,7 +957,7 @@ export async function addToCart(displayableProduct: DisplayableProduct, quantity
     }
   } else {
     const { error: insertError } = await supabase
-      .from('Cart Items') // Corrected table name
+      .from('Cart Items')
       .insert({
         user_id: user.userId,
         cycle_product_id: displayableProduct.cycleProductId,
@@ -916,18 +984,18 @@ export async function updateCartItemQuantity(cartItemId: string, newQuantity: nu
   }
 
   if (newQuantity <= 0) {
-    await removeFromCart(cartItemId);
+    await removeFromCart(cartItemId); // cartItemId should be cycleProductId or the specific cart_item_id
     return;
   }
 
   const { error } = await supabase
-    .from('Cart Items') // Corrected table name
+    .from('Cart Items')
     .update({ quantity: newQuantity })
-    .eq('cart_item_id', cartItemId)
+    .eq('cart_item_id', cartItemId) // Assuming cartItemId is the primary key of 'Cart Items'
     .eq('user_id', user.userId);
 
   if (error) {
-    console.error(\`Error updating cart item quantity for \${cartItemId}:\`, error);
+    console.error('Error updating cart item quantity for ' + cartItemId + ':', error);
     if(error && typeof error.message === 'string' && (error.message.includes('fetch failed'))) {
       throw new Error('Network error: Unable to update cart item quantity. Please try again.');
     } else {
@@ -937,7 +1005,7 @@ export async function updateCartItemQuantity(cartItemId: string, newQuantity: nu
   await notifyCartUpdateListeners();
 }
 
-export async function removeFromCart(cartItemId: string): Promise<void> {
+export async function removeFromCart(cartItemId: string): Promise<void> { // cartItemId here is likely the primary key from Cart Items table
   console.log('removeFromCart called for cartItemId:', cartItemId, '(to Supabase)');
   const user = await getCurrentUser();
   if (!user) {
@@ -946,13 +1014,13 @@ export async function removeFromCart(cartItemId: string): Promise<void> {
   }
 
   const { error } = await supabase
-    .from('Cart Items') // Corrected table name
+    .from('Cart Items')
     .delete()
-    .eq('cart_item_id', cartItemId)
+    .eq('cart_item_id', cartItemId) // Assuming cartItemId is the PK
     .eq('user_id', user.userId);
 
   if (error) {
-    console.error(\`Error removing cart item \${cartItemId}:\`, error);
+    console.error('Error removing cart item ' + cartItemId + ':', error);
     if(error && typeof error.message === 'string' && (error.message.includes('fetch failed'))) {
       throw new Error('Network error: Unable to remove item from cart. Please try again.');
     } else {
@@ -973,7 +1041,7 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
   }
 
   const { data: activeCycleData, error: cycleError } = await supabase
-    .from('Purchase Cycles') // Corrected table name
+    .from('Purchase Cycles')
     .select('cycle_id')
     .eq('is_active', true)
     .single();
@@ -998,22 +1066,34 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
   const orderTotalAmount = orderItems.reduce((sum, item) => sum + item.lineItemTotal, 0);
 
   const { data: lastOrder, error: lastOrderError } = await supabase
-    .from('Orders') // Corrected table name
+    .from('Orders')
     .select('order_number')
     .order('created_at', { ascending: false })
     .limit(1)
     .single();
 
-  if (lastOrderError && lastOrderError.code !== 'PGRST116' && (lastOrderError && typeof lastOrderError.message === 'string' && (lastOrderError.message.includes('fetch failed')))) {
+  if (lastOrderError && lastOrderError.code !== 'PGRST116' && lastOrderError.message.includes('fetch failed')) { // Only throw for network error, PGRST116 (no rows) is fine
     console.error("Network error fetching last order number:", lastOrderError);
     throw new Error("Network error: Unable to generate order number. Cannot process checkout.");
+  } else if (lastOrderError && lastOrderError.code !== 'PGRST116') {
+    console.error("Error fetching last order number (non-network):", lastOrderError);
+    // Potentially proceed with default or handle differently
   }
 
-  let newOrderNumber = \`ORD\${new Date().getFullYear()}001\`;
-  if (!lastOrderError && lastOrder && lastOrder.order_number) {
-    const lastNum = parseInt(lastOrder.order_number.slice(-3));
-    newOrderNumber = \`ORD\${new Date().getFullYear()}\${(lastNum + 1).toString().padStart(3, '0')}\`;
+
+  let newOrderNumber = `ORD${new Date().getFullYear()}001`;
+  if (lastOrder && lastOrder.order_number) {
+    const currentYear = new Date().getFullYear().toString();
+    const lastOrderYear = lastOrder.order_number.substring(3, 7);
+    let lastNumPart = parseInt(lastOrder.order_number.substring(7));
+
+    if (lastOrderYear === currentYear) {
+        newOrderNumber = `ORD${currentYear}${(lastNumPart + 1).toString().padStart(3, '0')}`;
+    } else {
+        newOrderNumber = `ORD${currentYear}001`; // Reset sequence for new year
+    }
   }
+
 
   const newOrderPayload = {
     order_number: newOrderNumber,
@@ -1022,13 +1102,13 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
     customer_whatsapp_snapshot: currentUser.whatsapp,
     cycle_id: activeCycleId,
     order_total_amount: orderTotalAmount,
-    order_status: "Pending Payment",
-    payment_status: "Unpaid",
+    order_status: "Pending Payment" as Order['orderStatus'],
+    payment_status: "Unpaid" as Order['paymentStatus'],
     order_date: new Date().toISOString(),
   };
 
   const { data: createdOrderData, error: createOrderError } = await supabase
-    .from('Orders') // Corrected table name
+    .from('Orders')
     .insert(newOrderPayload)
     .select()
     .single();
@@ -1052,12 +1132,12 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
   }));
 
   const { error: createOrderItemsError } = await supabase
-    .from('Order Items') // Corrected table name
+    .from('Order Items')
     .insert(orderItemsPayload);
 
   if (createOrderItemsError) {
       console.error("Error creating order items in database:", createOrderItemsError);
-      await supabase.from('Orders').delete().eq('order_id', createdOrderData.order_id); // Corrected table name
+      await supabase.from('Orders').delete().eq('order_id', createdOrderData.order_id);
       if(createOrderItemsError && typeof createOrderItemsError.message === 'string' && (createOrderItemsError.message.includes('fetch failed'))) {
           throw new Error("Network error: Failed to save order items. Order has been cancelled.");
       }
@@ -1065,7 +1145,7 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
   }
 
   const { error: clearCartError } = await supabase
-    .from('Cart Items') // Corrected table name
+    .from('Cart Items')
     .delete()
     .eq('user_id', currentUser.userId);
 
@@ -1075,7 +1155,7 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
          console.warn("Network error: Failed to clear user cart after checkout. Manual cleanup may be needed.");
       }
   }
-  notifyCartUpdateListeners();
+  await notifyCartUpdateListeners(); // Notify listeners after cart is cleared
 
   return {
       orderId: createdOrderData.order_id,
@@ -1086,8 +1166,8 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
       cycleId: createdOrderData.cycle_id,
       items: orderItems,
       orderTotalAmount: createdOrderData.order_total_amount,
-      orderStatus: createdOrderData.order_status,
-      paymentStatus: createdOrderData.payment_status,
+      orderStatus: createdOrderData.order_status as Order['orderStatus'],
+      paymentStatus: createdOrderData.payment_status as Order['paymentStatus'],
       orderDate: createdOrderData.order_date,
       adminNotes: createdOrderData.admin_notes,
   } as Order;
@@ -1096,8 +1176,8 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
 export async function fetchAdminOrders(): Promise<Order[]> {
   console.log('fetchAdminOrders called (from Supabase)');
   const { data: ordersData, error: ordersError } = await supabase
-    .from('Orders') // Corrected table name
-    .select('*')
+    .from('Orders')
+    .select('*, profiles(display_name)') // Join with profiles to get display_name
     .order('order_date', { ascending: false });
 
   if (ordersError) {
@@ -1110,14 +1190,14 @@ export async function fetchAdminOrders(): Promise<Order[]> {
 
   const orders: Order[] = await Promise.all(ordersData.map(async (orderDto: any) => {
     const { data: itemsData, error: itemsError } = await supabase
-      .from('Order Items') // Corrected table name
+      .from('Order Items')
       .select('*')
       .eq('order_id', orderDto.order_id);
 
     if (itemsError) {
-      console.error(\`Error fetching items for order \${orderDto.order_id}:\`, itemsError);
+      console.error('Error fetching items for order ' + orderDto.order_id + ':', itemsError);
       if(itemsError && typeof itemsError.message === 'string' && (itemsError.message.includes('fetch failed'))) {
-        console.warn(\`Network error fetching items for order \${orderDto.order_id}. Order items may be incomplete.\`);
+        console.warn('Network error fetching items for order ' + orderDto.order_id + '. Order items may be incomplete.');
       }
     }
 
@@ -1125,7 +1205,7 @@ export async function fetchAdminOrders(): Promise<Order[]> {
       orderId: orderDto.order_id,
       orderNumber: orderDto.order_number,
       userId: orderDto.user_id,
-      customerNameSnapshot: orderDto.customer_name_snapshot,
+      customerNameSnapshot: orderDto.profiles?.display_name || orderDto.customer_name_snapshot || 'N/A', // Use joined profile name if available
       customerWhatsappSnapshot: orderDto.customer_whatsapp_snapshot,
       cycleId: orderDto.cycle_id,
       items: itemsData?.map(itemDto => ({
@@ -1137,8 +1217,8 @@ export async function fetchAdminOrders(): Promise<Order[]> {
         lineItemTotal: itemDto.line_item_total,
       })) || [],
       orderTotalAmount: orderDto.order_total_amount,
-      orderStatus: orderDto.order_status,
-      paymentStatus: orderDto.payment_status,
+      orderStatus: orderDto.order_status as Order['orderStatus'],
+      paymentStatus: orderDto.payment_status as Order['paymentStatus'],
       orderDate: orderDto.order_date,
       adminNotes: orderDto.admin_notes,
     } as Order;
@@ -1147,31 +1227,31 @@ export async function fetchAdminOrders(): Promise<Order[]> {
 }
 
 export async function fetchUserOrders(userId: string): Promise<Order[]> {
-  console.log(\`fetchUserOrders called for userId: \${userId} (from Supabase)\`);
+  console.log('fetchUserOrders called for userId: ' + userId + ' (from Supabase)');
   const { data: ordersData, error: ordersError } = await supabase
-    .from('Orders') // Corrected table name
+    .from('Orders')
     .select('*')
     .eq('user_id', userId)
     .order('order_date', { ascending: false });
 
   if (ordersError) {
-    console.error(\`Error fetching orders for user \${userId}:\`, ordersError);
+    console.error('Error fetching orders for user ' + userId + ':', ordersError);
     if(ordersError && typeof ordersError.message === 'string' && (ordersError.message.includes('fetch failed'))) {
-      throw new Error(\`Network error: Unable to fetch orders for user \${userId}.\`);
+      throw new Error('Network error: Unable to fetch orders for user ' + userId + '.');
     }
     throw ordersError;
   }
 
   const orders: Order[] = await Promise.all(ordersData.map(async (orderDto: any) => {
     const { data: itemsData, error: itemsError } = await supabase
-      .from('Order Items') // Corrected table name
+      .from('Order Items')
       .select('*')
       .eq('order_id', orderDto.order_id);
 
     if (itemsError) {
-      console.error(\`Error fetching items for order \${orderDto.order_id} (user \${userId}):\`, itemsError);
+      console.error('Error fetching items for order ' + orderDto.order_id + ' (user ' + userId + '):', itemsError);
       if(itemsError && typeof itemsError.message === 'string' && (itemsError.message.includes('fetch failed'))) {
-        console.warn(\`Network error fetching items for order \${orderDto.order_id} (user \${userId}). Order items may be incomplete.\`);
+        console.warn('Network error fetching items for order ' + orderDto.order_id + ' (user ' + userId + '). Order items may be incomplete.');
       }
     }
 
@@ -1191,8 +1271,8 @@ export async function fetchUserOrders(userId: string): Promise<Order[]> {
         lineItemTotal: itemDto.line_item_total,
       })) || [],
       orderTotalAmount: orderDto.order_total_amount,
-      orderStatus: orderDto.order_status,
-      paymentStatus: orderDto.payment_status,
+      orderStatus: orderDto.order_status as Order['orderStatus'],
+      paymentStatus: orderDto.payment_status as Order['paymentStatus'],
       orderDate: orderDto.order_date,
       adminNotes: orderDto.admin_notes,
     } as Order;
@@ -1205,18 +1285,18 @@ export async function updateOrderStatus(
   newOrderStatus: Order['orderStatus'],
   newPaymentStatus?: Order['paymentStatus']
 ): Promise<Order> {
-  console.log(\`updateOrderStatus called for orderId: \${orderId}, newOrderStatus: \${newOrderStatus}, newPaymentStatus: \${newPaymentStatus} (to Supabase)\`);
+  console.log('updateOrderStatus called for orderId: ' + orderId + ', newOrderStatus: ' + newOrderStatus + ', newPaymentStatus: ' + (newPaymentStatus || 'N/A') + ' (to Supabase)');
   const updatePayload: { order_status: string; payment_status?: string } = {
     order_status: newOrderStatus,
   };
 
   if (newPaymentStatus) {
     updatePayload.payment_status = newPaymentStatus;
-  } else {
+  } else { // Infer payment status if not explicitly provided
     if (newOrderStatus === "Payment Confirmed" || newOrderStatus === "Completed") {
-      const { data: currentOrder, error: fetchError } = await supabase.from('Orders').select('payment_status').eq('order_id', orderId).single(); // Corrected table name
-      if (fetchError && (fetchError && typeof fetchError.message === 'string' && (fetchError.message.includes('fetch failed')))) {
-          throw new Error(\`Network error: Unable to fetch current order status for \${orderId}. Status update aborted.\`);
+      const { data: currentOrder, error: fetchError } = await supabase.from('Orders').select('payment_status').eq('order_id', orderId).single();
+      if (fetchError && (fetchError.message.includes('fetch failed'))) {
+          throw new Error('Network error: Unable to fetch current order status for ' + orderId + '. Status update aborted.');
       }
       if (currentOrder && currentOrder.payment_status === "Unpaid") {
         updatePayload.payment_status = "Paid";
@@ -1225,29 +1305,29 @@ export async function updateOrderStatus(
   }
 
   const { data: updatedOrderData, error } = await supabase
-    .from('Orders') // Corrected table name
+    .from('Orders')
     .update(updatePayload)
     .eq('order_id', orderId)
     .select()
     .single();
 
   if (error || !updatedOrderData) {
-    console.error(\`Error updating order status for \${orderId}:\`, error);
+    console.error('Error updating order status for ' + orderId + ':', error);
     if(error && typeof error.message === 'string' && (error.message.includes('fetch failed'))) {
-      throw new Error(\`Network error: Failed to update order status for \${orderId}.\`);
+      throw new Error('Network error: Failed to update order status for ' + orderId + '.');
     }
-    throw new Error(\`Failed to update order status for \${orderId}.\`);
+    throw new Error('Failed to update order status for ' + orderId + '.');
   }
 
   const { data: itemsData, error: itemsError } = await supabase
-      .from('Order Items') // Corrected table name
+      .from('Order Items')
       .select('*')
       .eq('order_id', updatedOrderData.order_id);
 
   if (itemsError) {
-      console.error(\`Error fetching items for updated order \${updatedOrderData.order_id}:\`, itemsError);
+      console.error('Error fetching items for updated order ' + updatedOrderData.order_id + ':', itemsError);
       if (itemsError && typeof itemsError.message === 'string' && (itemsError.message.includes('fetch failed'))) {
-        console.warn(\`Network error fetching items for updated order \${updatedOrderData.order_id}. Order details might be incomplete.\`);
+        console.warn('Network error fetching items for updated order ' + updatedOrderData.order_id + '. Order details might be incomplete.');
       }
   }
 
@@ -1267,8 +1347,8 @@ export async function updateOrderStatus(
         lineItemTotal: itemDto.line_item_total,
       })) || [],
       orderTotalAmount: updatedOrderData.order_total_amount,
-      orderStatus: updatedOrderData.order_status,
-      paymentStatus: updatedOrderData.payment_status,
+      orderStatus: updatedOrderData.order_status as Order['orderStatus'],
+      paymentStatus: updatedOrderData.payment_status as Order['paymentStatus'],
       orderDate: updatedOrderData.order_date,
       adminNotes: updatedOrderData.admin_notes,
   } as Order;
@@ -1277,7 +1357,7 @@ export async function updateOrderStatus(
 export async function fetchActivePurchaseCycleTitle(): Promise<string> {
     console.log('fetchActivePurchaseCycleTitle called (from Supabase)');
     const { data, error } = await supabase
-        .from('Purchase Cycles') // Corrected table name
+        .from('Purchase Cycles')
         .select('name')
         .eq('is_active', true)
         .single();
@@ -1287,20 +1367,21 @@ export async function fetchActivePurchaseCycleTitle(): Promise<string> {
         if(error && typeof error.message === 'string' && (error.message.includes('fetch failed'))) {
           console.warn('Network error fetching active cycle title. Using default.');
         }
-        return "Temporada Atual";
+        return "Temporada Atual"; // Default title
     }
     return data.name;
 }
 
 export async function fetchActivePurchaseCycleProducts(): Promise<DisplayableProduct[]> {
   console.log('fetchActivePurchaseCycleProducts called (from Supabase)');
+  // This function just calls fetchDisplayableProducts which already handles active cycle logic
   return fetchDisplayableProducts();
 }
 
 export async function fetchProductAvailabilityInActiveCycle(productId: string): Promise<boolean> {
-    console.log(\`fetchProductAvailabilityInActiveCycle called for productId: \${productId} (from Supabase)\`);
+    console.log('fetchProductAvailabilityInActiveCycle called for productId: ' + productId + ' (from Supabase)');
     const { data: activeCycle, error: cycleError } = await supabase
-        .from('Purchase Cycles') // Corrected table name
+        .from('Purchase Cycles')
         .select('cycle_id')
         .eq('is_active', true)
         .single();
@@ -1310,30 +1391,30 @@ export async function fetchProductAvailabilityInActiveCycle(productId: string): 
         if (cycleError && typeof cycleError.message === 'string' && (cycleError.message.includes('fetch failed'))) {
           console.warn('Network error fetching active cycle for availability check.');
         }
-        return false;
+        return false; // If no active cycle, product cannot be available in it
     }
 
     const { data: cycleProduct, error: cpError } = await supabase
-        .from('Cycle Products') // Corrected table name
+        .from('Cycle Products')
         .select('is_available_in_cycle')
         .eq('cycle_id', activeCycle.cycle_id)
         .eq('product_id', productId)
         .single();
 
-    if (cpError && cpError.code !== 'PGRST116') {
-        console.warn(\`Error fetching cycle product for product \${productId} in active cycle:\`, cpError);
+    if (cpError && cpError.code !== 'PGRST116') { // PGRST116: 0 rows, means product not in cycle
+        console.warn('Error fetching cycle product for product ' + productId + ' in active cycle:', cpError);
         if (cpError && typeof cpError.message === 'string' && (cpError.message.includes('fetch failed'))) {
-           console.warn(\`Network error fetching cycle product for \${productId} in active cycle.\`);
+           console.warn('Network error fetching cycle product for ' + productId + ' in active cycle.');
         }
         return false;
     }
-    return cycleProduct ? cycleProduct.is_available_in_cycle : false;
+    return cycleProduct ? cycleProduct.is_available_in_cycle : false; // If no record, it's not available
 }
 
 export async function setProductAvailabilityInActiveCycle(productId: string, isAvailable: boolean): Promise<void> {
-    console.log(\`setProductAvailabilityInActiveCycle called for productId: \${productId}, isAvailable: \${isAvailable} (to Supabase)\`);
+    console.log('setProductAvailabilityInActiveCycle called for productId: ' + productId + ', isAvailable: ' + isAvailable + ' (to Supabase)');
     const { data: activeCycle, error: cycleError } = await supabase
-        .from('Purchase Cycles') // Corrected table name
+        .from('Purchase Cycles')
         .select('cycle_id')
         .eq('is_active', true)
         .single();
@@ -1347,66 +1428,67 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
     }
 
     const { data: existingCycleProduct, error: fetchCpError } = await supabase
-        .from('Cycle Products') // Corrected table name
+        .from('Cycle Products')
         .select('cycle_product_id, product_name_snapshot, price_in_cycle, display_image_url')
         .eq('cycle_id', activeCycle.cycle_id)
         .eq('product_id', productId)
         .single();
 
-    if (fetchCpError && fetchCpError.code !== 'PGRST116') {
-        console.error(\`Error checking existing cycle_product for product \${productId}:\`, fetchCpError);
+    if (fetchCpError && fetchCpError.code !== 'PGRST116') { // PGRST116 means not found, which is okay if we're creating
+        console.error('Error checking existing cycle_product for product ' + productId + ':', fetchCpError);
         if (fetchCpError && typeof fetchCpError.message === 'string' && (fetchCpError.message.includes('fetch failed'))) {
-           throw new Error(\`Network error: Unable to check existing cycle product for \${productId}.\`);
+           throw new Error('Network error: Unable to check existing cycle product for ' + productId + '.');
         }
         throw fetchCpError;
     }
 
-    if (existingCycleProduct) {
+    if (existingCycleProduct) { // If product exists in cycle, update its availability
         const { error: updateError } = await supabase
-            .from('Cycle Products') // Corrected table name
+            .from('Cycle Products')
             .update({ is_available_in_cycle: isAvailable })
             .eq('cycle_product_id', existingCycleProduct.cycle_product_id);
         if (updateError) {
-            console.error(\`Error updating availability for cycle_product \${existingCycleProduct.cycle_product_id}:\`, updateError);
+            console.error('Error updating availability for cycle_product ' + existingCycleProduct.cycle_product_id + ':', updateError);
             if (updateError && typeof updateError.message === 'string' && (updateError.message.includes('fetch failed'))) {
-               throw new Error(\`Network error: Unable to update availability for cycle product \${existingCycleProduct.cycle_product_id}.\`);
+               throw new Error('Network error: Unable to update availability for cycle product ' + existingCycleProduct.cycle_product_id + '.');
             }
             throw updateError;
         }
-    } else if (isAvailable) {
+    } else if (isAvailable) { // If product does not exist in cycle AND we want to make it available, create it
         const { data: masterProduct, error: masterProductError } = await supabase
-            .from('Products') // Corrected table name
+            .from('Products')
             .select('name, image_urls')
             .eq('product_id', productId)
             .single();
 
         if (masterProductError || !masterProduct) {
-            console.error(\`Master product \${productId} not found to create new cycle_product:\`, masterProductError);
+            console.error('Master product ' + productId + ' not found to create new cycle_product:', masterProductError);
             if (masterProductError && typeof masterProductError.message === 'string' && (masterProductError.message.includes('fetch failed'))) {
-               throw new Error(\`Network error: Unable to fetch master product \${productId} for new cycle product.\`);
+               throw new Error('Network error: Unable to fetch master product ' + productId + ' for new cycle product.');
             }
-            throw new Error(\`Master product \${productId} not found.\`);
+            throw new Error('Master product ' + productId + ' not found.');
         }
         
         const { error: insertError } = await supabase
-            .from('Cycle Products') // Corrected table name
+            .from('Cycle Products')
             .insert({
                 cycle_id: activeCycle.cycle_id,
                 product_id: productId,
                 product_name_snapshot: masterProduct.name,
-                price_in_cycle: 0,
+                price_in_cycle: 0, // Default price, admin should update this
                 is_available_in_cycle: true,
                 display_image_url: masterProduct.image_urls?.[0] || 'https://placehold.co/400x300.png?text=Produto',
             });
         if (insertError) {
-            console.error(\`Error inserting new cycle_product for product \${productId}:\`, insertError);
+            console.error('Error inserting new cycle_product for product ' + productId + ':', insertError);
             if (insertError && typeof insertError.message === 'string' && (insertError.message.includes('fetch failed'))) {
-               throw new Error(\`Network error: Unable to insert new cycle product for \${productId}.\`);
+               throw new Error('Network error: Unable to insert new cycle product for ' + productId + '.');
             }
             throw insertError;
         }
-        console.log(\`Created new cycle_product for \${masterProduct.name} in active cycle as it was made available.\`);
+        console.log('Created new cycle_product for ' + masterProduct.name + ' in active cycle as it was made available.');
     }
+    // If existingCycleProduct is null and isAvailable is false, do nothing.
 }
 
 interface AdminDashboardMetrics {
@@ -1418,7 +1500,7 @@ interface AdminDashboardMetrics {
 export async function fetchActiveCycleMetrics(): Promise<AdminDashboardMetrics> {
   console.log('fetchActiveCycleMetrics called (from Supabase)');
   const { data: activeCycleData, error: cycleError } = await supabase
-    .from('Purchase Cycles') // Corrected table name
+    .from('Purchase Cycles')
     .select('*')
     .eq('is_active', true)
     .single();
@@ -1433,10 +1515,10 @@ export async function fetchActiveCycleMetrics(): Promise<AdminDashboardMetrics> 
         isActive: activeCycleData.is_active,
         createdAt: activeCycleData.created_at,
     };
-  } else if (cycleError && cycleError.code !== 'PGRST116') {
+  } else if (cycleError && cycleError.code !== 'PGRST116') { // PGRST116 means no active cycle, not an error for metrics logic
     console.warn("Error fetching active cycle for metrics:", cycleError);
     if (cycleError && typeof cycleError.message === 'string' && (cycleError.message.includes('fetch failed'))) {
-      // Network error
+      // Network error, metrics will likely be zero
     }
   }
 
@@ -1445,14 +1527,14 @@ export async function fetchActiveCycleMetrics(): Promise<AdminDashboardMetrics> 
 
   if (activeCycle) {
     const { data: ordersData, error: ordersError } = await supabase
-      .from('Orders') // Corrected table name
+      .from('Orders')
       .select('order_status, payment_status, order_total_amount')
       .eq('cycle_id', activeCycle.cycleId);
 
     if (ordersError) {
       console.warn("Error fetching orders for active cycle metrics:", ordersError);
       if (ordersError && typeof ordersError.message === 'string' && (ordersError.message.includes('fetch failed'))) {
-        // Network error
+        // Network error, metrics will likely be zero
       }
     } else if (ordersData) {
       pendingOrdersCount = ordersData.filter(
@@ -1491,7 +1573,7 @@ export async function fetchAdminUsers(): Promise<User[]> {
       email: profile.email,
       displayName: profile.display_name,
       whatsapp: profile.whatsapp,
-      role: profile.role,
+      role: profile.role as 'customer' | 'admin',
       createdAt: profile.created_at,
       addressStreet: profile.address_street,
       addressNumber: profile.address_number,

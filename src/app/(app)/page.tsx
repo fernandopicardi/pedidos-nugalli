@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import type { DisplayableProduct } from '@/types';
 import { ProductGrid } from '@/components/products/product-grid';
 import { PageContainer } from '@/components/shared/page-container';
-import { createClient } from '@/lib/supabaseClient';
+import { supabase } from '@/lib/supabaseClient'; // Alterado aqui
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -39,7 +39,7 @@ export default function HomePage() {
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
-      const supabase = createClient();
+      // const supabase = createClient(); // Linha removida - supabase já é o cliente importado
  try {
         // Fetch active purchase cycle
         const { data: cycleData, error: cycleError } = await supabase
@@ -68,7 +68,7 @@ export default function HomePage() {
         // Fetch products for the active cycle
         const { data: productsData, error: productsError } = await supabase
           .from('Cycle Products')
-          .select('*, Products (product_id, name, description, image_urls, attributes, isSeasonal)') // Join with Products table
+          .select('cycle_product_id, cycle_id, product_id, product_name_snapshot, price_in_cycle, is_available_in_cycle, display_image_url, Products (product_id, name, description, image_urls, attributes, is_seasonal)') // Join with Products table
           .eq('cycle_id', cycleData.cycle_id)
           .eq('is_available_in_cycle', true);
 
@@ -81,14 +81,16 @@ export default function HomePage() {
 
         // Map fetched data to DisplayableProduct type
         const displayableProducts: DisplayableProduct[] = productsData ? productsData.map(cp => ({
- productId: cp.Products?.product_id || cp.product_id, // Use product_id from Products if available, fallback to Cycle Products
- name: cp.Products?.name || 'Unknown Product',
- description: cp.Products?.description || '',
- imageUrls: cp.Products?.image_urls || [],
- attributes: cp.Products?.attributes || {},
- price: cp.price_in_cycle, // Use price_in_cycle from Cycle Products
- isSeasonal: cp.Products?.isSeasonal || false, // Use isSeasonal from Products
- // Map other properties from DisplayableProduct if needed and available in Cycle Products or joined Products
+          cycleProductId: cp.cycle_product_id,
+          cycleId: cp.cycle_id,
+          productId: cp.Products?.product_id || cp.product_id,
+          name: cp.product_name_snapshot || cp.Products?.name || 'Unknown Product',
+          description: cp.Products?.description || '',
+          imageUrl: cp.display_image_url || cp.Products?.image_urls?.[0] || 'https://placehold.co/400x300.png?text=Produto',
+          attributes: cp.Products?.attributes || {},
+          price: cp.price_in_cycle,
+          isAvailable: cp.is_available_in_cycle,
+          isSeasonal: cp.Products?.is_seasonal || false,
         })) : [];
 
         setAllProducts(displayableProducts);
@@ -103,22 +105,21 @@ export default function HomePage() {
  loadData();
   }, []);
 
-  const extractAttributeValues = (attributeKey: string) => {
+  const extractAttributeValues = useMemo(() => (attributeKey: string) => {
     const values = new Set<string>();
     allProducts.forEach(p => {
-      // Ensure attributes property exists before accessing keys and it is an object
       if (p.attributes && typeof p.attributes === 'object' && p.attributes[attributeKey]) {
         const attributeValue = p.attributes[attributeKey];
-        // Handle both array and non-array attribute values
         if (Array.isArray(attributeValue)) {
-          attributeValue.forEach(v => values.add(String(v)));
-        } else if (typeof attributeValue === 'string') {
+          attributeValue.forEach(v => { if (v) values.add(String(v))});
+        } else if (typeof attributeValue === 'string' && attributeValue) {
            values.add(attributeValue);
-        } // Add other types if necessary
+        }
       }
     });
     return Array.from(values).sort();
-  };
+  }, [allProducts]);
+
 
   const categoryOptions = useMemo(() => extractAttributeValues(CATEGORY_ATTRIBUTE_KEY), [allProducts, extractAttributeValues]);
   const cacaoOptions = useMemo(() => extractAttributeValues(CACAO_ATTRIBUTE_KEY), [allProducts, extractAttributeValues]);
@@ -135,23 +136,26 @@ export default function HomePage() {
     }
     if (selectedCategories.length > 0) {
       products = products.filter(p =>
-        // Check if attributes and the specific attribute key exist, is an object and is an array
-        p.attributes?.[CATEGORY_ATTRIBUTE_KEY] && typeof p.attributes[CATEGORY_ATTRIBUTE_KEY] === 'object' && Array.isArray(p.attributes[CATEGORY_ATTRIBUTE_KEY]) &&
+        p.attributes?.[CATEGORY_ATTRIBUTE_KEY] && Array.isArray(p.attributes[CATEGORY_ATTRIBUTE_KEY]) &&
         selectedCategories.some(cat => p.attributes[CATEGORY_ATTRIBUTE_KEY].includes(cat))
       );
     }
     if (selectedCacao.length > 0) {
       products = products.filter(p =>
-        // Check if attributes and the specific attribute key exist, is an object and is an array
-         p.attributes?.[CACAO_ATTRIBUTE_KEY] && typeof p.attributes[CACAO_ATTRIBUTE_KEY] === 'object' && Array.isArray(p.attributes[CACAO_ATTRIBUTE_KEY]) &&
+         p.attributes?.[CACAO_ATTRIBUTE_KEY] && Array.isArray(p.attributes[CACAO_ATTRIBUTE_KEY]) &&
         selectedCacao.some(c => p.attributes[CACAO_ATTRIBUTE_KEY].includes(c))
       );
     }
     if (selectedDietary.length > 0) {
       products = products.filter(p =>
-        // Check if attributes and the specific attribute key exist, is an object and is an array
-        p.attributes?.[DIETARY_ATTRIBUTE_KEY] && typeof p.attributes[DIETARY_ATTRIBUTE_KEY] === 'object' && Array.isArray(p.attributes[DIETARY_ATTRIBUTE_KEY]) &&
+        p.attributes?.[DIETARY_ATTRIBUTE_KEY] && Array.isArray(p.attributes[DIETARY_ATTRIBUTE_KEY]) &&
         selectedDietary.every(diet => p.attributes[DIETARY_ATTRIBUTE_KEY].includes(diet))
+      );
+    }
+     if (selectedWeights.length > 0) {
+      products = products.filter(p =>
+        p.attributes?.[WEIGHT_ATTRIBUTE_KEY] && Array.isArray(p.attributes[WEIGHT_ATTRIBUTE_KEY]) &&
+        selectedWeights.some(w => p.attributes[WEIGHT_ATTRIBUTE_KEY].includes(w))
       );
     }
     const numMinPrice = parseFloat(minPrice);
@@ -345,3 +349,5 @@ export default function HomePage() {
     </PageContainer>
   );
 }
+
+    
