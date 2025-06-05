@@ -133,7 +133,6 @@ export const signOut = async () => {
  return { error: { message: e.message || 'An unexpected error occurred during sign out.' } };
  } finally { if (typeof window !== 'undefined') { Cookies.remove('user_id'); } } // Always attempt to clear cookie on sign out
  }
-};
 
 export const getUser = async (): Promise<{ user: User | null; error: Error | null }> => {
   console.log('auth.ts: getUser called');
