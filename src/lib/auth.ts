@@ -22,6 +22,7 @@ export const signUp = async (
 		const metadataForAuth: Record<string, any> = {
 			display_name: profileData?.displayName || email.split('@')[0] || 'Usuário',
 			whatsapp: profileData?.whatsapp || '',
+			role: false, // Default new users to role: false
 		};
 		// Ensure all address fields from profileData are added to metadataForAuth
 		if (profileData?.addressStreet) metadataForAuth.address_street = profileData.addressStreet;
@@ -162,7 +163,7 @@ export const getUser = async (): Promise<{ user: User | null; error: Error | nul
         email: authUser.email,
         display_name: rawUserMetaData.display_name || authUser.email?.split('@')[0] || 'Usuário',
         whatsapp: rawUserMetaData.whatsapp || '',
-        role: rawUserMetaData.role || 'customer',
+        role: rawUserMetaData.role === true, // Ensure boolean value from metadata
         created_at: authUser.created_at || new Date().toISOString(),
         address_street: rawUserMetaData.address_street || null,
         address_number: rawUserMetaData.address_number || null,
@@ -186,7 +187,7 @@ export const getUser = async (): Promise<{ user: User | null; error: Error | nul
           email: authUser.email || 'N/A',
           displayName: rawUserMetaData.display_name || authUser.email?.split('@')[0] || 'Usuário',
           whatsapp: rawUserMetaData.whatsapp || '',
-          role: (rawUserMetaData.role as 'customer' | 'admin') || 'customer',
+          role: rawUserMetaData.role === true, // Ensure boolean value
           createdAt: authUser.created_at || new Date().toISOString(),
           addressStreet: rawUserMetaData.address_street || undefined,
           addressNumber: rawUserMetaData.address_number || undefined,
@@ -210,7 +211,7 @@ export const getUser = async (): Promise<{ user: User | null; error: Error | nul
           email: authUser.email || 'N/A',
           displayName: rawUserMetaData.display_name || authUser.email?.split('@')[0] || 'Usuário',
           whatsapp: rawUserMetaData.whatsapp || '',
-          role: (rawUserMetaData.role as 'customer' | 'admin') || 'customer',
+          role: rawUserMetaData.role === true, // Ensure boolean value
           createdAt: authUser.created_at || new Date().toISOString(),
           addressStreet: rawUserMetaData.address_street || undefined,
           addressNumber: rawUserMetaData.address_number || undefined,
@@ -231,7 +232,7 @@ export const getUser = async (): Promise<{ user: User | null; error: Error | nul
           email: authUser.email || 'N/A',
           displayName: rawUserMetaDataFallback.display_name || authUser.email?.split('@')[0] || 'User',
           whatsapp: rawUserMetaDataFallback.whatsapp || '',
-          role: (rawUserMetaDataFallback.role as 'customer' | 'admin') || 'customer',
+          role: rawUserMetaDataFallback.role === true, // Ensure boolean value
           createdAt: authUser.created_at || new Date().toISOString(),
           addressStreet: rawUserMetaDataFallback.address_street || undefined,
           addressNumber: rawUserMetaDataFallback.address_number || undefined,
