@@ -9,7 +9,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { signInWithEmail, getCurrentUser } from '@/lib/supabasePlaceholders'; // Importar signInWithEmail e getCurrentUser
 import type { User } from '@/types';
 
 export function LoginForm() {

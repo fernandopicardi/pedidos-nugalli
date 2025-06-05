@@ -12,11 +12,12 @@ import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { Loader2 } from 'lucide-react';
 import { fetchProductAvailabilityInActiveCycle, setProductAvailabilityInActiveCycle } from '@/lib/supabasePlaceholders';
+import { supabase } from '@/lib/supabaseClient';
 
 interface ProductFormProps {
   initialData?: Product | null;
   onSubmit: (data: Omit<Product, 'productId' | 'createdAt' | 'updatedAt'> | (Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>> & { productId: string })) => Promise<Product>; // Ensure onSubmit returns the product
-  onClose: () => void;
+  onClose: (product?: Product) => void;
 }
 
 const CATEGORIA_OPTIONS = ["Barra", "Tablete", "Pastilhas", "Granel", "Gotas", "Recheado"];
@@ -26,8 +27,7 @@ const DIETARY_OPTIONS = ["vegano", "sem glúten", "sem lactose", "KOSHER", "ZERO
 export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [imageUrls, setImageUrls] = useState<string[]>(['']);
-  const [masterIsSeasonalFlag, setMasterIsSeasonalFlag] = useState(true); // For the master product's own seasonal flag
+  const [imageUrl, setImageUrl] = useState('');
 
   // New state for specific attributes
   const [selectedCategorias, setSelectedCategorias] = useState<string[]>([]);
@@ -49,16 +49,16 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
     if (initialData) {
       setName(initialData.name);
       setDescription(initialData.description);
-      setImageUrls(initialData.imageUrls && initialData.imageUrls.length > 0 ? initialData.imageUrls : ['']);
-      setMasterIsSeasonalFlag(initialData.isSeasonal); // Keep track of the master product's seasonal flag
+      setImageUrl(initialData.imageUrl || '');
 
       setSelectedCategorias(initialData.attributes?.categoria || []);
       setSelectedDietary(initialData.attributes?.dietary || []);
       setProductPeso(initialData.attributes?.peso?.[0] || '');
-      setProductCacau(initialData.attributes?.cacau?.[0] || '');
+      setProductCacau(initialData.attributes?.cacau?.[0] || ''); // Assuming 'cacau' attribute might exist
       setProductUnidade(initialData.attributes?.unidade?.[0] || '');
       setProductSabor(initialData.attributes?.sabor?.[0] || '');
 
+      // Fetch availability only if it's an existing product
       setIsLoadingAvailability(true);
       fetchProductAvailabilityInActiveCycle(initialData.productId)
         .then(isAvailable => {
@@ -70,41 +70,21 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         })
         .finally(() => setIsLoadingAvailability(false));
 
+
     } else {
       // Defaults for new product
       setName('');
       setDescription('');
-      setImageUrls(['']);
-      setMasterIsSeasonalFlag(true);
+      setImageUrl('');
       setSelectedCategorias([]);
       setSelectedDietary([]);
       setProductPeso('');
       setProductCacau('');
       setProductUnidade('');
       setProductSabor('');
-      setIsAvailableInActiveCycle(true); // Default to available for new products
-      setIsLoadingAvailability(false);
+      setIsAvailableInActiveCycle(true); // New products are available by default
     }
-  }, [initialData, toast]);
-
-  const handleImageUrlsChange = (index: number, value: string) => {
-    const newImageUrls = [...imageUrls];
-    newImageUrls[index] = value;
-    setImageUrls(newImageUrls);
-  };
-
-  const addImageUrlField = () => {
-    setImageUrls([...imageUrls, '']);
-  };
-
-  const removeImageUrlField = (index: number) => {
-    if (imageUrls.length > 1) {
-      const newImageUrls = imageUrls.filter((_, i) => i !== index);
-      setImageUrls(newImageUrls);
-    } else {
-      setImageUrls(['']);
-    }
-  };
+  }, [initialData, toast]); // Added dependencies
 
   const handleCheckboxChange = (setter: React.Dispatch<React.SetStateAction<string[]>>, option: string) => {
     setter(prev => 
@@ -122,11 +102,11 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
 
     setIsUploadingImage(true);
 
-    const filePath = `products/${Date.now()}_${selectedImage.name}`;
+    const filePath = `products/${Date.now()}_${selectedImage.name}`; // Store in products directory
     const bucketName = 'product-images'; 
 
     try {
-      const { data, error } = await supabase.storage
+      const { data, error } = await supabase.storage // Corrected Supabase call
  .from('product-images') // Use the actual bucket name string
         .upload(filePath, selectedImage);
 
@@ -135,8 +115,9 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         throw error;
       }
 
-      const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(data.path); 
-      setImageUrls(prevUrls => [...prevUrls.filter(url => url.trim() !== ''), publicUrlData.publicUrl]);
+      // Use the data.path returned from the upload which is the full path within the bucket
+      const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(data.path);
+      setImageUrl(publicUrlData.publicUrl); // Set the single image URL
       toast({ title: "Upload Sucesso", description: "Imagem carregada com sucesso." });
     } catch (error: any) {
  toast({ title: "Erro no Upload", description: `Não foi possível carregar a imagem: ${(error as Error).message}`, variant: "destructive" });
@@ -152,56 +133,51 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
     event.preventDefault();
     setIsSubmitting(true);
 
-    if (!name.trim()) {
-      toast({ title: "Erro de Validação", description: "Nome do produto é obrigatório.", variant: "destructive" });
-      setIsSubmitting(false);
-      return; // Exit if name is missing
+    if (!name.trim() || !description.trim() || !imageUrl.trim()) {
+       toast({ title: "Erro", description: "Nome do produto é obrigatório.", variant: "destructive" });
+       setIsSubmitting(false);
+       return;
     }
 
- let finalImageUrls = imageUrls.map(url => url.trim()).filter(url => url !== '');
-
     // If a new image is selected, upload it first
+    let newImageUrl = imageUrl; // Start with the current imageUrl state
+
     if (selectedImage) {
-      setIsUploadingImage(true);
       const filePath = `products/${Date.now()}_${selectedImage.name}`;
-      const bucketName = 'product-images';
+      const bucketName = 'product-images'; // Your actual bucket name
 
       try {
- const { data, error: uploadError } = await supabase.storage
- .from('product-images') // Use the actual bucket name string
+ const { data, error: uploadError } = await supabase.storage // Ensure supabase client is imported
+          .from(bucketName) // Use the actual bucket name string
           .upload(filePath, selectedImage);
 
- if (uploadError) {
- throw uploadError;
+        if (uploadError) {
+          throw uploadError;
         }
 
- const { data: publicUrlData, error: publicUrlError } = supabase.storage.from('product-images').getPublicUrl(data.path);
+ const { data: publicUrlData, error: publicUrlError } = supabase.storage.from(bucketName).getPublicUrl(data.path);
         if (publicUrlError) {
           throw publicUrlError;
         }
-        finalImageUrls = [...finalImageUrls, publicUrlData.publicUrl]; // Add the new URL
-        toast({ title: "Upload Sucesso", description: "Imagem carregada com sucesso." });
+        newImageUrl = publicUrlData.publicUrl; // Use the new URL
+        // Optionally toast about successful upload here, but the main save toast comes later
       } catch (error: any) {
         console.error("Error uploading image:", error);
  toast({ title: "Erro no Upload", description: `Não foi possível carregar a imagem: ${(error as Error).message}`, variant: "destructive" });
-      } finally {
-        setIsUploadingImage(false);
+        setIsSubmitting(false); // Stop submission if image upload fails
         setSelectedImage(null);
-        const fileInput = document.getElementById('imageUpload') as HTMLInputElement;
-        if (fileInput) fileInput.value = '';
+        return; // Stop the submission process
       }
     }
 
-    // If no images are available after processing, add a placeholder
-    if (finalImageUrls.length === 0) {
-        finalImageUrls.push('https://placehold.co/400x300.png?text=Produto');
-    }
+    // Use the uploaded image URL if available, otherwise use the existing one or a placeholder
+    const finalImageUrl = newImageUrl || imageUrl || 'https://placehold.co/400x300.png?text=Produto'; // Ensure placeholder is a single string
 
     const newAttributes: Record<string, string[]> = {};
     if (selectedCategorias.length > 0) newAttributes.categoria = selectedCategorias;
     if (selectedDietary.length > 0) newAttributes.dietary = selectedDietary;
     if (productPeso.trim()) newAttributes.peso = [productPeso.trim()];
-    if (productCacau.trim()) newAttributes.cacau = [productCacau.trim()];
+    if (productCacau.trim()) newAttributes.cacau = [productCacau.trim()]; // Include cacau
     if (productUnidade.trim()) newAttributes.unidade = [productUnidade.trim()];
     if (productSabor.trim()) newAttributes.sabor = [productSabor.trim()];
 
@@ -209,10 +185,9 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       const productMasterData = { 
         name, 
         description,
- imageUrls: finalImageUrls, // Use the potentially updated imageUrls after upload
-        attributes: newAttributes,
-        isSeasonal: masterIsSeasonalFlag, 
-      };
+ imageUrl: finalImageUrl, // Use the single final image URL
+        attributes: newAttributes // Include updated attributes
+     };
 
       let currentProductId: string;
 
@@ -229,7 +204,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       await setProductAvailabilityInActiveCycle(currentProductId, isAvailableInActiveCycle);
       toast({ title: "Disponibilidade Atualizada", description: `Disponibilidade de "${name}" no ciclo ativo foi salva.` });
       
-      onClose();
+      onClose(initialData ? { ...initialData, ...productMasterData, productId: currentProductId, updatedAt: new Date().toISOString() } as Product : { ...productMasterData, productId: currentProductId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as Product);
  } catch (error: any) {
       console.error("Failed to save product or availability:", error);
  toast({ title: "Erro ao Salvar", description: `Não foi possível salvar o produto ou sua disponibilidade: ${(error as Error).message}`, variant: "destructive" });
@@ -251,27 +226,20 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       </div>
 
       <div>
-        <Label className="font-semibold">URLs das Imagens</Label>
-        {imageUrls.map((url, index) => (
-          <div key={index} className="flex items-center space-x-2 mt-1">
-            <Input 
-              type="url"
-              value={url} 
-              onChange={(e) => handleImageUrlsChange(index, e.target.value)} 
-              placeholder="https://exemplo.com/imagem.png"
-            />
-            {imageUrls.length > 1 && (
-              <Button type="button" variant="ghost" size="sm" onClick={() => removeImageUrlField(index)}>Remover</Button>
-            )}
+        <Label htmlFor="product-image-url" className="font-semibold">URL da Imagem</Label>
+        <Input 
+          id="product-image-url" 
+          type="url"
+          value={imageUrl} 
+          onChange={(e) => setImageUrl(e.target.value)} 
+          placeholder="https://exemplo.com/imagem.png"         />
+        {(imageUrl || selectedImage) && ( // Display image if URL exists or a file is selected
+          <div className="mt-2 w-32 h-32 relative border rounded-md overflow-hidden">
+            {/* Use object-cover for consistent image display */}
+            <img src={selectedImage ? URL.createObjectURL(selectedImage) : imageUrl} alt="Product Image" className="object-cover w-full h-full" />
           </div>
-        ))}
-        <Button type="button" variant="outline" size="sm" onClick={addImageUrlField} className="mt-2">
-          Adicionar URL de Imagem
-        </Button>
-        {imageUrls.filter(url => url.trim())[0] && (
- <img src={imageUrls.filter(url => url.trim())[0]} data-ai-hint="chocolate product" alt="Preview" className="mt-2 h-24 w-24 object-cover rounded-md border"/>
- )}
- } {/* Consider replacing <img> with Next.js <Image> for optimization */}
+        )}
+      </div>
 
       <div>
          <Label className="font-semibold">Carregar Imagem do Computador</Label>
@@ -325,49 +293,34 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
           <Input id="product-peso" value={productPeso} onChange={(e) => setProductPeso(e.target.value)} className="mt-1" placeholder="Ex: 100g, 1kg"/>
         </div>
         <div>
-          <Label htmlFor="product-cacau" className="font-semibold">Teor de Cacau</Label>
-          <Input id="product-cacau" value={productCacau} onChange={(e) => setProductCacau(e.target.value)} className="mt-1" placeholder="Ex: 70%, 45%"/>
+          <Label htmlFor="product-cacau" className="font-semibold">Teor de Cacau (se aplicável)</Label>
+          <Input id="product-cacau" value={productCacau} onChange={(e) => setProductCacau(e.target.value)} className="mt-1" placeholder="Ex: 70%, 50%"/>
         </div>
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-         <div>
-          <Label htmlFor="product-unidade" className="font-semibold">Unidade de Venda</Label>
-          <Input id="product-unidade" value={productUnidade} onChange={(e) => setProductUnidade(e.target.value)} className="mt-1" placeholder="Ex: barra, tablete, kg"/>
-        </div>
-        <div>
-          <Label htmlFor="product-sabor" className="font-semibold">Sabor Principal (se houver)</Label>
-          <Input id="product-sabor" value={productSabor} onChange={(e) => setProductSabor(e.target.value)} className="mt-1" placeholder="Ex: Açaí, Cupuaçu, Caramelo"/>
-        </div>
-      </div>
-      
-      <div className="flex items-center space-x-2 pt-2">
-        <Checkbox
-          id="master-is-seasonal"
-          checked={masterIsSeasonalFlag}
-          onCheckedChange={(checked) => setMasterIsSeasonalFlag(Boolean(checked))}
-        />
-        <Label htmlFor="master-is-seasonal" className="font-semibold">Este é um produto mestre primariamente sazonal?</Label>
-      </div>
-      <p className="text-xs text-muted-foreground">Esta marcação é para organização interna do catálogo mestre.</p>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="product-sabor" className="font-semibold">Sabor Principal (se houver)</Label>
+            <Input id="product-sabor" value={productSabor} onChange={(e) => setProductSabor(e.target.value)} className="mt-1" placeholder="Ex: Açaí, Cupuaçu, Caramelo"/>
+          </div>
+        </div>
 
-      <Separator />
-      <p className="font-semibold text-lg">Disponibilidade para Venda</p>
-      
-      <div className="flex items-center space-x-2 pt-2">
-        <Checkbox
-          id="is-available-in-active-cycle"
-          checked={isAvailableInActiveCycle}
-          onCheckedChange={(checked) => setIsAvailableInActiveCycle(Boolean(checked))}
-          disabled={isLoadingAvailability}
-        />
-        <Label htmlFor="is-available-in-active-cycle" className="font-semibold">Disponível no ciclo de compra ativo?</Label>
-        {isLoadingAvailability && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
-      </div>
-      <p className="text-xs text-muted-foreground">Controla se este produto aparece para os clientes no ciclo de vendas ativo no site.</p>
-      
-      <div className="flex justify-end space-x-3 pt-4 border-t sticky bottom-0 bg-card py-3">
+        <Separator />
+        <p className="font-semibold text-lg">Disponibilidade para Venda</p>
+
+        <div className="flex items-center space-x-2 pt-2">
+          <Checkbox
+            id="is-available-in-active-cycle"
+            checked={isAvailableInActiveCycle}
+            onCheckedChange={(checked) => setIsAvailableInActiveCycle(Boolean(checked))}
+            disabled={isLoadingAvailability}
+          />
+          <Label htmlFor="is-available-in-active-cycle" className="font-semibold">Disponível no ciclo de compra ativo?</Label>
+          {isLoadingAvailability && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
+        </div>
+        <p className="text-xs text-muted-foreground">Controla se este produto aparece para os clientes no ciclo de vendas ativo no site.</p>
+
+        <div className="flex justify-end space-x-3 pt-4 border-t sticky bottom-0 bg-card py-3">
         <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
           Cancelar
         </Button>
@@ -376,5 +329,5 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         </Button>
       </div>
     </form>
-  );
-}
+  )};
+

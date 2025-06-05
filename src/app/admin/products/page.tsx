@@ -50,7 +50,7 @@ export default function ProductManagementPage() {
 
   useEffect(() => {
     loadMasterProducts();
-  }, [toast]); // Add toast as a dependency
+  }, [loadMasterProducts]); // Include loadMasterProducts as a dependency
 
   const handleFormSubmit = async (data: Omit<Product, 'productId' | 'createdAt' | 'updatedAt'> | (Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>> & { productId: string })): Promise<Product> => {
     // This function is now a bit more complex because ProductForm also calls setProductAvailabilityInActiveCycle
@@ -183,7 +183,7 @@ export default function ProductManagementPage() {
                         <AlertDialogHeader>
  <AlertDialogTitle>Confirmar Deleção</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Tem certeza que deseja deletar o produto mestre "{product.name}"? Esta ação não pode ser desfeita e removerá o produto de futuros ciclos.
+ Tem certeza que deseja deletar o produto mestre &quot;{product.name}&quot;? Esta ação não pode ser desfeita e removerá o produto de futuros ciclos.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

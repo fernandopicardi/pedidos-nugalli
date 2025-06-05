@@ -9,8 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabaseClient'; // Importar supabase client
-import { updateUserDetails, getCurrentUser } from '@/lib/supabasePlaceholders'; // Importar updateUserDetails e getCurrentUser
+import { signUp, getUser } from '@/lib/auth'; // Importar signUp e getUser do serviço de autenticação
 
 export function RegisterForm() {
   const [email, setEmail] = useState('');
@@ -46,22 +45,18 @@ export function RegisterForm() {
     }
     setIsSubmitting(true);
 
-    // 1. Chamar a função de cadastro do Supabase diretamente
-    const { data: signUpAuthData, error: directSignUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        // Você pode adicionar metadados aqui se sua tabela 'profiles' for populada por um trigger
-        // que lê de auth.users.user_metadata.
-        // Ex: data: { display_name: email.split('@')[0] }
-        // Se você não passar `display_name` e `whatsapp` aqui, e não houver campos no formulário para eles,
-        // a função `updateUserDetails` precisará de valores padrão ou você terá que buscá-los
-        // do perfil que o trigger do Supabase pode ter criado.
-      }
+    // Chamar a função signUp do serviço de autenticação
+    const { user: registeredUser, error: signUpError } = await signUp(email, password, {
+ addressStreet,
+      addressNumber,
+ addressComplement,
+ addressNeighborhood,
+ addressCity,
+ addressState,
+ addressZip,
     });
 
-    if (directSignUpError) {
-      toast({ title: "Erro no Cadastro", description: directSignUpError.message, variant: "destructive" });
+    if (signUpError) {
       setIsSubmitting(false);
       return;
     }
@@ -69,54 +64,24 @@ export function RegisterForm() {
     // Se signUpAuthData.user existir mas signUpAuthData.session for null,
     // significa que a confirmação de email é necessária (se habilitada no Supabase).
     if (signUpAuthData.user && !signUpAuthData.session) {
-      toast({
-        title: "Cadastro Quase Concluído!",
-        description: "Enviamos um link de confirmação para o seu e-mail. Por favor, verifique sua caixa de entrada (e spam) para ativar sua conta antes de fazer login.",
-        duration: 10000, // Mostrar por mais tempo
-      });
-      // Nota: O perfil na tabela 'profiles' (com display_name, whatsapp, etc.)
-      // idealmente é criado por um trigger no Supabase no `insert` da tabela `auth.users`.
-      // Se este trigger não existir ou não preencher todos os campos, você precisaria
-      // de uma lógica adicional para criar/atualizar o perfil em 'profiles' após a confirmação do email.
+      toast({ title: "Verifique seu Email", description: "Um link de confirmação foi enviado. Por favor, ative sua conta para continuar.", duration: 9000 });
       router.push('/auth'); // Redirecionar para a página de login
       setIsSubmitting(false);
       return;
     }
 
-    // Se chegou aqui, o cadastro foi bem-sucedido E
-    // (a) a confirmação de email está desabilitada (usuário já logado pelo signUp), OU
-    // (b) é um fluxo onde a sessão é imediatamente fornecida.
-    if (signUpAuthData.user && signUpAuthData.session) {
-      // Usuário cadastrado e logado (confirmação de email provavelmente desabilitada no Supabase)
-      // Agora, atualize os detalhes do usuário (endereço) na tabela 'profiles'.
-      // Se o seu trigger do Supabase não define displayName/whatsapp a partir do user_metadata
-      // ou se você não passou esses dados no options.data do signUp,
-      // você pode precisar buscar o perfil antes de atualizar, ou ter campos no formulário.
-      // Para simplificar, assumimos que o perfil já existe ou que `updateUserDetails` pode lidar com isso.
-      const { error: updateError } = await updateUserDetails(signUpAuthData.user.id, {
-        // Se 'displayName' e 'whatsapp' não foram definidos por um trigger ou metadata,
-        // e não há campos de formulário para eles, eles não serão atualizados aqui,
-        // a menos que `updateUserDetails` tenha uma lógica para buscá-los ou usar padrões.
-        // É importante garantir que `display_name` e `whatsapp` no `profiles` sejam preenchidos.
-        // Uma opção é ter campos no formulário para nome e whatsapp e passá-los aqui.
-        // Por enquanto, apenas o endereço é passado.
-        addressStreet,
-        addressNumber,
-        addressComplement,
-        addressNeighborhood,
-        addressCity,
-        addressState,
-        addressZip,
-      });
-
-      if (updateError) {
-        toast({ title: "Cadastro Concluído com Alerta", description: `Sua conta foi criada e você está logado, mas houve um erro ao salvar o endereço: ${updateError.message}. Você pode atualizá-lo em "Minha Conta".`, variant: "default" });
+    // Se chegou aqui, o cadastro foi bem-sucedido e o usuário foi criado (e o perfil também, pela função signUp)
+    if (registeredUser) {
+      toast({ title: "Cadastro Bem-Sucedido", description: "Sua conta foi criada com sucesso!" });
+      // Se a confirmação de email não for necessária e o usuário estiver logado após signUp
+      if (signUpAuthData.session) {
+        // O perfil já foi criado dentro do signUp, então apenas buscamos o usuário completo
+        await getUser(); // Isso deve buscar o usuário completo (com perfil) e atualizar o localStorage.
+        redirectToStoredPathOrFallback('/');
       } else {
-        toast({ title: "Cadastro Bem-Sucedido", description: "Sua conta foi criada, o endereço salvo e você já está logado!" });
+        // Confirmação de email necessária
+        router.push('/auth'); // Redirecionar para a página de login para esperar confirmação
       }
-      
-      await getCurrentUser(); // Isso deve buscar o usuário completo (com perfil) e atualizar o localStorage.
-      redirectToStoredPathOrFallback('/');
     } else if (signUpAuthData.user && !signUpAuthData.session) {
       // Este bloco já foi tratado acima, mas como uma rede de segurança.
        toast({

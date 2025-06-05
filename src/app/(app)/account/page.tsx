@@ -8,11 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabaseClient';
 import type { User as AppUser, Order } from '@/types';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Loader2, LogOut, ShoppingBag, CalendarDays, Info, Home, MapPin, UserCircle, Phone } from 'lucide-react'; // Added Home, MapPin for address
+import Link from 'next/link'; // Import Link for internal navigation
+import { Loader2, LogOut, ShoppingBag, CalendarDays, Home, UserCircle } from 'lucide-react'; // Removed unused icons
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 
@@ -96,7 +95,7 @@ export default function AccountPage() {
           userOrders.sort((a,b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
           setOrders(userOrders);
         } catch (error) {
-          toast({ title: "Erro ao Carregar Pedidos", description: "Não foi possível buscar seus pedidos.", variant: "destructive" });
+          toast({ title: "Erro ao Carregar Pedidos", description: error?.message || "Não foi possível buscar seus pedidos.", variant: "destructive" });
         } finally {
           setIsLoadingOrders(false);
         }
@@ -281,7 +280,9 @@ export default function AccountPage() {
               <ShoppingBag size={48} className="mx-auto text-muted-foreground mb-4" />
               <p className="text-xl text-muted-foreground">Você ainda não fez nenhum pedido.</p>
               <Button asChild className="mt-6">
-                <a href="/">Ver Produtos</a>
+                {/* Replaced <a> with <Link> for internal navigation */}
+                <Link href="/">Ver Produtos</Link>
+
               </Button>
             </CardContent>
           </Card>

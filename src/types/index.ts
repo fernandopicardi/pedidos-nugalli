@@ -19,9 +19,8 @@ export interface Product { // Represents Master Product List
   productId: string; // auto-ID
   name: string;
   description: string;
-  imageUrls: string[]; // array of strings
+  imageUrl: string; // single string URL
   attributes: Record<string, string[]>; // e.g., { "dietary": ["vegano", "sem glúten"], "categoria": ["Barra"], "peso": ["100g"], "cacau": ["70%"] }
-  isSeasonal: boolean; // default true
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
 }
@@ -45,6 +44,7 @@ export interface CycleProduct { // Product offering within a specific cycle
   displayImageUrl?: string; // Typically the first from Product.imageUrls or a specific one for the cycle
 }
 
+
 // New type for product data displayed in the ProductCard and ProductGrid
 export interface DisplayableProduct extends Omit<CycleProduct, 'productNameSnapshot' | 'priceInCycle' | 'displayImageUrl'> {
   name: string; // From CycleProduct.productNameSnapshot
@@ -52,6 +52,7 @@ export interface DisplayableProduct extends Omit<CycleProduct, 'productNameSnaps
   price: number; // From CycleProduct.priceInCycle
   imageUrl: string; // From CycleProduct.displayImageUrl or a fallback
   attributes: Record<string, string[]>; // From master Product.attributes
+  isAvailableInCycle: boolean; // Inherited from CycleProduct
 }
 
 export interface CartItem {

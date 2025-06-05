@@ -68,7 +68,7 @@ export default function HomePage() {
         // Fetch products for the active cycle
         const { data: productsData, error: productsError } = await supabase
           .from('Cycle Products')
-          .select('cycle_product_id, cycle_id, product_id, product_name_snapshot, price_in_cycle, is_available_in_cycle, display_image_url, Products (product_id, name, description, image_urls, attributes, is_seasonal)') // Join with Products table
+          .select('cycle_product_id, cycle_id, product_id, product_name_snapshot, price_in_cycle, is_available_in_cycle, display_image_url, Products (product_id, name, description, image_url, attributes)') // Join with Products table and select image_url
           .eq('cycle_id', cycleData.cycle_id)
           .eq('is_available_in_cycle', true);
 
@@ -84,13 +84,12 @@ export default function HomePage() {
           cycleProductId: cp.cycle_product_id,
           cycleId: cp.cycle_id,
           productId: cp.Products?.product_id || cp.product_id,
-          name: cp.product_name_snapshot || cp.Products?.name || 'Unknown Product',
+ name: cp.product_name_snapshot || cp.Products?.name || 'Unknown Product', // Using snapshot as primary, fallback to Products.name
           description: cp.Products?.description || '',
-          imageUrl: cp.display_image_url || cp.Products?.image_urls?.[0] || 'https://placehold.co/400x300.png?text=Produto',
+ imageUrl: cp.display_image_url || cp.Products?.image_url || 'https://placehold.co/400x300.png?text=Produto', // Use display_image_url first, fallback to Products.image_url
           attributes: cp.Products?.attributes || {},
-          price: cp.price_in_cycle,
-          isAvailable: cp.is_available_in_cycle,
-          isSeasonal: cp.Products?.is_seasonal || false,
+ price: cp.price_in_cycle,
+ isAvailable: cp.is_available_in_cycle, // Use is_available_in_cycle for front-end display
         })) : [];
 
         setAllProducts(displayableProducts);
@@ -120,11 +119,11 @@ export default function HomePage() {
     return Array.from(values).sort();
   }, [allProducts]);
 
-
-  const categoryOptions = useMemo(() => extractAttributeValues(CATEGORY_ATTRIBUTE_KEY), [allProducts, extractAttributeValues]);
-  const cacaoOptions = useMemo(() => extractAttributeValues(CACAO_ATTRIBUTE_KEY), [allProducts, extractAttributeValues]);
-  const dietaryOptions = useMemo(() => extractAttributeValues(DIETARY_ATTRIBUTE_KEY), [allProducts, extractAttributeValues]);
-  const weightOptions = useMemo(() => extractAttributeValues(WEIGHT_ATTRIBUTE_KEY), [allProducts, extractAttributeValues]);
+  // Only depend on extractAttributeValues as it already depends on allProducts
+  const categoryOptions = useMemo(() => extractAttributeValues(CATEGORY_ATTRIBUTE_KEY), [extractAttributeValues]);
+  const cacaoOptions = useMemo(() => extractAttributeValues(CACAO_ATTRIBUTE_KEY), [extractAttributeValues]);
+  const dietaryOptions = useMemo(() => extractAttributeValues(DIETARY_ATTRIBUTE_KEY), [extractAttributeValues]);
+  const weightOptions = useMemo(() => extractAttributeValues(WEIGHT_ATTRIBUTE_KEY), [extractAttributeValues]);
 
   useEffect(() => {
     let products = [...allProducts];

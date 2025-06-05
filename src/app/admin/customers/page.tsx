@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { PageContainer } from '@/components/shared/page-container';
 import { supabase } from '@/lib/supabaseClient';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { Loader2, UserCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -16,7 +16,7 @@ export default function CustomerManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  async function loadCustomers() {
+  const loadCustomers = async () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
@@ -46,10 +46,10 @@ export default function CustomerManagementPage() {
       toast({ title: "Erro ao Carregar Clientes", description: "Não foi possível carregar a lista de clientes.", variant: "destructive" });
     } finally {
       setIsLoading(false);
-    }
-  }
+    } 
+  };
 
-  useEffect(() => {
+  useEffect(() => { 
     loadCustomers();
   }, [loadCustomers]);
 

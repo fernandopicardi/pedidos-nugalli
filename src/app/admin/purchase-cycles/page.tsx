@@ -1,5 +1,5 @@
 
-"use client";
+'use client';
 
 import { useState, useEffect } from 'react';
 import type { PurchaseCycle } from '@/types';
@@ -42,7 +42,7 @@ export default function PurchaseCycleManagementPage() {
       if (error) throw error;
       setPurchaseCycles(data.map(cycle => ({ ...cycle, cycleId: cycle.id, isActive: cycle.is_active, startDate: cycle.start_date, endDate: cycle.end_date })));
     } catch (error) {
-      console.error("Failed to fetch purchase cycles:", error);
+      console.error('Failed to fetch purchase cycles:', error);
       toast({ title: "Erro ao Carregar", description: "Não foi possível carregar os ciclos de compra.", variant: "destructive" });
     } finally {
       setIsLoading(false);
@@ -50,7 +50,7 @@ export default function PurchaseCycleManagementPage() {
   }
 
   useEffect(() => {
-    loadPurchaseCycles(); // loadCustomers is now in dependency array
+    loadPurchaseCycles();
   }, []);
 
   const handleFormSubmit = async (data: Omit<PurchaseCycle, 'cycleId' | 'createdAt'> | (Partial<Omit<PurchaseCycle, 'cycleId' | 'createdAt'>> & { cycleId: string })) => {
@@ -71,7 +71,7 @@ export default function PurchaseCycleManagementPage() {
         const { error: insertError } = await supabase.from('Purchase Cycles').insert({ name: data.name, start_date: data.startDate, end_date: data.endDate, is_active: data.isActive });
  error = insertError;
       }
-      setIsModalOpen(false);
+setIsModalOpen(false);
       setEditingCycle(null);
       await loadPurchaseCycles(); // Refresh list
     } catch (error) {
@@ -95,10 +95,10 @@ export default function PurchaseCycleManagementPage() {
       const { error } = await supabase
         .from('Purchase Cycles')
         .delete()
-        .eq('id', cycleId);
+ .eq('id', cycleId);
  toast({ title: "Ciclo de Compra Deletado", description: `O ciclo "${cycleName}" foi deletado.` });
       await loadPurchaseCycles(); // Refresh list
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to delete purchase cycle:", error);
       toast({ title: "Erro ao Deletar", description: "Não foi possível deletar o ciclo de compra.", variant: "destructive" });
     }
@@ -123,7 +123,7 @@ export default function PurchaseCycleManagementPage() {
         <DialogContent className="sm:max-w-[600px] bg-card shadow-lg">
           <DialogHeader>
             <DialogTitle className="font-headline text-2xl">
-              {editingCycle ? 'Editar Ciclo de Compra' : 'Novo Ciclo de Compra'}
+              {editingCycle ? 'Editar Ciclo de Compra' : 'Novo Ciclo de Compra'}&quot;
             </DialogTitle>
           </DialogHeader>
           <PurchaseCycleForm

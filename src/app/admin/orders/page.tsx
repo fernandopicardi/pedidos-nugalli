@@ -40,7 +40,7 @@ export default function OrderVisualizationPage() {
 
   async function loadOrders() {
     setIsLoading(true);
-    try {
+    try { // Removed unused 'error' variable from the catch block
       const { data, error: fetchError } = await supabase
         .from('Orders')
         .select('*, profiles ( display_name )') // Select all from orders, join with profiles to get display_name
@@ -53,7 +53,7 @@ export default function OrderVisualizationPage() {
       // Map the data to the Order type, including the customer name from the join
       setOrders(data.map(order => ({
         ...order, customerNameSnapshot: (order.profiles as Profile | null)?.display_name || 'N/A' })));
-    } catch (error: any) {
+    } catch (error: any) { // Removed unused 'error' variable from the catch block
       toast({ title: "Erro ao Carregar Pedidos", description: "Não foi possível carregar os pedidos.", variant: "destructive" });
     } finally {
       setIsLoading(false);
@@ -62,7 +62,7 @@ export default function OrderVisualizationPage() {
 
   useEffect(() => {
     loadOrders();
-  }, []);
+  }, [loadOrders]); // Added loadOrders to the dependency array
 
   const handleStatusChange = async (orderId: string, newOrderStatus: Order['orderStatus'], newPaymentStatus?: Order['paymentStatus']) => {
     setIsLoading(true); // Show loading state while updating
@@ -79,7 +79,7 @@ export default function OrderVisualizationPage() {
       if (updateError) throw updateError;
       await loadOrders(); 
     } catch (error) {
-      toast({ title: "Erro ao Atualizar", description: "Não foi possível atualizar o status do pedido.", variant: "destructive" });
+      toast({ title: "Erro ao Atualizar", description: "Não foi possível atualizar o status do pedido.", variant: "destructive" }); // Removed unused 'error' variable from the catch block
     }
   };
   

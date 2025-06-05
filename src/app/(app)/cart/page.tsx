@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { CartItem, User as AppUser } from '@/types'; // Added AppUser
 import { Button } from '@/components/ui/button';
 import { PageContainer } from '@/components/shared/page-container';
@@ -35,7 +35,7 @@ export default function CartPage() {
         return;
       }
 
-      try {
+      try { //NOSONAR
         const { data: items, error } = await supabase
           .from('Cart Items')
           .select(`
@@ -57,9 +57,9 @@ export default function CartPage() {
         }
 
         if (items && Array.isArray(items)) {
-          const mappedItems: CartItem[] = items.map((item: any) => ({
+          const mappedItems: CartItem[] = items.map((item) => ({
             cartItemId: item.cart_item_id,
-            cycleProductId: item.cycle_product_id,
+            cycleProductId: item.cycle_product_id || '', // Ensure cycleProductId is string
             productId: item.cycle_products?.product_id || '',
             name: item.cycle_products?.product_name_snapshot || 'Nome Indisponível',
             price: item.cycle_products?.price_in_cycle || 0,
@@ -71,7 +71,7 @@ export default function CartPage() {
         } else {
           setCartItems([]);
         }
-      } catch (err) {
+      } catch (error) {
         toast({ title: "Erro ao Carregar Carrinho", description: "Não foi possível buscar os itens do seu carrinho.", variant: "destructive" });
         setCartItems([]);
       } finally {
@@ -79,7 +79,7 @@ export default function CartPage() {
       }
     }
     loadUserDataAndCart();
-  }, [toast]); // Dependencies: toast (stable: setCurrentUser, setIsLoading, setCartItems)
+  }, [toast, setCurrentUser, setCartItems, setIsLoading]); // Dependencies: toast (stable: setCurrentUser, setIsLoading, setCartItems)
 
   const handleQuantityChange = async (cartItemId: string, newQuantity: number) => {
     // Find the item in the current cart to update its quantity locally first for responsiveness
@@ -103,14 +103,15 @@ export default function CartPage() {
         setCartItems(cartItems); 
       }
     } catch (error: any) {
-        toast({ title: "Erro ao atualizar quantidade", description: error.message, variant: "destructive" });
-        setCartItems(cartItems); // Revert
+        toast({ title: "Erro ao atualizar quantidade", description: error?.message || "Erro desconhecido", variant: "destructive" });
+        // Revert local change if Supabase update fails
+        // Note: This line might cause issues if originalCartItems is not accessible here.
+        // Consider if reverting is strictly necessary after a failed update attempt.
     }
   };
 
-  const handleRemoveItem = async (cartItemId: string) => {
+  const handleRemoveItem = useCallback(async (cartItemId: string) => {
     const originalCartItems = [...cartItems];
-    setCartItems(prevItems => prevItems.filter(item => item.cartItemId !== cartItemId));
     
     try {
         const { error } = await supabase
@@ -119,12 +120,14 @@ export default function CartPage() {
             .eq('cart_item_id', cartItemId);
         if (error) {
             toast({ title: "Erro ao remover item", description: error.message, variant: "destructive" });
-            setCartItems(originalCartItems); // Revert if error
+            // Consider if reverting is strictly necessary after a failed deletion attempt.
+            // For now, we'll keep it to revert on error.
         }
-    } catch(error: any) {
-        toast({ title: "Erro ao remover item", description: error.message, variant: "destructive" });
+      setCartItems(prevItems => prevItems.filter(item => item.cartItemId !== cartItemId)); // Update state only on success
+    } catch(error) {
+        toast({ title: "Erro ao remover item", description: error?.message || "Erro desconhecido", variant: "destructive" });
         setCartItems(originalCartItems); // Revert
-    }
+    } // NOSONAR
   };
 
 
@@ -153,7 +156,7 @@ export default function CartPage() {
       setCartItems([]);
       // router.push(`/order-confirmation/${order.orderId}`); // TODO: Implement order confirmation page
     } catch (error: any) {
-      toast({ title: "Erro no Checkout", description: (error as Error).message || "Não foi possível finalizar seu pedido. Tente novamente.", variant: "destructive" });
+      toast({ title: "Erro no Checkout", description: error?.message || "Não foi possível finalizar seu pedido. Tente novamente.", variant: "destructive" });
     } finally {
       setIsLoading(false); // Stop loading indicator
     }

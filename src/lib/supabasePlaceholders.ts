@@ -1,6 +1,7 @@
 
 import type { Product, PurchaseCycle, Order, CartItem, CycleProduct, User, DisplayableProduct, OrderItem } from '@/types';
 import { supabase } from './supabaseClient';
+import { getUser as fetchCurrentUserFromAuth } from '../lib/auth'; // Corrigido aqui
 
 // --- Cart Update Listener System ---
 let cartUpdateListeners: Array<(cartItems: CartItem[]) => void> = [];
@@ -24,308 +25,33 @@ export function subscribeToCartUpdates(callback: (cartItems: CartItem[]) => void
   };
 }
 
-// AUTH - Supabase Integration
-export async function signInWithEmail(email: string, password: string): Promise<{ user: User | null, error: { message: string } | null }> {
-  console.log('signInWithEmail called with:', email);
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-  if (error) {
-    if (error.message === 'Invalid login credentials') {
-      // Do not log this specific common error to the console.
-      // The calling function (login-form.tsx) will show a toast to the user.
-    } else if (error.message === 'Failed to fetch' || error.message.includes('fetch failed')) {
-      console.error(`Network error during sign in for ${email}:`, error.message);
-      return { user: null, error: { message: 'Network error: Unable to connect to authentication service. Please check your internet connection and ensure the Supabase service is reachable and configured correctly (URL/Key).' } };
-    } else {
-      // Log other, unexpected Supabase errors
-      console.error(`Supabase sign in error for ${email}:`, error);
-    }
-    return { user: null, error: { message: error.message } };
-  }
-
-  if (data.user) {
-       const { data: userProfile, error: profileError } = await supabase
-           .from('profiles')
-           .select('*')
-           .eq('id', data.user.id)
-           .single();
-
-       if (profileError) {
-           console.error('Error fetching user profile after sign in:', profileError);
-           const basicUser: User = {
-               userId: data.user.id,
-               email: data.user.email || 'N/A',
-               displayName: data.user.user_metadata?.displayName || data.user.email?.split('@')[0] || 'User',
-               whatsapp: data.user.user_metadata?.whatsapp || '',
-               role: (data.user.user_metadata?.role as 'customer' | 'admin') || 'customer',
-               createdAt: data.user.created_at || new Date().toISOString(),
-               addressStreet: data.user.user_metadata?.addressStreet || '',
-               addressNumber: data.user.user_metadata?.addressNumber || '',
-               addressComplement: data.user.user_metadata?.addressComplement || '',
-               addressNeighborhood: data.user.user_metadata?.addressNeighborhood || '',
-               addressCity: data.user.user_metadata?.addressCity || '',
-               addressState: data.user.user_metadata?.addressState || '',
-               addressZip: data.user.user_metadata?.addressZip || '',
-           };
-           return { user: basicUser, error: { message: `Sign in successful, but failed to load full profile: ${profileError.message}` } };
-       }
-        if (!userProfile) { 
-            console.warn('User profile not found after sign in for user ID (no error, but no data):', data.user.id);
-             const basicUser: User = { 
-               userId: data.user.id,
-               email: data.user.email || 'N/A',
-               displayName: data.user.user_metadata?.displayName || data.user.email?.split('@')[0] || 'User',
-               whatsapp: data.user.user_metadata?.whatsapp || '',
-               role: (data.user.user_metadata?.role as 'customer' | 'admin') || 'customer',
-               createdAt: data.user.created_at || new Date().toISOString(),
-               addressStreet: '', addressNumber: '', addressComplement: '', addressNeighborhood: '', addressCity: '', addressState: '', addressZip: '',
-           };
-           return { user: basicUser, error: { message: `Sign in successful, but profile data was unexpectedly missing.` } };
-        }
-
-       const fullUser: User = {
-           userId: userProfile.id,
-           email: userProfile.email,
-           displayName: userProfile.display_name,
-           whatsapp: userProfile.whatsapp,
-           role: userProfile.role,
-           createdAt: userProfile.created_at,
-           addressStreet: userProfile.address_street,
-           addressNumber: userProfile.address_number,
-           addressComplement: userProfile.address_complement,
-           addressNeighborhood: userProfile.address_neighborhood,
-           addressCity: userProfile.address_city,
-           addressState: userProfile.address_state,
-           addressZip: userProfile.address_zip,
-       };
-
-        if (typeof localStorage !== 'undefined') {
-            localStorage.setItem('currentUser', JSON.stringify(fullUser));
-        }
-       return { user: fullUser, error: null };
-  }
-  return { user: null, error: { message: 'Unknown sign in error: No user data returned after sign in.' } };
-}
-
-export async function signUpWithEmail(email: string, password: string, displayName?: string, whatsapp?: string): Promise<{ user: User | null, error: { message: string } | null }> {
-  console.log('signUpWithEmail called with:', email, displayName, whatsapp);
-  const { data: authData, error: authError } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-        data: { 
-            displayName: displayName || email.split('@')[0],
-            whatsapp: whatsapp || '',
-            role: 'customer' 
-        }
-    }
-  });
-
-  if (authError) {
-    console.error('Supabase sign up error:', authError);
-    if (authError && typeof authError.message === 'string' && (authError.message === 'Failed to fetch' || authError.message.includes('fetch failed'))) {
-      return { user: null, error: { message: 'Network error: Unable to connect to authentication service for sign up. Please check your internet connection and Supabase configuration.' } };
-    }
-    return { user: null, error: { message: authError.message } };
-  }
-
- if (!authData.user) {
-    return { user: null, error: {message: "User not created in Supabase auth table."}};
-  }
-
-  try {
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authData.user.id)
-        .single();
-
-    if (profileError || !profileData) {
-        console.warn('Error fetching profile after signup or profile not found (may be due to trigger delay or issue):', profileError);
-        const basicUser: User = {
-            userId: authData.user.id,
-            email: authData.user.email || 'N/A',
-            displayName: authData.user.user_metadata?.displayName || email.split('@')[0] || 'User',
-            whatsapp: authData.user.user_metadata?.whatsapp || '',
-            role: (authData.user.user_metadata?.role as 'customer' | 'admin') || 'customer',
-            createdAt: authData.user.created_at || new Date().toISOString(),
-            addressStreet: '', addressNumber: '', addressComplement: '', addressNeighborhood: '', addressCity: '', addressState: '', addressZip: '',
-        };
-        if (typeof localStorage !== 'undefined') {
-            localStorage.setItem('currentUser', JSON.stringify(basicUser));
-        }
-        return { user: basicUser, error: null }; 
-    }
-
-    const fullUser: User = {
-        userId: profileData.id,
-        email: profileData.email,
-        displayName: profileData.display_name,
-        whatsapp: profileData.whatsapp,
-        role: profileData.role,
-        createdAt: profileData.created_at,
-        addressStreet: profileData.address_street,
-        addressNumber: profileData.address_number,
-        addressComplement: profileData.address_complement,
-        addressNeighborhood: profileData.address_neighborhood,
-        addressCity: profileData.address_city,
-        addressState: profileData.address_state,
-        addressZip: profileData.address_zip,
-    };
-
-    if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('currentUser', JSON.stringify(fullUser));
-    }
-    return { user: fullUser, error: null };
-
-  } catch (e: any) {
-      console.error("Unexpected error in signUpWithEmail after profile fetch attempt:", e);
-      const basicUser: User = {
-         userId: authData.user.id,
-         email: authData.user.email || 'N/A',
-         displayName: authData.user.user_metadata?.displayName || email.split('@')[0] || 'User',
-         whatsapp: authData.user.user_metadata?.whatsapp || '',
-         role: (authData.user.user_metadata?.role as 'customer' | 'admin') || 'customer',
-         createdAt: authData.user.created_at || new Date().toISOString(),
-         addressStreet: '', addressNumber: '', addressComplement: '', addressNeighborhood: '', addressCity: '', addressState: '', addressZip: '',
-     };
-     return { user: basicUser, error: { message: `Signup successful, but an exception occurred during profile processing: ${e.message}` } };
-  }
-}
-
-
-export async function signOut(): Promise<{ error: { message: string } | null }> {
-  console.log('signOut called');
-  try {
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-      console.error('Supabase sign out error:', error);
-      if (error && typeof error.message === 'string' && (error.message === 'Failed to fetch' || error.message.includes('fetch failed'))) {
-        if (typeof localStorage !== 'undefined') {
-          localStorage.removeItem('currentUser'); 
-        }
-        return { error: { message: 'Network error during sign out. Local session cleared, but server state might be unchanged.' } };
-      }
-      return { error: { message: error.message } };
-    }
-
-    if (typeof localStorage !== 'undefined') {
-        localStorage.removeItem('currentUser');
-    }
-    return { error: null };
-
-  } catch (e: any) {
-    console.error('Unexpected error during signOut:', e);
-    if (typeof localStorage !== 'undefined') { 
-      localStorage.removeItem('currentUser');
-    }
-    return { error: { message: e.message || 'An unexpected error occurred during sign out.' } };
-  }
-}
-
-
+// Esta função agora serve como a principal forma de obter o usuário atual,
+// priorizando o localStorage para velocidade e depois recorrendo ao auth.ts
 export async function getCurrentUser(): Promise<User | null> {
-  try {
-    const { data: authData, error: authError } = await supabase.auth.getUser();
-
-    if (authError) {
-      if (authError.message.includes('Auth session missing')) {
-      } else if (authError && typeof authError.message === 'string' && (authError.message === 'Failed to fetch' || authError.message.includes('fetch failed'))) {
-        console.warn('Supabase authError in getCurrentUser (Network Error - will return null):', authError.message);
-      } else {
-        console.warn('Supabase authError in getCurrentUser (will return null):', authError.message);
-      }
+  console.log('getCurrentUser called (from supabasePlaceholders)');
+  const userFromStorage = typeof localStorage !== 'undefined' ? localStorage.getItem('currentUser') : null;
+  if (userFromStorage) {
+    try {
+      return JSON.parse(userFromStorage) as User;
+    } catch (e) {
+      console.error("Error parsing currentUser from localStorage:", e);
       if (typeof localStorage !== 'undefined') {
-        localStorage.removeItem('currentUser');
+        localStorage.removeItem('currentUser'); // Clear corrupted item
       }
-      return null;
     }
-
-    if (!authData.user) {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.removeItem('currentUser');
-      }
-      return null;
-    }
-
-    const { data: userProfile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', authData.user.id)
-      .single();
-
-    if (profileError) {
-      console.warn('Error fetching current user profile (will return basic user info or null if critical):', profileError.message, '- User ID:', authData.user.id);
-      if (typeof localStorage !== 'undefined') { 
-        localStorage.removeItem('currentUser');
-      }
-      const basicUser: User = {
-        userId: authData.user.id,
-        email: authData.user.email || 'N/A',
-        displayName: authData.user.user_metadata?.displayName || authData.user.email?.split('@')[0] || 'User',
-        whatsapp: authData.user.user_metadata?.whatsapp || '',
-        role: (authData.user.user_metadata?.role as 'customer' | 'admin') || 'customer',
-        createdAt: authData.user.created_at || new Date().toISOString(),
-        addressStreet: authData.user.user_metadata?.addressStreet || '',
-        addressNumber: authData.user.user_metadata?.addressNumber || '',
-        addressComplement: authData.user.user_metadata?.addressComplement || '',
-        addressNeighborhood: authData.user.user_metadata?.addressNeighborhood || '',
-        addressCity: authData.user.user_metadata?.addressCity || '',
-        addressState: authData.user.user_metadata?.addressState || '',
-        addressZip: authData.user.user_metadata?.addressZip || '',
-      };
-      return basicUser;
-    }
-    
-    if (!userProfile) { 
-        console.warn('User profile not found for authenticated user ID (will return basic user info):', authData.user.id);
-        if (typeof localStorage !== 'undefined') {
-            localStorage.removeItem('currentUser');
-        }
-        const basicUser: User = { 
-            userId: authData.user.id,
-            email: authData.user.email || 'N/A',
-            displayName: authData.user.user_metadata?.displayName || authData.user.email?.split('@')[0] || 'User',
-            whatsapp: authData.user.user_metadata?.whatsapp || '',
-            role: (authData.user.user_metadata?.role as 'customer' | 'admin') || 'customer',
-            createdAt: authData.user.created_at || new Date().toISOString(),
-            addressStreet: '', addressNumber: '', addressComplement: '', addressNeighborhood: '', addressCity: '', addressState: '', addressZip: '',
-        };
-        return basicUser;
-    }
-
-    const currentUser: User = {
-      userId: userProfile.id,
-      email: userProfile.email,
-      displayName: userProfile.display_name,
-      whatsapp: userProfile.whatsapp,
-      role: userProfile.role,
-      createdAt: userProfile.created_at,
-      addressStreet: userProfile.address_street,
-      addressNumber: userProfile.address_number,
-      addressComplement: userProfile.address_complement,
-      addressNeighborhood: userProfile.address_neighborhood,
-      addressCity: userProfile.address_city,
-      addressState: userProfile.address_state,
-      addressZip: userProfile.address_zip,
-    };
-
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('currentUser', JSON.stringify(currentUser));
-    }
-    return currentUser;
-
-  } catch (error: any) {
-    console.error('Critical error in getCurrentUser (e.g., network issue, Supabase client problem):', error.message);
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem('currentUser');
-    }
+  }
+  // If not in localStorage, fetch from auth service
+  const { user, error } = await fetchCurrentUserFromAuth();
+  if (error) {
+    // console.warn('Error in supabasePlaceholders.getCurrentUser via fetchCurrentUserFromAuth:', error.message);
     return null;
   }
+  if (user && typeof localStorage !== 'undefined') {
+    localStorage.setItem('currentUser', JSON.stringify(user));
+  }
+  return user;
 }
+
 
 export async function updateUserDetails(
   userId: string,
@@ -379,20 +105,14 @@ export async function updateUserDetails(
        addressZip: updatedData.address_zip,
    };
 
-   const currentUserFromStorage = await getCurrentUser(); 
-   if (currentUserFromStorage && currentUserFromStorage.userId === userId) {
-        if (typeof localStorage !== 'undefined') { 
-            localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-        }
+   // Call our own getCurrentUser from this file to potentially update localStorage
+   const currentUserFromStorage = await getCurrentUser();
+   if (currentUserFromStorage && currentUserFromStorage.userId === userId && typeof localStorage !== 'undefined') {
+      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
    }
   return { user: updatedUser, error: null };
 }
 
-
-export async function checkAdminRole(): Promise<boolean> {
-  const user = await getCurrentUser();
-  return user?.role === 'admin';
-}
 
 // MASTER PRODUCTS - For Admin CRUD
 export async function fetchAdminProducts(): Promise<Product[]> {
@@ -413,9 +133,8 @@ export async function fetchAdminProducts(): Promise<Product[]> {
     productId: p.product_id,
     name: p.name,
     description: p.description,
-    imageUrls: p.image_urls,
+    imageUrl: p.image_url,
     attributes: p.attributes,
-    isSeasonal: p.is_seasonal,
     createdAt: p.created_at,
     updatedAt: p.updated_at
   })) as Product[];
@@ -429,9 +148,8 @@ export async function createProduct(productData: Omit<Product, 'productId' | 'cr
       {
         name: productData.name,
         description: productData.description,
-        image_urls: productData.imageUrls,
+        image_url: productData.imageUrl,
         attributes: productData.attributes,
-        is_seasonal: productData.isSeasonal,
       },
     ])
     .select()
@@ -448,9 +166,8 @@ export async function createProduct(productData: Omit<Product, 'productId' | 'cr
     productId: data.product_id,
     name: data.name,
     description: data.description,
-    imageUrls: data.image_urls,
+    imageUrl: data.image_url,
     attributes: data.attributes,
-    isSeasonal: data.is_seasonal,
     createdAt: data.created_at,
     updatedAt: data.updated_at
   } as Product;
@@ -461,9 +178,8 @@ export async function updateProduct(productId: string, productData: Partial<Omit
   const updatePayload: Record<string, any> = {};
   if (productData.name !== undefined) updatePayload.name = productData.name;
   if (productData.description !== undefined) updatePayload.description = productData.description;
-  if (productData.imageUrls !== undefined) updatePayload.image_urls = productData.imageUrls;
+  if (productData.imageUrl !== undefined) updatePayload.image_url = productData.imageUrl;
   if (productData.attributes !== undefined) updatePayload.attributes = productData.attributes;
-  if (productData.isSeasonal !== undefined) updatePayload.is_seasonal = productData.isSeasonal;
 
   const { data, error } = await supabase
     .from('Products')
@@ -486,9 +202,8 @@ export async function updateProduct(productId: string, productData: Partial<Omit
     productId: data.product_id,
     name: data.name,
     description: data.description,
-    imageUrls: data.image_urls,
+    imageUrl: data.image_url,
     attributes: data.attributes,
-    isSeasonal: data.is_seasonal,
     createdAt: data.created_at,
     updatedAt: data.updated_at
   } as Product;
@@ -584,12 +299,12 @@ export async function createPurchaseCycle(cycleData: Omit<PurchaseCycle, 'cycleI
 
 export async function updatePurchaseCycle(cycleId: string, cycleData: Partial<Omit<PurchaseCycle, 'cycleId' | 'createdAt'>>): Promise<PurchaseCycle> {
   console.log('updatePurchaseCycle called for ID', cycleId, 'with:', cycleData);
-  if (cycleData.isActive === true) { 
+  if (cycleData.isActive === true) {
       const { error: updateError } = await supabase
           .from('Purchase Cycles')
           .update({ is_active: false })
           .eq('is_active', true)
-          .neq('cycle_id', cycleId); 
+          .neq('cycle_id', cycleId);
       if (updateError) {
           console.error('Error deactivating other active cycles:', updateError);
           if (updateError && typeof updateError.message === 'string' && (updateError.message === 'Failed to fetch' || updateError.message.includes('fetch failed'))) {
@@ -654,8 +369,8 @@ export async function fetchCycleProducts(cycleId: string): Promise<CycleProduct[
   console.log('fetchCycleProducts called for cycle ID:', cycleId);
   const { data, error } = await supabase
     .from('Cycle Products')
-    .select('*, Products(product_id, name, description, image_urls, attributes, is_seasonal)') 
-    .eq('cycle_id', cycleId);
+    .select('*, Products(product_id, name, description, image_url, attributes)')
+    .eq('cycle_id', cycleId); // Fetch all for admin view
 
   if (error) {
     console.error('Error fetching cycle products for cycle ' + cycleId + ':', error);
@@ -671,7 +386,7 @@ export async function fetchCycleProducts(cycleId: string): Promise<CycleProduct[
       productNameSnapshot: cp.product_name_snapshot || cp.Products?.name || 'N/A',
       priceInCycle: cp.price_in_cycle,
       isAvailableInCycle: cp.is_available_in_cycle,
-      displayImageUrl: cp.display_image_url || cp.Products?.image_urls?.[0] || 'https://placehold.co/400x300.png?text=Produto',
+      displayImageUrl: cp.display_image_url || cp.Products?.image_url || 'https://placehold.co/400x300.png?text=Produto',
       createdAt: cp.created_at,
       updatedAt: cp.updated_at
   })) as CycleProduct[];
@@ -782,11 +497,10 @@ export async function fetchDisplayableProducts(): Promise<DisplayableProduct[]> 
       price_in_cycle,
       is_available_in_cycle,
       display_image_url,
-      Products ( 
+      Products (
         description,
         attributes,
-        image_urls,
-        is_seasonal 
+        image_url
       )
     `)
     .eq('is_available_in_cycle', true)
@@ -798,7 +512,7 @@ export async function fetchDisplayableProducts(): Promise<DisplayableProduct[]> 
     if (error && typeof error.message === 'string' && (error.message === 'Failed to fetch' || error.message.includes('fetch failed'))) {
       throw new Error('Network error: Unable to fetch displayable products. Please check connection and Supabase config.');
     }
-    throw error; 
+    throw error;
   }
 
   const displayableProducts: DisplayableProduct[] = data.map((item: any) => ({
@@ -808,10 +522,9 @@ export async function fetchDisplayableProducts(): Promise<DisplayableProduct[]> 
     name: item.product_name_snapshot || item.Products?.name || 'Unknown Product',
     description: item.Products?.description || '',
     price: item.price_in_cycle || 0,
-    isAvailable: item.is_available_in_cycle, 
-    imageUrl: item.display_image_url || item.Products?.image_urls?.[0] || 'https://placehold.co/400x300.png?text=Produto',
+    isAvailable: item.is_available_in_cycle,
+    imageUrl: item.display_image_url || item.Products?.image_url || 'https://placehold.co/400x300.png?text=Produto',
     attributes: item.Products?.attributes || {},
-    isSeasonal: item.Products?.is_seasonal || false, 
   }));
   return displayableProducts;
 }
@@ -828,19 +541,18 @@ export async function fetchDisplayableProductById(cycleProductId: string): Promi
       price_in_cycle,
       is_available_in_cycle,
       display_image_url,
-      Products ( 
+      Products (
         description,
         attributes,
-        image_urls,
-        is_seasonal
+        image_url
       )
     `)
     .eq('cycle_product_id', cycleProductId)
-    .eq('is_available_in_cycle', true) 
-    .filter('cycle_id', 'in', '(select cycle_id from "Purchase Cycles" where is_active = true)') 
+    .eq('is_available_in_cycle', true)
+    .filter('cycle_id', 'in', '(select cycle_id from "Purchase Cycles" where is_active = true)')
     .single();
 
-  if (error && error.code !== 'PGRST116') { 
+  if (error && error.code !== 'PGRST116') {
     console.error('Error fetching displayable product ' + cycleProductId + ':', error);
      if (error && typeof error.message === 'string' && (error.message === 'Failed to fetch' || error.message.includes('fetch failed'))) {
       throw new Error('Network error: Unable to fetch displayable product ' + cycleProductId + '. Please check connection and Supabase config.');
@@ -859,9 +571,8 @@ export async function fetchDisplayableProductById(cycleProductId: string): Promi
     description: data.Products?.description || '',
     price: data.price_in_cycle || 0,
     isAvailable: data.is_available_in_cycle,
-    imageUrl: data.display_image_url || data.Products?.image_urls?.[0] || 'https://placehold.co/400x300.png?text=Produto',
+    imageUrl: data.display_image_url || data.Products?.image_url || 'https://placehold.co/400x300.png?text=Produto',
     attributes: data.Products?.attributes || {},
-    isSeasonal: data.Products?.is_seasonal || false,
   };
   return displayableProduct;
 }
@@ -869,7 +580,7 @@ export async function fetchDisplayableProductById(cycleProductId: string): Promi
 // CART
 export async function fetchCartItems(): Promise<CartItem[]> {
   console.log('fetchCartItems called (from Supabase)');
-  const user = await getCurrentUser();
+  const user = await getCurrentUser(); // Uses the corrected getCurrentUser from this file
   if (!user) {
     console.warn('fetchCartItems called without a logged-in user.');
     return [];
@@ -886,7 +597,7 @@ export async function fetchCartItems(): Promise<CartItem[]> {
         product_name_snapshot,
         price_in_cycle,
         display_image_url,
-        Products ( description ) 
+        Products ( description )
       )
     `)
     .eq('user_id', user.userId);
@@ -900,7 +611,7 @@ export async function fetchCartItems(): Promise<CartItem[]> {
   }
 
   const cartItems: CartItem[] = data.map((item: any) => ({
-    cartItemId: item.cart_item_id, 
+    cartItemId: item.cart_item_id,
     cycleProductId: item.cycle_product_id,
     productId: item.cycle_products?.product_id || '',
     name: item.cycle_products?.product_name_snapshot || 'Unknown Product',
@@ -978,14 +689,14 @@ export async function updateCartItemQuantity(cartItemId: string, newQuantity: nu
   }
 
   if (newQuantity <= 0) {
-    await removeFromCart(cartItemId); 
+    await removeFromCart(cartItemId);
     return;
   }
 
   const { error } = await supabase
     .from('Cart Items')
     .update({ quantity: newQuantity })
-    .eq('cart_item_id', cartItemId) 
+    .eq('cart_item_id', cartItemId)
     .eq('user_id', user.userId);
 
   if (error) {
@@ -999,7 +710,7 @@ export async function updateCartItemQuantity(cartItemId: string, newQuantity: nu
   await notifyCartUpdateListeners();
 }
 
-export async function removeFromCart(cartItemId: string): Promise<void> { 
+export async function removeFromCart(cartItemId: string): Promise<void> {
   console.log('removeFromCart called for cartItemId:', cartItemId, '(to Supabase)');
   const user = await getCurrentUser();
   if (!user) {
@@ -1010,7 +721,7 @@ export async function removeFromCart(cartItemId: string): Promise<void> {
   const { error } = await supabase
     .from('Cart Items')
     .delete()
-    .eq('cart_item_id', cartItemId) 
+    .eq('cart_item_id', cartItemId)
     .eq('user_id', user.userId);
 
   if (error) {
@@ -1066,7 +777,7 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
     .limit(1)
     .single();
 
-  if (lastOrderError && lastOrderError.code !== 'PGRST116' && lastOrderError.message.includes('fetch failed')) { 
+  if (lastOrderError && lastOrderError.code !== 'PGRST116' && lastOrderError.message.includes('fetch failed')) {
     console.error("Network error fetching last order number:", lastOrderError);
     throw new Error("Network error: Unable to generate order number. Cannot process checkout.");
   } else if (lastOrderError && lastOrderError.code !== 'PGRST116') {
@@ -1083,7 +794,7 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
     if (lastOrderYear === currentYear) {
         newOrderNumber = `ORD${currentYear}${(lastNumPart + 1).toString().padStart(3, '0')}`;
     } else {
-        newOrderNumber = `ORD${currentYear}001`; 
+        newOrderNumber = `ORD${currentYear}001`;
     }
   }
 
@@ -1148,7 +859,7 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
          console.warn("Network error: Failed to clear user cart after checkout. Manual cleanup may be needed.");
       }
   }
-  await notifyCartUpdateListeners(); 
+  await notifyCartUpdateListeners();
 
   return {
       orderId: createdOrderData.order_id,
@@ -1170,7 +881,7 @@ export async function fetchAdminOrders(): Promise<Order[]> {
   console.log('fetchAdminOrders called (from Supabase)');
   const { data: ordersData, error: ordersError } = await supabase
     .from('Orders')
-    .select('*, profiles(display_name)') 
+    .select('*, profiles(display_name)')
     .order('order_date', { ascending: false });
 
   if (ordersError) {
@@ -1198,7 +909,7 @@ export async function fetchAdminOrders(): Promise<Order[]> {
       orderId: orderDto.order_id,
       orderNumber: orderDto.order_number,
       userId: orderDto.user_id,
-      customerNameSnapshot: orderDto.profiles?.display_name || orderDto.customer_name_snapshot || 'N/A', 
+      customerNameSnapshot: orderDto.profiles?.display_name || orderDto.customer_name_snapshot || 'N/A',
       customerWhatsappSnapshot: orderDto.customer_whatsapp_snapshot,
       cycleId: orderDto.cycle_id,
       items: itemsData?.map(itemDto => ({
@@ -1285,7 +996,7 @@ export async function updateOrderStatus(
 
   if (newPaymentStatus) {
     updatePayload.payment_status = newPaymentStatus;
-  } else { 
+  } else {
     if (newOrderStatus === "Payment Confirmed" || newOrderStatus === "Completed") {
       const { data: currentOrder, error: fetchError } = await supabase.from('Orders').select('payment_status').eq('order_id', orderId).single();
       if (fetchError && (fetchError.message.includes('fetch failed'))) {
@@ -1343,7 +1054,7 @@ export async function updateOrderStatus(
       orderStatus: updatedOrderData.order_status as Order['orderStatus'],
       paymentStatus: updatedOrderData.payment_status as Order['paymentStatus'],
       orderDate: updatedOrderData.order_date,
-      adminNotes: updatedOrderData.admin_notes,
+    adminNotes: updatedOrderData.admin_notes || null,
   } as Order;
 }
 
@@ -1360,7 +1071,7 @@ export async function fetchActivePurchaseCycleTitle(): Promise<string> {
         if(error && typeof error.message === 'string' && (error.message.includes('fetch failed'))) {
           console.warn('Network error fetching active cycle title. Using default.');
         }
-        return "Temporada Atual"; 
+        return "Temporada Atual";
     }
     return data.name;
 }
@@ -1383,7 +1094,7 @@ export async function fetchProductAvailabilityInActiveCycle(productId: string): 
         if (cycleError && typeof cycleError.message === 'string' && (cycleError.message.includes('fetch failed'))) {
           console.warn('Network error fetching active cycle for availability check.');
         }
-        return false; 
+        return false;
     }
 
     const { data: cycleProduct, error: cpError } = await supabase
@@ -1393,14 +1104,14 @@ export async function fetchProductAvailabilityInActiveCycle(productId: string): 
         .eq('product_id', productId)
         .single();
 
-    if (cpError && cpError.code !== 'PGRST116') { 
+    if (cpError && cpError.code !== 'PGRST116') {
         console.warn('Error fetching cycle product for product ' + productId + ' in active cycle:', cpError);
         if (cpError && typeof cpError.message === 'string' && (cpError.message.includes('fetch failed'))) {
            console.warn('Network error fetching cycle product for ' + productId + ' in active cycle.');
         }
         return false;
     }
-    return cycleProduct ? cycleProduct.is_available_in_cycle : false; 
+    return cycleProduct ? cycleProduct.is_available_in_cycle : false;
 }
 
 export async function setProductAvailabilityInActiveCycle(productId: string, isAvailable: boolean): Promise<void> {
@@ -1426,7 +1137,7 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
         .eq('product_id', productId)
         .single();
 
-    if (fetchCpError && fetchCpError.code !== 'PGRST116') { 
+    if (fetchCpError && fetchCpError.code !== 'PGRST116') {
         console.error('Error checking existing cycle_product for product ' + productId + ':', fetchCpError);
         if (fetchCpError && typeof fetchCpError.message === 'string' && (fetchCpError.message.includes('fetch failed'))) {
            throw new Error('Network error: Unable to check existing cycle product for ' + productId + '.');
@@ -1434,7 +1145,7 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
         throw fetchCpError;
     }
 
-    if (existingCycleProduct) { 
+    if (existingCycleProduct) {
         const { error: updateError } = await supabase
             .from('Cycle Products')
             .update({ is_available_in_cycle: isAvailable })
@@ -1446,10 +1157,10 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
             }
             throw updateError;
         }
-    } else if (isAvailable) { 
+    } else if (isAvailable) {
         const { data: masterProduct, error: masterProductError } = await supabase
             .from('Products')
-            .select('name, image_urls')
+            .select('name, image_url')
             .eq('product_id', productId)
             .single();
 
@@ -1460,16 +1171,16 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
             }
             throw new Error('Master product ' + productId + ' not found.');
         }
-        
+
         const { error: insertError } = await supabase
             .from('Cycle Products')
             .insert({
                 cycle_id: activeCycle.cycle_id,
                 product_id: productId,
                 product_name_snapshot: masterProduct.name,
-                price_in_cycle: 0, 
+                price_in_cycle: 0,
                 is_available_in_cycle: true,
-                display_image_url: masterProduct.image_urls?.[0] || 'https://placehold.co/400x300.png?text=Produto',
+                display_image_url: masterProduct.image_url || 'https://placehold.co/400x300.png?text=Produto',
             });
         if (insertError) {
             console.error('Error inserting new cycle_product for product ' + productId + ':', insertError);
@@ -1506,9 +1217,10 @@ export async function fetchActiveCycleMetrics(): Promise<AdminDashboardMetrics> 
         isActive: activeCycleData.is_active,
         createdAt: activeCycleData.created_at,
     };
-  } else if (cycleError && cycleError.code !== 'PGRST116') { 
+  } else if (cycleError && cycleError.code !== 'PGRST116') {
     console.warn("Error fetching active cycle for metrics:", cycleError);
     if (cycleError && typeof cycleError.message === 'string' && (cycleError.message.includes('fetch failed'))) {
+      // No specific throw, allow defaults to be returned
     }
   }
 
@@ -1524,6 +1236,7 @@ export async function fetchActiveCycleMetrics(): Promise<AdminDashboardMetrics> 
     if (ordersError) {
       console.warn("Error fetching orders for active cycle metrics:", ordersError);
       if (ordersError && typeof ordersError.message === 'string' && (ordersError.message.includes('fetch failed'))) {
+        // No specific throw
       }
     } else if (ordersData) {
       pendingOrdersCount = ordersData.filter(
@@ -1573,3 +1286,142 @@ export async function fetchAdminUsers(): Promise<User[]> {
       addressZip: profile.address_zip,
   })) as User[];
 }
+
+// Supabase Auth specific functions - should generally be called from auth.ts or similar
+export async function signInWithEmail(email: string, password: string): Promise<{ user: User | null, error: { message: string } | null }> {
+  console.log('signInWithEmail placeholder called with:', email);
+  const { data: authData, error: signInAuthError } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (signInAuthError) {
+    if (signInAuthError.message !== 'Invalid login credentials') {
+        console.error('Supabase sign in error:', signInAuthError.message);
+    }
+    if (signInAuthError.message === 'Failed to fetch' || signInAuthError.message.includes('fetch failed')) {
+      return { user: null, error: { message: 'Network error: Unable to connect to authentication service. Please check your internet connection and ensure the Supabase service is reachable and configured correctly (URL/Key).' } };
+    }
+    return { user: null, error: { message: signInAuthError.message } };
+  }
+
+  if (!authData || !authData.user) {
+    return { user: null, error: { message: "Sign in successful but no user data returned from auth." } };
+  }
+
+  // Fetch profile details
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', authData.user.id)
+    .single();
+
+  if (profileError) {
+    console.warn('Error fetching profile after sign in (placeholders):', profileError.message, '- User ID:', authData.user.id);
+    const basicUser: User = {
+      userId: authData.user.id,
+      email: authData.user.email || 'N/A',
+      displayName: authData.user.user_metadata?.display_name || authData.user.email?.split('@')[0] || 'User',
+      whatsapp: authData.user.user_metadata?.whatsapp || '',
+      role: (authData.user.user_metadata?.role as 'customer' | 'admin') || 'customer',
+      createdAt: authData.user.created_at || new Date().toISOString(),
+    };
+    return { user: basicUser, error: null };
+  }
+
+  if (!profile) {
+      console.warn('Profile not found for user ID after sign in (placeholders):', authData.user.id);
+      const basicUser: User = {
+        userId: authData.user.id,
+        email: authData.user.email || 'N/A',
+        displayName: authData.user.user_metadata?.display_name || authData.user.email?.split('@')[0] || 'User',
+        whatsapp: authData.user.user_metadata?.whatsapp || '',
+        role: (authData.user.user_metadata?.role as 'customer' | 'admin') || 'customer',
+        createdAt: authData.user.created_at || new Date().toISOString(),
+      };
+      return { user: basicUser, error: null };
+  }
+
+  const fullUser: User = {
+    userId: profile.id,
+    email: profile.email,
+    displayName: profile.display_name,
+    whatsapp: profile.whatsapp,
+    role: profile.role,
+    createdAt: profile.created_at,
+    addressStreet: profile.address_street,
+    addressNumber: profile.address_number,
+    addressComplement: profile.address_complement,
+    addressNeighborhood: profile.address_neighborhood,
+    addressCity: profile.address_city,
+    addressState: profile.address_state,
+    addressZip: profile.address_zip,
+  };
+
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('currentUser', JSON.stringify(fullUser));
+  }
+
+  return { user: fullUser, error: null };
+}
+
+export async function signUpWithEmail(
+  email: string,
+  password: string,
+  profileData?: {
+    displayName?: string;
+    whatsapp?: string;
+    addressStreet?: string;
+    addressNumber?: string;
+    addressComplement?: string;
+    addressNeighborhood?: string;
+    addressCity?: string;
+    addressState?: string;
+    addressZip?: string;
+  }
+): Promise<{ user: any | null; session: any | null; error: { message: string } | null }> {
+  console.log('signUpWithEmail placeholder called with:', email);
+  // This is just a placeholder, real logic should be in auth.ts
+  const { data: signUpAuthData, error: authError } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        display_name: profileData?.displayName || email.split('@')[0] || 'Usuário',
+        whatsapp: profileData?.whatsapp || '',
+      },
+    },
+  });
+
+  if (authError) {
+    console.error('Supabase sign up error (placeholders):', authError);
+    if (authError.message === 'Failed to fetch' || authError.message.includes('fetch failed')) {
+      return { user: null, session: null, error: { message: 'Network error: Unable to connect for sign up. Check connection/config.'}};
+    }
+    return { user: null, session: null, error: { message: authError.message } };
+  }
+
+  return { user: signUpAuthData.user, session: signUpAuthData.session, error: null };
+}
+
+
+export async function signOut(): Promise<{ error: { message: string } | null }> {
+  console.log('signOut placeholder called');
+  const { error } = await supabase.auth.signOut();
+  if (error) {
+    console.error('Supabase sign out error (placeholders):', error);
+    if (error.message === 'Failed to fetch' || error.message.includes('fetch failed')) {
+      return { error: { message: 'Network error during sign out (placeholders).' } };
+    }
+    return { error: { message: error.message } };
+  }
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem('currentUser');
+  }
+  return { error: null };
+}
+
+export async function checkAdminRole(): Promise<boolean> {
+  console.log('checkAdminRole placeholder called');
+  const user = await getCurrentUser(); // Uses the corrected getCurrentUser from this file
+  return user?.role === 'admin';
+}
+
+    

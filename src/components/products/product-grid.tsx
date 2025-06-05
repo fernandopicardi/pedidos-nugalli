@@ -1,6 +1,6 @@
 
 import type { DisplayableProduct } from '@/types'; // Updated to use DisplayableProduct
-import { ProductCard } from './product-card';
+import { ProductCard } from '@/components/products/product-card';
 
 interface ProductGridProps {
   products: DisplayableProduct[]; // Updated prop type

@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MinusCircle, PlusCircle, Trash2, Loader2 } from 'lucide-react'; // Added Loader2
 import { useToast } from "@/hooks/use-toast";
-// Removed supabase direct import, handlers are now passed down or handled by parent
 import { useState } from 'react';
 
 
@@ -20,7 +19,7 @@ interface CartItemDisplayProps {
 }
 
 export function CartItemDisplay({ item, onQuantityChange, onRemove }: CartItemDisplayProps) {
-  const { toast } = useToast(); // Keep toast for potential direct feedback if needed, though parent handles DB ops
+  const {  } = useToast(); // Keep toast for potential direct feedback if needed, though parent handles DB ops
   const [isUpdating, setIsUpdating] = useState(false);
 
 

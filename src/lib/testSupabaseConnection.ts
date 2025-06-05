@@ -34,7 +34,7 @@ async function testSupabaseConnection() {
         console.error('\n--- Supabase Connection Test FAILED ---');
         console.error('Error details:');
         console.error('  Message:', error.message);
-        if (error.details) console.error('  Details:', (error.details as any)); // Keep any here if details can be non-string
+        if (error.details) console.error('  Details:', error.details); // Keep any here if details can be non-string
         if ((error as { hint?: string }).hint) console.error('  Hint:', (error as { hint: string }).hint);
         if ((error as { code?: string }).code) console.error('  Code:', (error as { code: string }).code);
         
@@ -69,6 +69,6 @@ async function testSupabaseConnection() {
 
 // Execute the test function
 testSupabaseConnection().catch(e => {
-    console.error('\n--- UNEXPECTED ERROR DURING TEST EXECUTION ---');
+    console.error('\n--- UNEXPECTED ERROR DURING TEST EXECUTION ---'); // Consider typing 'e' if possible, e.g., 'catch (e: Error)'
     console.error(e);
 });
