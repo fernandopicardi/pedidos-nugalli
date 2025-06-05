@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { User } from '@/types';
+import { signInWithEmail, getCurrentUser } from '@/lib/supabasePlaceholders'; // Added import
 
 export function LoginForm() {
   const [email, setEmail] = useState('');
