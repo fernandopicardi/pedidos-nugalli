@@ -1,5 +1,6 @@
 
 import { supabase } from '../lib/supabaseClient';
+import Cookies from 'js-cookie';
 import type { User } from '@/types'; // Explicitly import type
 
 export const signUp = async (
@@ -69,11 +70,12 @@ export const signUp = async (
 export const signInWithEmail = async (email: string, password: string): Promise<{ user: User | null, error: { message: string } | null }> => {
   console.log('auth.ts: signInWithEmail called with:', email);
   const { data: authData, error: signInAuthError } = await supabase.auth.signInWithPassword({ email, password });
-
+ 
   if (signInAuthError) {
     if (signInAuthError.message !== 'Invalid login credentials') {
       console.error('auth.ts: Supabase sign in error:', signInAuthError.message);
     }
+    // Add a small delay or check if running in browser before accessing window/localStorage
     if (signInAuthError.message === 'Failed to fetch' || signInAuthError.message.includes('fetch failed')) {
       return { user: null, error: { message: 'Network error: Unable to connect to authentication service. Please check your internet connection and ensure the Supabase service is reachable and configured correctly (URL/Key).' } };
     }
@@ -98,6 +100,10 @@ export const signInWithEmail = async (email: string, password: string): Promise<
   }
 
   if (typeof localStorage !== 'undefined') {
+    // Set user ID in cookie after successful login
+    if (fullUser?.userId) {
+      Cookies.set('user_id', fullUser.userId, { expires: 7 }); // Cookie expires in 7 days
+    }
     localStorage.setItem('currentUser', JSON.stringify(fullUser));
   }
 
@@ -111,6 +117,9 @@ export const signOut = async () => {
  if (error) {
  console.error('auth.ts: Supabase sign out error:', error);
  if (error.message === 'Failed to fetch' || error.message.includes('fetch failed')) {
+    if (typeof window !== 'undefined') { // Check if running in browser before accessing window
+         Cookies.remove('user_id'); // Attempt to clear cookie locally on network error during sign out
+    }
  return { error: { message: 'Network error during sign out. Local session cleared, but server state might be unchanged.' } };
  }
  return { error: { message: error.message } };
@@ -122,6 +131,7 @@ export const signOut = async () => {
  } catch (e: any) {
  console.error('auth.ts: Unexpected error during signOut:', e);
  return { error: { message: e.message || 'An unexpected error occurred during sign out.' } };
+ } finally { if (typeof window !== 'undefined') { Cookies.remove('user_id'); } } // Always attempt to clear cookie on sign out
  }
 };
 

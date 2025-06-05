@@ -68,7 +68,7 @@ export function Header() {
               Início
             </Link>
             
-            {currentUser && currentUser.role === 'admin' && (
+            {currentUser && currentUser.role === true && (
               <Button asChild variant="ghost" size="sm" className="text-sm md:text-base">
                 <Link href="/admin">
                   <LayoutDashboard size={20} className="mr-1 md:mr-2" />
