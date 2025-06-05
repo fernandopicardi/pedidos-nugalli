@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import type { CartItem, User as AppUser } from '@/types'; // Added AppUser
+import type { CartItem, User as AppUser } from '@/types';
 import { Button } from '@/components/ui/button';
 import { PageContainer } from '@/components/shared/page-container';
 import { CartItemDisplay } from '@/components/cart/cart-item-display';
@@ -11,13 +11,13 @@ import { supabase } from '@/lib/supabaseClient';
 import { useToast } from "@/hooks/use-toast";
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser, processCheckout } from '@/lib/supabasePlaceholders'; // Added getCurrentUser and processCheckout
+import { getCurrentUser, processCheckout } from '@/lib/supabasePlaceholders';
 import { Loader2 } from 'lucide-react';
 
 export default function CartPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [currentUser, setCurrentUser] = useState<AppUser | null>(null); // Added currentUser state
-  const [isLoading, setIsLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true); // General loading for page/checkout
   const { toast } = useToast();
   const router = useRouter();
 
@@ -28,14 +28,12 @@ export default function CartPage() {
       setCurrentUser(user);
 
       if (!user) {
-        // Not strictly an error, user might just not be logged in.
-        // Cart will be empty, checkout will prompt login.
         setCartItems([]);
         setIsLoading(false);
         return;
       }
 
-      try { //NOSONAR
+      try {
         const { data: items, error } = await supabase
           .from('Cart Items')
           .select(`
@@ -59,7 +57,7 @@ export default function CartPage() {
         if (items && Array.isArray(items)) {
           const mappedItems: CartItem[] = items.map((item) => ({
             cartItemId: item.cart_item_id,
-            cycleProductId: item.cycle_product_id || '', // Ensure cycleProductId is string
+            cycleProductId: item.cycle_product_id || '',
             productId: item.cycle_products?.product_id || '',
             name: item.cycle_products?.product_name_snapshot || 'Nome Indisponível',
             price: item.cycle_products?.price_in_cycle || 0,
@@ -71,27 +69,26 @@ export default function CartPage() {
         } else {
           setCartItems([]);
         }
-      } catch (error) {
-        toast({ title: "Erro ao Carregar Carrinho", description: "Não foi possível buscar os itens do seu carrinho.", variant: "destructive" });
+      } catch (error: any) {
+        toast({ title: "Erro ao Carregar Carrinho", description: error?.message || "Não foi possível buscar os itens do seu carrinho.", variant: "destructive" });
         setCartItems([]);
       } finally {
         setIsLoading(false);
       }
     }
     loadUserDataAndCart();
-  }, [toast, setCurrentUser, setCartItems, setIsLoading]); // Dependencies: toast (stable: setCurrentUser, setIsLoading, setCartItems)
+  }, [toast]); // Removed setCurrentUser, setCartItems, setIsLoading as they are stable updaters
 
   const handleQuantityChange = async (cartItemId: string, newQuantity: number) => {
-    // Find the item in the current cart to update its quantity locally first for responsiveness
     const itemIndex = cartItems.findIndex(item => item.cartItemId === cartItemId);
     if (itemIndex === -1) return;
 
+    const originalCartItems = [...cartItems]; // Keep a snapshot for revert
     const updatedCartItems = [...cartItems];
     updatedCartItems[itemIndex] = { ...updatedCartItems[itemIndex], quantity: newQuantity };
-    setCartItems(updatedCartItems);
+    setCartItems(updatedCartItems); // Optimistic UI update
 
     try {
-      // Call Supabase to update the quantity in the database
       const { error } = await supabase
         .from('Cart Items')
         .update({ quantity: newQuantity })
@@ -99,37 +96,34 @@ export default function CartPage() {
 
       if (error) {
         toast({ title: "Erro ao atualizar quantidade", description: error.message, variant: "destructive" });
-        // Revert local change if Supabase update fails
-        setCartItems(cartItems); 
+        setCartItems(originalCartItems); // Revert local change if Supabase update fails
       }
     } catch (error: any) {
         toast({ title: "Erro ao atualizar quantidade", description: error?.message || "Erro desconhecido", variant: "destructive" });
-        // Revert local change if Supabase update fails
-        // Note: This line might cause issues if originalCartItems is not accessible here.
-        // Consider if reverting is strictly necessary after a failed update attempt.
+        setCartItems(originalCartItems); // Revert on exception
     }
   };
 
   const handleRemoveItem = useCallback(async (cartItemId: string) => {
     const originalCartItems = [...cartItems];
-    
     try {
-        const { error } = await supabase
-            .from('Cart Items')
-            .delete()
-            .eq('cart_item_id', cartItemId);
-        if (error) {
-            toast({ title: "Erro ao remover item", description: error.message, variant: "destructive" });
-            // Consider if reverting is strictly necessary after a failed deletion attempt.
-            // For now, we'll keep it to revert on error.
-        }
-      setCartItems(prevItems => prevItems.filter(item => item.cartItemId !== cartItemId)); // Update state only on success
-    } catch(error) {
-        toast({ title: "Erro ao remover item", description: error?.message || "Erro desconhecido", variant: "destructive" });
-        setCartItems(originalCartItems); // Revert
-    } // NOSONAR
-  };
+      const { error: supabaseError } = await supabase
+        .from('Cart Items')
+        .delete()
+        .eq('cart_item_id', cartItemId);
 
+      if (supabaseError) {
+        toast({ title: "Erro ao remover item", description: supabaseError.message, variant: "destructive" });
+        // Do not update UI if Supabase reports an error
+      } else {
+        // Success from Supabase, update UI
+        setCartItems(prevItems => prevItems.filter(item => item.cartItemId !== cartItemId));
+      }
+    } catch (error: any) {
+      toast({ title: "Erro ao remover item", description: error?.message || "Não foi possível remover o item.", variant: "destructive" });
+      setCartItems(originalCartItems); // Revert UI on exception
+    }
+  }, [cartItems, toast, setCartItems]); // Added setCartItems to dependency array
 
   const totalValue = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
@@ -146,9 +140,9 @@ export default function CartPage() {
       return;
     }
 
-    setIsLoading(true); // Indicate processing for checkout
+    setIsLoading(true);
     try {
-      const order = await processCheckout(cartItems); // processCheckout internally gets user
+      const order = await processCheckout(cartItems);
       toast({
         title: "Pedido Realizado!",
         description: `Seu pedido #${order.orderNumber} foi confirmado.`,
@@ -158,11 +152,11 @@ export default function CartPage() {
     } catch (error: any) {
       toast({ title: "Erro no Checkout", description: error?.message || "Não foi possível finalizar seu pedido. Tente novamente.", variant: "destructive" });
     } finally {
-      setIsLoading(false); // Stop loading indicator
+      setIsLoading(false);
     }
   };
 
-  if (isLoading && !cartItems.length) { // Show full page loader only on initial load
+  if (isLoading && !cartItems.length && !currentUser) { // Show full page loader only on initial load and if user data also not yet loaded
     return (
       <PageContainer className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -175,7 +169,12 @@ export default function CartPage() {
     <PageContainer>
       <div className="my-8">
         <h1 className="text-4xl font-headline text-center mb-10">Resumo do Pedido</h1>
-        {cartItems.length === 0 ? (
+        {isLoading && cartItems.length === 0 && currentUser ? ( // Loading state for cart items specifically, if user is known
+            <div className="flex flex-col items-center justify-center py-10">
+                <Loader2 className="h-10 w-10 animate-spin text-primary mb-3" />
+                <p className="text-muted-foreground">Buscando itens do carrinho...</p>
+            </div>
+        ) : cartItems.length === 0 ? (
           <Card className="shadow-lg">
             <CardContent className="p-10 text-center">
               <p className="text-xl text-muted-foreground mb-6">Seu carrinho está vazio.</p>
@@ -194,11 +193,10 @@ export default function CartPage() {
                 <CardContent className="p-0">
                   {cartItems.map(item => (
                     <CartItemDisplay
-                      key={item.cartItemId} // Use cartItemId as key
+                      key={item.cartItemId}
                       item={item}
-                      // Pass cartItemId to handlers, assuming CartItemDisplay will use it
-                      onQuantityChange={(cycleProdId, newQuantity) => handleQuantityChange(item.cartItemId, newQuantity)}
-                      onRemove={() => handleRemoveItem(item.cartItemId)}
+                      onQuantityChange={handleQuantityChange}
+                      onRemove={handleRemoveItem}
                     />
                   ))}
                 </CardContent>
@@ -234,4 +232,3 @@ export default function CartPage() {
     </PageContainer>
   );
 }
-
