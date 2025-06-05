@@ -3,6 +3,7 @@
 
 import { useState, useEffect, type FormEvent } from 'react';
 import { PageContainer } from '@/components/shared/page-container';
+import { getCurrentUser, fetchUserOrders, updateUserDetails } from '@/lib/supabasePlaceholders'; // Added imports
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +13,7 @@ import type { User as AppUser, Order } from '@/types';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link'; // Import Link for internal navigation
 import { Loader2, LogOut, ShoppingBag, CalendarDays, Home, UserCircle } from 'lucide-react'; // Removed unused icons
+import { signOut } from '@/lib/auth'; // Added import
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 
@@ -92,10 +94,10 @@ export default function AccountPage() {
         setIsLoadingOrders(true);
         try {
           const userOrders = await fetchUserOrders(currentUser.userId);
-          userOrders.sort((a,b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
+ userOrders.sort((a: Order, b: Order) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
           setOrders(userOrders);
         } catch (error) {
-          toast({ title: "Erro ao Carregar Pedidos", description: error?.message || "Não foi possível buscar seus pedidos.", variant: "destructive" });
+ toast({ title: "Erro ao Carregar Pedidos", description: (error as Error)?.message || "Não foi possível buscar seus pedidos.", variant: "destructive" });
         } finally {
           setIsLoadingOrders(false);
         }

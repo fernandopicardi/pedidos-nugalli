@@ -25,7 +25,7 @@ const ACTION_TYPES = {
   REMOVE_TOAST: "REMOVE_TOAST",
 } as const
 
-let count = 0;
+let count = 0
 
 function genId() {
   count = (count + 1) % Number.MAX_SAFE_INTEGER
@@ -55,7 +55,7 @@ interface State {
   toasts: ToasterToast[]
 }
 
-const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
 
 const addToRemoveQueue = (toastId: string) => {
   if (toastTimeouts.has(toastId)) {

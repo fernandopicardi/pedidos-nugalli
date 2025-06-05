@@ -522,7 +522,7 @@ export async function fetchDisplayableProducts(): Promise<DisplayableProduct[]> 
     name: item.product_name_snapshot || item.Products?.name || 'Unknown Product',
     description: item.Products?.description || '',
     price: item.price_in_cycle || 0,
-    isAvailable: item.is_available_in_cycle,
+    isAvailableInCycle: item.is_available_in_cycle,
     imageUrl: item.display_image_url || item.Products?.image_url || 'https://placehold.co/400x300.png?text=Produto',
     attributes: item.Products?.attributes || {},
   }));
@@ -570,7 +570,7 @@ export async function fetchDisplayableProductById(cycleProductId: string): Promi
     name: data.product_name_snapshot || data.Products?.name || 'Unknown Product',
     description: data.Products?.description || '',
     price: data.price_in_cycle || 0,
-    isAvailable: data.is_available_in_cycle,
+    isAvailableInCycle: data.is_available_in_cycle,
     imageUrl: data.display_image_url || data.Products?.image_url || 'https://placehold.co/400x300.png?text=Produto',
     attributes: data.Products?.attributes || {},
   };

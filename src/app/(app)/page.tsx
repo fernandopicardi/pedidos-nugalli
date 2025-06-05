@@ -89,7 +89,7 @@ export default function HomePage() {
  imageUrl: cp.display_image_url || cp.Products?.image_url || 'https://placehold.co/400x300.png?text=Produto', // Use display_image_url first, fallback to Products.image_url
           attributes: cp.Products?.attributes || {},
  price: cp.price_in_cycle,
- isAvailable: cp.is_available_in_cycle, // Use is_available_in_cycle for front-end display
+ isAvailableInCycle: cp.is_available_in_cycle, // Use is_available_in_cycle for front-end display
         })) : [];
 
         setAllProducts(displayableProducts);

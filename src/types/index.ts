@@ -56,6 +56,7 @@ export interface DisplayableProduct extends Omit<CycleProduct, 'productNameSnaps
 }
 
 export interface CartItem {
+  cartItemId: string; // auto-ID
   cycleProductId: string; // References the specific offering in a cycle
   productId: string; // Master product ID
   name: string; // Snapshot of product name
