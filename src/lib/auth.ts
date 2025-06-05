@@ -23,6 +23,7 @@ export const signUp = async (
 			display_name: profileData?.displayName || email.split('@')[0] || 'Usuário',
 			whatsapp: profileData?.whatsapp || '',
 		};
+		// Ensure all address fields from profileData are added to metadataForAuth
 		if (profileData?.addressStreet) metadataForAuth.address_street = profileData.addressStreet;
 		if (profileData?.addressNumber) metadataForAuth.address_number = profileData.addressNumber;
 		if (profileData?.addressComplement) metadataForAuth.address_complement = profileData.addressComplement;
@@ -31,11 +32,12 @@ export const signUp = async (
 		if (profileData?.addressState) metadataForAuth.address_state = profileData.addressState;
 		if (profileData?.addressZip) metadataForAuth.address_zip = profileData.addressZip;
 
+
 		const { data: signUpAuthData, error: authError } = await supabase.auth.signUp({
 			email,
 			password,
 			options: {
-				data: metadataForAuth,
+				data: metadataForAuth, // Pass all collected metadata here
 			},
 		});
 
@@ -53,8 +55,6 @@ export const signUp = async (
 			return { user: null, session: null, error: { message: authError.message } };
 		}
 
-		// signUpAuthData.user will exist if auth part was successful.
-		// signUpAuthData.session will exist if email confirmation is not required or auto-confirmed.
 		console.log('auth.ts: Supabase signUp response - User:', signUpAuthData.user?.id, 'Session:', signUpAuthData.session ? 'Exists' : 'Null');
 		return { user: signUpAuthData.user, session: signUpAuthData.session, error: null };
 
@@ -66,13 +66,12 @@ export const signUp = async (
 
 
 export const signInWithEmail = async (email: string, password: string): Promise<{ user: User | null, error: { message: string } | null }> => {
-  console.log('signInWithEmail called with:', email);
+  console.log('auth.ts: signInWithEmail called with:', email);
   const { data: authData, error: signInAuthError } = await supabase.auth.signInWithPassword({ email, password });
 
   if (signInAuthError) {
     if (signInAuthError.message !== 'Invalid login credentials') {
-      // Log other errors, but not "Invalid login credentials" to reduce console noise for expected user errors.
-      console.error('Supabase sign in error:', signInAuthError.message);
+      console.error('auth.ts: Supabase sign in error:', signInAuthError.message);
     }
     if (signInAuthError.message === 'Failed to fetch' || signInAuthError.message.includes('fetch failed')) {
       return { user: null, error: { message: 'Network error: Unable to connect to authentication service. Please check your internet connection and ensure the Supabase service is reachable and configured correctly (URL/Key).' } };
@@ -84,56 +83,18 @@ export const signInWithEmail = async (email: string, password: string): Promise<
     return { user: null, error: { message: "Sign in successful but no user data returned." } };
   }
 
-  // Fetch profile details
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', authData.user.id)
-    .single();
+  // Fetch profile details using our robust getUser function
+  const { user: fullUser, error: getUserError } = await getUser(); // getUser now handles profile creation if missing
 
-  if (profileError) {
-    console.warn('auth.ts: Error fetching profile after sign in:', profileError.message, '- User ID:', authData.user.id);
-    // Return basic user info if profile fetch fails, so app doesn't break
-    const basicUser: User = {
-      userId: authData.user.id,
-      email: authData.user.email || 'N/A',
-      displayName: authData.user.user_metadata?.display_name || authData.user.email?.split('@')[0] || 'User',
-      whatsapp: authData.user.user_metadata?.whatsapp || '',
-      role: (authData.user.user_metadata?.role as 'customer' | 'admin') || 'customer',
-      createdAt: authData.user.created_at || new Date().toISOString(),
-      // address fields will be empty
-    };
-    return { user: basicUser, error: null }; // Or return with profileError if critical
+  if (getUserError) {
+      // getUser already logs its errors. We might return a simplified error or the detailed one.
+      return { user: null, error: { message: `Failed to retrieve or create profile after sign in: ${getUserError.message}` } };
   }
-
-  if (!profile) {
-      console.warn('auth.ts: Profile not found for user ID after sign in:', authData.user.id);
-      const basicUser: User = {
-        userId: authData.user.id,
-        email: authData.user.email || 'N/A',
-        displayName: authData.user.user_metadata?.display_name || authData.user.email?.split('@')[0] || 'User',
-        whatsapp: authData.user.user_metadata?.whatsapp || '',
-        role: (authData.user.user_metadata?.role as 'customer' | 'admin') || 'customer',
-        createdAt: authData.user.created_at || new Date().toISOString(),
-      };
-      return { user: basicUser, error: null };
+  
+  if (!fullUser) {
+      // This case should be rare if getUser attempts creation, but handle it.
+      return { user: null, error: { message: "User authenticated but profile could not be retrieved or created." } };
   }
-
-  const fullUser: User = {
-    userId: profile.id,
-    email: profile.email,
-    displayName: profile.display_name,
-    whatsapp: profile.whatsapp,
-    role: profile.role,
-    createdAt: profile.created_at,
-    addressStreet: profile.address_street,
-    addressNumber: profile.address_number,
-    addressComplement: profile.address_complement,
-    addressNeighborhood: profile.address_neighborhood,
-    addressCity: profile.address_city,
-    addressState: profile.address_state,
-    addressZip: profile.address_zip,
-  };
 
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem('currentUser', JSON.stringify(fullUser));
@@ -176,59 +137,114 @@ export const getUser = async (): Promise<{ user: User | null; error: Error | nul
       } else {
         console.warn('auth.ts: Supabase authError in getUser (will return null):', authError.message);
       }
-      return { user: null, error: authError };
+      return { user: null, error: new Error(authError.message) };
     }
 
     if (!authUser) {
       return { user: null, error: null };
     }
 
-    const { data: profile, error: profileError } = await supabase
+    let { data: profile, error: profileErrorPGRST } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', authUser.id)
       .single();
 
-    if (profileError) {
-      console.warn('auth.ts: Error fetching user profile (will return basic user info or null if critical):', profileError.message, '- User ID:', authUser.id);
-      const basicUser: User = {
-        userId: authUser.id,
-        email: authUser.email || 'N/A',
-        displayName: authUser.user_metadata?.display_name || authUser.email?.split('@')[0] || 'User',
-        whatsapp: authUser.user_metadata?.whatsapp || '',
-        role: (authUser.user_metadata?.role as 'customer' | 'admin') || 'customer',
-        createdAt: authUser.created_at || new Date().toISOString(),
-        addressStreet: '',
-        addressNumber: '',
-        addressComplement: '',
-        addressNeighborhood: '',
-        addressCity: '',
-        addressState: '',
-        addressZip: '',
-      };
-      return { user: basicUser, error: null };
-    }
+    const profileError = profileErrorPGRST as any; // To access code property if it exists
 
-    if (!profile) {
-      console.warn('auth.ts: User profile not found for user ID (will return basic user info):', authUser.id);
-      const basicUser: User = {
-        userId: authUser.id,
-        email: authUser.email || 'N/A',
-        displayName: authUser.user_metadata?.display_name || authUser.email?.split('@')[0] || 'User',
-        whatsapp: authUser.user_metadata?.whatsapp || '',
-        role: (authUser.user_metadata?.role as 'customer' | 'admin') || 'customer',
-        createdAt: authUser.created_at || new Date().toISOString(),
-        addressStreet: '',
-        addressNumber: '',
-        addressComplement: '',
-        addressNeighborhood: '',
-        addressCity: '',
-        addressState: '',
-        addressZip: '',
-      };
-      return { user: basicUser, error: null };
-    }
+    if (!profile && (profileError?.code === 'PGRST116' || !profileError)) { // PGRST116 means 0 rows found, or no error but profile is null
+      console.warn(`auth.ts: Profile not found for user ID: ${authUser.id}. Attempting to create one from auth.users metadata.`);
+      
+      const rawUserMetaData = authUser.raw_user_meta_data || {}; // Where options.data from signUp goes
 
+      const newProfilePayload = {
+        id: authUser.id,
+        email: authUser.email,
+        display_name: rawUserMetaData.display_name || authUser.email?.split('@')[0] || 'Usuário',
+        whatsapp: rawUserMetaData.whatsapp || '',
+        role: rawUserMetaData.role || 'customer',
+        created_at: authUser.created_at || new Date().toISOString(),
+        address_street: rawUserMetaData.address_street || null,
+        address_number: rawUserMetaData.address_number || null,
+        address_complement: rawUserMetaData.address_complement || null,
+        address_neighborhood: rawUserMetaData.address_neighborhood || null,
+        address_city: rawUserMetaData.address_city || null,
+        address_state: rawUserMetaData.address_state || null,
+        address_zip: rawUserMetaData.address_zip || null,
+      };
+
+      const { data: createdProfile, error: createProfileError } = await supabase
+        .from('profiles')
+        .insert(newProfilePayload)
+        .select()
+        .single();
+
+      if (createProfileError) {
+        console.error(`auth.ts: Failed to create profile for user ID ${authUser.id}:`, createProfileError.message);
+        const basicUser: User = {
+          userId: authUser.id,
+          email: authUser.email || 'N/A',
+          displayName: rawUserMetaData.display_name || authUser.email?.split('@')[0] || 'Usuário',
+          whatsapp: rawUserMetaData.whatsapp || '',
+          role: (rawUserMetaData.role as 'customer' | 'admin') || 'customer',
+          createdAt: authUser.created_at || new Date().toISOString(),
+          addressStreet: rawUserMetaData.address_street || undefined,
+          addressNumber: rawUserMetaData.address_number || undefined,
+          addressComplement: rawUserMetaData.address_complement || undefined,
+          addressNeighborhood: rawUserMetaData.address_neighborhood || undefined,
+          addressCity: rawUserMetaData.address_city || undefined,
+          addressState: rawUserMetaData.address_state || undefined,
+          addressZip: rawUserMetaData.address_zip || undefined,
+        };
+        return { user: basicUser, error: new Error(`Profile fetch failed (PGRST116 or no error but no profile) and subsequent creation also failed: ${createProfileError.message}`) };
+      }
+
+      if (createdProfile) {
+        console.log(`auth.ts: Successfully created profile for user ID ${authUser.id}.`);
+        profile = createdProfile; // Use the newly created profile
+      } else {
+        // This case should ideally not be reached if insert was successful
+        console.error(`auth.ts: Profile creation attempt for user ID ${authUser.id} did not return data, though no error was thrown.`);
+         const basicUser: User = {
+          userId: authUser.id,
+          email: authUser.email || 'N/A',
+          displayName: rawUserMetaData.display_name || authUser.email?.split('@')[0] || 'Usuário',
+          whatsapp: rawUserMetaData.whatsapp || '',
+          role: (rawUserMetaData.role as 'customer' | 'admin') || 'customer',
+          createdAt: authUser.created_at || new Date().toISOString(),
+          addressStreet: rawUserMetaData.address_street || undefined,
+          addressNumber: rawUserMetaData.address_number || undefined,
+          addressComplement: rawUserMetaData.address_complement || undefined,
+          addressNeighborhood: rawUserMetaData.address_neighborhood || undefined,
+          addressCity: rawUserMetaData.address_city || undefined,
+          addressState: rawUserMetaData.address_state || undefined,
+          addressZip: rawUserMetaData.address_zip || undefined,
+        };
+        return { user: basicUser, error: new Error('Profile creation attempt did not return data.') };
+      }
+    } else if (profileError && profileError.code !== 'PGRST116') { // Other error during profile fetch
+        console.warn('auth.ts: Error fetching user profile (not PGRST116):', profileError.message, '- User ID:', authUser.id);
+        // Fallback to basic user for other profile fetch errors
+        const rawUserMetaDataFallback = authUser.raw_user_meta_data || {};
+        const basicUser: User = {
+          userId: authUser.id,
+          email: authUser.email || 'N/A',
+          displayName: rawUserMetaDataFallback.display_name || authUser.email?.split('@')[0] || 'User',
+          whatsapp: rawUserMetaDataFallback.whatsapp || '',
+          role: (rawUserMetaDataFallback.role as 'customer' | 'admin') || 'customer',
+          createdAt: authUser.created_at || new Date().toISOString(),
+          addressStreet: rawUserMetaDataFallback.address_street || undefined,
+          addressNumber: rawUserMetaDataFallback.address_number || undefined,
+          addressComplement: rawUserMetaDataFallback.address_complement || undefined,
+          addressNeighborhood: rawUserMetaDataFallback.address_neighborhood || undefined,
+          addressCity: rawUserMetaDataFallback.address_city || undefined,
+          addressState: rawUserMetaDataFallback.address_state || undefined,
+          addressZip: rawUserMetaDataFallback.address_zip || undefined,
+        };
+        return { user: basicUser, error: new Error(`Error fetching profile: ${profileError.message}`) };
+    }
+    
+    // If profile was found or successfully created
     const fullUser: User = {
       userId: profile.id,
       email: profile.email,
@@ -244,7 +260,7 @@ export const getUser = async (): Promise<{ user: User | null; error: Error | nul
       addressState: profile.address_state,
       addressZip: profile.address_zip,
     };
-
+    
     return { user: fullUser, error: null };
 
   } catch (e: unknown) {
@@ -267,7 +283,7 @@ export const updateUserDetails = async (
 		addressState?: string;
 		addressZip?: string;
 	}
-): Promise<{ data: any | null; error: { message: string } | null }> => {
+): Promise<{ user: User | null; error: { message: string } | null }> => { // Changed return to match User type
 	console.log('auth.ts: updateUserDetails called for userId:', userId, 'with data:', data);
 
 	const updatePayload: Record<string, any> = {};
@@ -283,7 +299,31 @@ export const updateUserDetails = async (
 
 	if (Object.keys(updatePayload).length === 0) {
 		console.log('auth.ts: updateUserDetails called with no data to update for userId:', userId);
-		return { data: null, error: null };
+    // Fetch current profile to return consistent User type
+    const { data: currentProfileData, error: fetchError } = await supabase
+      .from('profiles')
+      .select()
+      .eq('id', userId)
+      .single();
+    if (fetchError || !currentProfileData) {
+      return { user: null, error: { message: fetchError?.message || "Profile not found during no-op update."} };
+    }
+    const currentUser: User = {
+        userId: currentProfileData.id,
+        email: currentProfileData.email,
+        displayName: currentProfileData.display_name,
+        whatsapp: currentProfileData.whatsapp,
+        role: currentProfileData.role,
+        createdAt: currentProfileData.created_at,
+        addressStreet: currentProfileData.address_street,
+        addressNumber: currentProfileData.address_number,
+        addressComplement: currentProfileData.address_complement,
+        addressNeighborhood: currentProfileData.address_neighborhood,
+        addressCity: currentProfileData.address_city,
+        addressState: currentProfileData.address_state,
+        addressZip: currentProfileData.address_zip,
+    };
+		return { user: currentUser, error: null };
 	}
 	
 	const { data: updatedProfileData, error } = await supabase
@@ -296,30 +336,37 @@ export const updateUserDetails = async (
 	if (error) {
 		console.error('auth.ts: Error updating user details for user ' + userId + ':', error.message);
 		if (error.message === 'Failed to fetch' || error.message.includes('fetch failed')) {
-			return { data: null, error: { message: 'Network error: Unable to save user details. Please check your internet connection and Supabase configuration.' } };
+			return { user: null, error: { message: 'Network error: Unable to save user details. Please check your internet connection and Supabase configuration.' } };
 		}
-		return { data: null, error: { message: error.message } };
+		return { user: null, error: { message: error.message } };
 	}
 
-  if (updatedProfileData && typeof localStorage !== 'undefined') {
-    const userToStore: User = {
-        userId: updatedProfileData.id,
-        email: updatedProfileData.email,
-        displayName: updatedProfileData.display_name,
-        whatsapp: updatedProfileData.whatsapp,
-        role: updatedProfileData.role,
-        createdAt: updatedProfileData.created_at,
-        addressStreet: updatedProfileData.address_street,
-        addressNumber: updatedProfileData.address_number,
-        addressComplement: updatedProfileData.address_complement,
-        addressNeighborhood: updatedProfileData.address_neighborhood,
-        addressCity: updatedProfileData.address_city,
-        addressState: updatedProfileData.address_state,
-        addressZip: updatedProfileData.address_zip,
-    };
-    localStorage.setItem('currentUser', JSON.stringify(userToStore));
+  if (!updatedProfileData) { // Should not happen if update is successful and .select().single() is used
+      return { user: null, error: { message: "Profile update seemed successful but no data was returned." } };
+  }
+
+  const updatedUser: User = {
+      userId: updatedProfileData.id,
+      email: updatedProfileData.email,
+      displayName: updatedProfileData.display_name,
+      whatsapp: updatedProfileData.whatsapp,
+      role: updatedProfileData.role,
+      createdAt: updatedProfileData.created_at,
+      addressStreet: updatedProfileData.address_street,
+      addressNumber: updatedProfileData.address_number,
+      addressComplement: updatedProfileData.address_complement,
+      addressNeighborhood: updatedProfileData.address_neighborhood,
+      addressCity: updatedProfileData.address_city,
+      addressState: updatedProfileData.address_state,
+      addressZip: updatedProfileData.address_zip,
+  };
+
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('currentUser', JSON.stringify(updatedUser));
   }
 
 	console.log('auth.ts: User details updated successfully for userId:', userId);
-	return { data: updatedProfileData, error: null };
+	return { user: updatedUser, error: null };
 };
+
+    
