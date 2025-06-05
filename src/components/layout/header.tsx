@@ -61,7 +61,7 @@ export function Header() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           <Link href="/" className="text-3xl font-headline text-primary hover:opacity-80 transition-opacity">
-            Pedidos Nugalli
+            Pedidos Nugali
           </Link>
           <nav className="flex items-center space-x-2 md:space-x-4">
             <Link href="/" className="text-foreground hover:text-primary transition-colors text-sm md:text-base px-2 py-1 rounded-md">

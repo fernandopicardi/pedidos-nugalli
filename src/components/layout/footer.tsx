@@ -6,7 +6,7 @@ export function Footer() {
           &copy; {new Date().getFullYear()} Nugali Seasonal Selections. Todos os direitos reservados.
         </p>
         <p className="text-xs mt-2">
-          Uma experiência de e-commerce premium.
+          Desenvolvido por Fernando Picardi
         </p>
       </div>
     </footer>
