@@ -16,18 +16,26 @@ export const signUp = async (
 		addressState?: string;
 		addressZip?: string;
 	}
-): Promise<{ user: any | null; session: any | null; error: { message: string } | null; profileError?: { message: string } | null }> => {
-	console.log('auth.ts: signUp called with:', email);
+): Promise<{ user: any | null; session: any | null; error: { message: string } | null }> => {
+	console.log('auth.ts: signUp called with email:', email, 'and profileData:', profileData);
 	try {
+		const metadataForAuth: Record<string, any> = {
+			display_name: profileData?.displayName || email.split('@')[0] || 'Usuário',
+			whatsapp: profileData?.whatsapp || '',
+		};
+		if (profileData?.addressStreet) metadataForAuth.address_street = profileData.addressStreet;
+		if (profileData?.addressNumber) metadataForAuth.address_number = profileData.addressNumber;
+		if (profileData?.addressComplement) metadataForAuth.address_complement = profileData.addressComplement;
+		if (profileData?.addressNeighborhood) metadataForAuth.address_neighborhood = profileData.addressNeighborhood;
+		if (profileData?.addressCity) metadataForAuth.address_city = profileData.addressCity;
+		if (profileData?.addressState) metadataForAuth.address_state = profileData.addressState;
+		if (profileData?.addressZip) metadataForAuth.address_zip = profileData.addressZip;
+
 		const { data: signUpAuthData, error: authError } = await supabase.auth.signUp({
 			email,
 			password,
 			options: {
-				data: {
-					display_name: profileData?.displayName || email.split('@')[0] || 'Usuário',
-					whatsapp: profileData?.whatsapp || '',
-					// Address fields will be set by updateUserDetails or a trigger
-				},
+				data: metadataForAuth,
 			},
 		});
 
@@ -45,20 +53,9 @@ export const signUp = async (
 			return { user: null, session: null, error: { message: authError.message } };
 		}
 
-		if (!signUpAuthData.user) {
-			return { user: null, session: null, error: { message: 'User not created in Supabase auth table.' } };
-		}
-
-		// If email confirmation is NOT required, Supabase returns a session.
-		// If it IS required, session will be null, and user needs to confirm.
-		// The profile creation via trigger is preferred.
-		// If a session exists, we can assume profile was (or will be) created, or we might update it.
-
-		console.log('auth.ts: User signed up successfully (auth part):', signUpAuthData.user.id);
-		// If profile creation is handled by a trigger, we don't need to insert it here.
-		// If not, and a session is present, one might consider an upsert here,
-		// or rely on first login/profile update to populate all details.
-
+		// signUpAuthData.user will exist if auth part was successful.
+		// signUpAuthData.session will exist if email confirmation is not required or auto-confirmed.
+		console.log('auth.ts: Supabase signUp response - User:', signUpAuthData.user?.id, 'Session:', signUpAuthData.session ? 'Exists' : 'Null');
 		return { user: signUpAuthData.user, session: signUpAuthData.session, error: null };
 
 	} catch (e: any) {
@@ -169,7 +166,7 @@ export const signOut = async () => {
 export const getUser = async (): Promise<{ user: User | null; error: Error | null }> => {
   console.log('auth.ts: getUser called');
   try {
-    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(); // Renamed 'error' to 'authError'
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
 
     if (authError) {
       if (authError.message.includes('Auth session missing')) {
@@ -179,7 +176,7 @@ export const getUser = async (): Promise<{ user: User | null; error: Error | nul
       } else {
         console.warn('auth.ts: Supabase authError in getUser (will return null):', authError.message);
       }
-      return { user: null, error: authError }; // authError is already an ApiError which extends Error
+      return { user: null, error: authError };
     }
 
     if (!authUser) {
@@ -250,8 +247,8 @@ export const getUser = async (): Promise<{ user: User | null; error: Error | nul
 
     return { user: fullUser, error: null };
 
-  } catch (e: unknown) { // Catch 'e' as unknown for broader compatibility
-    const errorToReturn = e instanceof Error ? e : new Error(String(e)); // Ensure it's an Error instance
+  } catch (e: unknown) {
+    const errorToReturn = e instanceof Error ? e : new Error(String(e));
     console.error('auth.ts: Critical error in getUser (e.g., network issue, Supabase client problem):', errorToReturn.message);
     return { user: null, error: errorToReturn };
   }
@@ -261,7 +258,7 @@ export const updateUserDetails = async (
 	userId: string,
 	data: {
 		displayName?: string;
-		whatsapp?: string; // Kept optional as per original User type, but often required
+		whatsapp?: string;
 		addressStreet?: string;
 		addressNumber?: string;
 		addressComplement?: string;
@@ -270,13 +267,12 @@ export const updateUserDetails = async (
 		addressState?: string;
 		addressZip?: string;
 	}
-): Promise<{ data: any | null; error: { message: string } | null }> => { // Return type more aligned with Supabase calls
+): Promise<{ data: any | null; error: { message: string } | null }> => {
 	console.log('auth.ts: updateUserDetails called for userId:', userId, 'with data:', data);
 
-	// Prepare an object only with fields that are actually provided
 	const updatePayload: Record<string, any> = {};
 	if (data.displayName !== undefined) updatePayload.display_name = data.displayName;
-	if (data.whatsapp !== undefined) updatePayload.whatsapp = data.whatsapp; // Ensure whatsapp is handled
+	if (data.whatsapp !== undefined) updatePayload.whatsapp = data.whatsapp;
 	if (data.addressStreet !== undefined) updatePayload.address_street = data.addressStreet;
 	if (data.addressNumber !== undefined) updatePayload.address_number = data.addressNumber;
 	if (data.addressComplement !== undefined) updatePayload.address_complement = data.addressComplement;
@@ -287,7 +283,7 @@ export const updateUserDetails = async (
 
 	if (Object.keys(updatePayload).length === 0) {
 		console.log('auth.ts: updateUserDetails called with no data to update for userId:', userId);
-		return { data: null, error: null }; // Or perhaps return the existing profile data
+		return { data: null, error: null };
 	}
 	
 	const { data: updatedProfileData, error } = await supabase
@@ -295,7 +291,7 @@ export const updateUserDetails = async (
 		.update(updatePayload)
 		.eq('id', userId)
 		.select()
-		.single(); // Assuming you want the updated profile back
+		.single();
 
 	if (error) {
 		console.error('auth.ts: Error updating user details for user ' + userId + ':', error.message);
@@ -306,7 +302,6 @@ export const updateUserDetails = async (
 	}
 
   if (updatedProfileData && typeof localStorage !== 'undefined') {
-    // If you want to update localStorage, you'd construct the full User object here
     const userToStore: User = {
         userId: updatedProfileData.id,
         email: updatedProfileData.email,
@@ -328,5 +323,3 @@ export const updateUserDetails = async (
 	console.log('auth.ts: User details updated successfully for userId:', userId);
 	return { data: updatedProfileData, error: null };
 };
-
-    

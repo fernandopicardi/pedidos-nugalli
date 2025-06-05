@@ -9,7 +9,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { signUp, getUser } from '@/lib/auth'; // Importar signUp e getUser do serviço de autenticação
+import { signUp } from '@/lib/auth';
+import { updateUserDetails, getCurrentUser } from '@/lib/supabasePlaceholders'; // getCurrentUser is for client-side state update
 
 export function RegisterForm() {
   const [email, setEmail] = useState('');
@@ -45,55 +46,99 @@ export function RegisterForm() {
     }
     setIsSubmitting(true);
 
-    // Chamar a função signUp do serviço de autenticação
-    const { user: registeredUser, error: signUpError } = await signUp(email, password, {
- addressStreet,
+    // Call signUp from auth.ts. It passes address data to options.data for triggers.
+    // displayName and whatsapp are not on this form, so signUp will use defaults.
+    const { user: registeredUser, session: signUpSession, error: signUpError } = await signUp(email, password, {
+      // Not passing displayName or whatsapp explicitly here;
+      // auth.ts's signUp will use defaults (e.g., email prefix for displayName)
+      // if they are not provided in this profileData object.
+      // The primary purpose of passing profileData here is for address fields
+      // to be included in Supabase auth user_metadata for triggers.
+      addressStreet,
       addressNumber,
- addressComplement,
- addressNeighborhood,
- addressCity,
- addressState,
- addressZip,
+      addressComplement,
+      addressNeighborhood,
+      addressCity,
+      addressState,
+      addressZip,
     });
 
     if (signUpError) {
+      toast({ title: "Erro no Cadastro", description: signUpError.message, variant: "destructive" });
       setIsSubmitting(false);
       return;
     }
 
-    // Se signUpAuthData.user existir mas signUpAuthData.session for null,
-    // significa que a confirmação de email é necessária (se habilitada no Supabase).
-    if (signUpAuthData.user && !signUpAuthData.session) {
-      toast({ title: "Verifique seu Email", description: "Um link de confirmação foi enviado. Por favor, ative sua conta para continuar.", duration: 9000 });
-      router.push('/auth'); // Redirecionar para a página de login
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Se chegou aqui, o cadastro foi bem-sucedido e o usuário foi criado (e o perfil também, pela função signUp)
-    if (registeredUser) {
-      toast({ title: "Cadastro Bem-Sucedido", description: "Sua conta foi criada com sucesso!" });
-      // Se a confirmação de email não for necessária e o usuário estiver logado após signUp
-      if (signUpAuthData.session) {
-        // O perfil já foi criado dentro do signUp, então apenas buscamos o usuário completo
-        await getUser(); // Isso deve buscar o usuário completo (com perfil) e atualizar o localStorage.
-        redirectToStoredPathOrFallback('/');
-      } else {
-        // Confirmação de email necessária
-        router.push('/auth'); // Redirecionar para a página de login para esperar confirmação
-      }
-    } else if (signUpAuthData.user && !signUpAuthData.session) {
-      // Este bloco já foi tratado acima, mas como uma rede de segurança.
-       toast({
+    if (registeredUser && !signUpSession) {
+      // Email confirmation required
+      toast({
         title: "Verifique seu Email",
         description: "Um link de confirmação foi enviado. Por favor, ative sua conta para continuar.",
-        duration: 9000,
+        duration: 9000, // Longer duration for this important message
       });
-      router.push('/auth');
-    } else {
-      // Caso muito improvável: signUp bem-sucedido sem erro, mas sem usuário.
-      toast({ title: "Erro Inesperado no Cadastro", description: "Ocorreu um problema durante o cadastro. Tente novamente.", variant: "destructive" });
+      router.push('/auth'); // Redirect to login page to await confirmation
+      setIsSubmitting(false);
+      return;
     }
+
+    if (registeredUser && signUpSession) {
+      // User is signed up AND has a session (e.g., email confirmation disabled or auto-confirmed)
+      // Now, explicitly update the profile in 'profiles' table with address details.
+      try {
+        const { error: updateError } = await updateUserDetails(registeredUser.id, {
+          // displayName and whatsapp were set via options.data in signUp if a trigger used them.
+          // This call primarily ensures address details from the form are saved.
+          addressStreet,
+          addressNumber,
+          addressComplement,
+          addressNeighborhood,
+          addressCity,
+          addressState,
+          addressZip,
+        });
+
+        if (updateError) {
+          // Log the error for debugging, but still inform user of partial success
+          console.error("Error updating profile details after signup:", updateError.message);
+          toast({
+            title: "Cadastro Concluído com Avisos",
+            description: `Sua conta foi criada, mas houve um erro ao salvar os detalhes do endereço: ${updateError.message}. Você pode tentar atualizá-los mais tarde na sua página de conta.`,
+            variant: "default", // Not "destructive" as account is created
+            duration: 10000,
+          });
+        } else {
+          toast({
+            title: "Cadastro Bem-Sucedido!",
+            description: "Sua conta foi criada e os detalhes do endereço foram salvos."
+          });
+        }
+        
+        await getCurrentUser(); // Ensure client-side user state/localStorage is updated with the full profile
+        redirectToStoredPathOrFallback('/');
+
+      } catch (e: any) {
+        // Catch any unexpected errors during the profile update or redirect
+        console.error("Unexpected error during post-signup profile update:", e.message);
+        toast({
+          title: "Erro Pós-Cadastro",
+          description: `Sua conta foi criada, mas houve um erro inesperado ao salvar os detalhes do perfil: ${e.message}. Por favor, verifique seus dados na página da conta.`,
+          variant: "destructive",
+          duration: 10000,
+        });
+        // Still redirect, as the user account itself was created
+        redirectToStoredPathOrFallback('/'); 
+      }
+    } else if (!registeredUser && !signUpError) {
+      // This case should ideally not happen if signUpError is null.
+      // It implies signUp was successful but returned no user, which is unusual.
+      toast({
+        title: "Erro Inesperado no Cadastro",
+        description: "Ocorreu um problema durante o cadastro (código: SU_NOUSER_NOERROR). Tente novamente ou contate o suporte.",
+        variant: "destructive"
+      });
+    }
+    // If signUpError was present, it's handled above.
+    // If registeredUser and signUpSession logic leads to a redirect, this is fine.
 
     setIsSubmitting(false);
   };
@@ -258,6 +303,3 @@ export function RegisterForm() {
     </div>
   );
 }
-    
-
-    
