@@ -21,23 +21,22 @@ export default function CustomerManagementPage() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, email, display_name, whatsapp, role, created_at, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_zip')
-        .eq('role', 'customer');
+        .select('id, email, display_name, whatsapp, is_admin, created_at, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_zip') // Select is_admin
+        .eq('is_admin', false); // Filter for customers (is_admin = false)
 
       if (error) {
         throw error;
       }
 
-      // Map data to User type, including address fields
       const usersData: User[] = data.map(item => ({
-        userId: item.id, // Assuming 'id' from profiles table maps to 'userId' in User type
+        userId: item.id, 
         email: item.email,
         displayName: item.display_name || 'N/A',
         whatsapp: item.whatsapp,
-        role: item.role,
+        isAdmin: item.is_admin, // Map is_admin
         createdAt: item.created_at,
-        ...item // Include all address fields directly
-      })) as User[]; // Type assertion
+        ...item 
+      })) as User[]; 
 
       usersData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setCustomers(usersData);
@@ -51,7 +50,8 @@ export default function CustomerManagementPage() {
 
   useEffect(() => { 
     loadCustomers();
-  }, [loadCustomers]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Removed loadCustomers from dependency array as it's stable
 
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('pt-BR', {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC'
@@ -66,7 +66,7 @@ export default function CustomerManagementPage() {
       user.addressCity,
       user.addressState,
       user.addressZip,
-    ].filter(Boolean); // Remove empty or null parts
+    ].filter(Boolean); 
     return parts.join(', ') || 'N/A';
   };
 
@@ -94,20 +94,20 @@ export default function CustomerManagementPage() {
                 <TableHead>WhatsApp</TableHead>
                 <TableHead>Endereço</TableHead>
                 <TableHead className="w-[160px]">Cadastrado em</TableHead>
-                <TableHead className="w-[100px]">Role</TableHead>
+                <TableHead className="w-[100px]">Tipo</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {customers.map((customer) => (
-                <TableRow key={customer.id}>
+                <TableRow key={customer.userId}>
                   <TableCell className="font-medium">{customer.displayName}</TableCell>
                   <TableCell>{customer.email}</TableCell>
                   <TableCell>{customer.whatsapp || 'N/A'}</TableCell>
                   <TableCell className="text-xs max-w-xs truncate">{formatAddress(customer)}</TableCell>
                   <TableCell>{formatDate(customer.createdAt)}</TableCell>
                   <TableCell>
-                    <Badge variant={customer.role === 'admin' ? 'default' : 'secondary'}>
-                      {customer.role === 'admin' ? 'Admin' : 'Cliente'}
+                    <Badge variant={customer.isAdmin ? 'default' : 'secondary'}>
+                      {customer.isAdmin ? 'Admin' : 'Cliente'}
                     </Badge>
                   </TableCell>
                 </TableRow>

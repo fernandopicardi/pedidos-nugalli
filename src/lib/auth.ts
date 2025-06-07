@@ -23,7 +23,7 @@ export const signUp = async (
 		const metadataForAuth: Record<string, any> = {
 			display_name: profileData?.displayName || email.split('@')[0] || 'Usuário',
 			whatsapp: profileData?.whatsapp || '',
-			role: false, // Default new users to role: false
+			is_admin: false, // Default new users to is_admin: false
 		};
 		// Ensure all address fields from profileData are added to metadataForAuth
 		if (profileData?.addressStreet) metadataForAuth.address_street = profileData.addressStreet;
@@ -156,23 +156,23 @@ export const getUser = async (): Promise<{ user: User | null; error: Error | nul
 
     let { data: profile, error: profileErrorPGRST } = await supabase
       .from('profiles')
-      .select('*')
+      .select('*') // Assuming 'is_admin' column is selected if it exists
       .eq('id', authUser.id)
       .single();
 
-    const profileError = profileErrorPGRST as any; // To access code property if it exists
+    const profileError = profileErrorPGRST as any; 
 
-    if (!profile && (profileError?.code === 'PGRST116' || !profileError)) { // PGRST116 means 0 rows found, or no error but profile is null
+    if (!profile && (profileError?.code === 'PGRST116' || !profileError)) { 
       console.warn(`auth.ts: Profile not found for user ID: ${authUser.id}. Attempting to create one from auth.users metadata.`);
       
-      const rawUserMetaData = authUser.raw_user_meta_data || {}; // Where options.data from signUp goes
+      const rawUserMetaData = authUser.raw_user_meta_data || {}; 
 
       const newProfilePayload = {
         id: authUser.id,
         email: authUser.email,
         display_name: rawUserMetaData.display_name || authUser.email?.split('@')[0] || 'Usuário',
         whatsapp: rawUserMetaData.whatsapp || '',
-        role: rawUserMetaData.role === true, // Ensure boolean value from metadata
+        is_admin: rawUserMetaData.is_admin === true, // Default to false if undefined
         created_at: authUser.created_at || new Date().toISOString(),
         address_street: rawUserMetaData.address_street || null,
         address_number: rawUserMetaData.address_number || null,
@@ -196,7 +196,7 @@ export const getUser = async (): Promise<{ user: User | null; error: Error | nul
           email: authUser.email || 'N/A',
           displayName: rawUserMetaData.display_name || authUser.email?.split('@')[0] || 'Usuário',
           whatsapp: rawUserMetaData.whatsapp || '',
-          role: rawUserMetaData.role === true, // Ensure boolean value
+          isAdmin: rawUserMetaData.is_admin === true, 
           createdAt: authUser.created_at || new Date().toISOString(),
           addressStreet: rawUserMetaData.address_street || undefined,
           addressNumber: rawUserMetaData.address_number || undefined,
@@ -211,16 +211,15 @@ export const getUser = async (): Promise<{ user: User | null; error: Error | nul
 
       if (createdProfile) {
         console.log(`auth.ts: Successfully created profile for user ID ${authUser.id}.`);
-        profile = createdProfile; // Use the newly created profile
+        profile = createdProfile; 
       } else {
-        // This case should ideally not be reached if insert was successful
         console.error(`auth.ts: Profile creation attempt for user ID ${authUser.id} did not return data, though no error was thrown.`);
          const basicUser: User = {
           userId: authUser.id,
           email: authUser.email || 'N/A',
           displayName: rawUserMetaData.display_name || authUser.email?.split('@')[0] || 'Usuário',
           whatsapp: rawUserMetaData.whatsapp || '',
-          role: rawUserMetaData.role === true, // Ensure boolean value
+          isAdmin: rawUserMetaData.is_admin === true, 
           createdAt: authUser.created_at || new Date().toISOString(),
           addressStreet: rawUserMetaData.address_street || undefined,
           addressNumber: rawUserMetaData.address_number || undefined,
@@ -232,16 +231,15 @@ export const getUser = async (): Promise<{ user: User | null; error: Error | nul
         };
         return { user: basicUser, error: new Error('Profile creation attempt did not return data.') };
       }
-    } else if (profileError && profileError.code !== 'PGRST116') { // Other error during profile fetch
+    } else if (profileError && profileError.code !== 'PGRST116') { 
         console.warn('auth.ts: Error fetching user profile (not PGRST116):', profileError.message, '- User ID:', authUser.id);
-        // Fallback to basic user for other profile fetch errors
         const rawUserMetaDataFallback = authUser.raw_user_meta_data || {};
         const basicUser: User = {
           userId: authUser.id,
           email: authUser.email || 'N/A',
           displayName: rawUserMetaDataFallback.display_name || authUser.email?.split('@')[0] || 'User',
           whatsapp: rawUserMetaDataFallback.whatsapp || '',
-          role: rawUserMetaDataFallback.role === true, // Ensure boolean value
+          isAdmin: rawUserMetaDataFallback.is_admin === true, 
           createdAt: authUser.created_at || new Date().toISOString(),
           addressStreet: rawUserMetaDataFallback.address_street || undefined,
           addressNumber: rawUserMetaDataFallback.address_number || undefined,
@@ -260,7 +258,7 @@ export const getUser = async (): Promise<{ user: User | null; error: Error | nul
       email: profile.email,
       displayName: profile.display_name,
       whatsapp: profile.whatsapp,
-      role: profile.role,
+      isAdmin: profile.is_admin, // Use is_admin from profile
       createdAt: profile.created_at,
       addressStreet: profile.address_street,
       addressNumber: profile.address_number,
@@ -292,8 +290,9 @@ export const updateUserDetails = async (
 		addressCity?: string;
 		addressState?: string;
 		addressZip?: string;
+    // isAdmin should not be updatable by users here; admin status is managed elsewhere
 	}
-): Promise<{ user: User | null; error: { message: string } | null }> => { // Changed return to match User type
+): Promise<{ user: User | null; error: { message: string } | null }> => { 
 	console.log('auth.ts: updateUserDetails called for userId:', userId, 'with data:', data);
 
 	const updatePayload: Record<string, any> = {};
@@ -309,7 +308,6 @@ export const updateUserDetails = async (
 
 	if (Object.keys(updatePayload).length === 0) {
 		console.log('auth.ts: updateUserDetails called with no data to update for userId:', userId);
-    // Fetch current profile to return consistent User type
     const { data: currentProfileData, error: fetchError } = await supabase
       .from('profiles')
       .select()
@@ -323,7 +321,7 @@ export const updateUserDetails = async (
         email: currentProfileData.email,
         displayName: currentProfileData.display_name,
         whatsapp: currentProfileData.whatsapp,
-        role: currentProfileData.role,
+        isAdmin: currentProfileData.is_admin,
         createdAt: currentProfileData.created_at,
         addressStreet: currentProfileData.address_street,
         addressNumber: currentProfileData.address_number,
@@ -340,7 +338,7 @@ export const updateUserDetails = async (
 		.from('profiles')
 		.update(updatePayload)
 		.eq('id', userId)
-		.select()
+		.select() // Ensure is_admin is selected if the column exists
 		.single();
 
 	if (error) {
@@ -351,7 +349,7 @@ export const updateUserDetails = async (
 		return { user: null, error: { message: error.message } };
 	}
 
-  if (!updatedProfileData) { // Should not happen if update is successful and .select().single() is used
+  if (!updatedProfileData) { 
       return { user: null, error: { message: "Profile update seemed successful but no data was returned." } };
   }
 
@@ -360,7 +358,7 @@ export const updateUserDetails = async (
       email: updatedProfileData.email,
       displayName: updatedProfileData.display_name,
       whatsapp: updatedProfileData.whatsapp,
-      role: updatedProfileData.role,
+      isAdmin: updatedProfileData.is_admin,
       createdAt: updatedProfileData.created_at,
       addressStreet: updatedProfileData.address_street,
       addressNumber: updatedProfileData.address_number,
@@ -378,5 +376,3 @@ export const updateUserDetails = async (
 	console.log('auth.ts: User details updated successfully for userId:', userId);
 	return { user: updatedUser, error: null };
 };
-
-    

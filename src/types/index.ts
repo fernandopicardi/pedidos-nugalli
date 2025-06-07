@@ -4,7 +4,7 @@ export interface User {
   email: string;
   displayName: string;
   whatsapp: string;
-  role: boolean; // false for customer, true for admin
+  isAdmin: boolean; // true for admin, false for customer
   createdAt: string; // ISO date string
   addressStreet?: string;
   addressNumber?: string;

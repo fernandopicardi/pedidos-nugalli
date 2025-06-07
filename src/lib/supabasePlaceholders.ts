@@ -1,7 +1,7 @@
 
 import type { Product, PurchaseCycle, Order, CartItem, CycleProduct, User, DisplayableProduct, OrderItem } from '@/types';
 import { supabase } from './supabaseClient';
-import { getUser as fetchCurrentUserFromAuth } from '../lib/auth'; // Corrigido aqui
+import { getUser as fetchCurrentUserFromAuth } from '../lib/auth'; 
 
 // --- Cart Update Listener System ---
 let cartUpdateListeners: Array<(cartItems: CartItem[]) => void> = [];
@@ -25,25 +25,27 @@ export function subscribeToCartUpdates(callback: (cartItems: CartItem[]) => void
   };
 }
 
-// Esta função agora serve como a principal forma de obter o usuário atual,
-// priorizando o localStorage para velocidade e depois recorrendo ao auth.ts
 export async function getCurrentUser(): Promise<User | null> {
   console.log('getCurrentUser called (from supabasePlaceholders)');
   const userFromStorage = typeof localStorage !== 'undefined' ? localStorage.getItem('currentUser') : null;
   if (userFromStorage) {
     try {
-      return JSON.parse(userFromStorage) as User;
+      const parsedUser = JSON.parse(userFromStorage) as User;
+      // Ensure the parsed user has the new isAdmin field, even if localStorage is stale
+      if (typeof (parsedUser as any).role === 'boolean' && parsedUser.isAdmin === undefined) {
+         parsedUser.isAdmin = (parsedUser as any).role;
+         delete (parsedUser as any).role;
+      }
+      return parsedUser;
     } catch (e) {
       console.error("Error parsing currentUser from localStorage:", e);
       if (typeof localStorage !== 'undefined') {
-        localStorage.removeItem('currentUser'); // Clear corrupted item
+        localStorage.removeItem('currentUser'); 
       }
     }
   }
-  // If not in localStorage, fetch from auth service
   const { user, error } = await fetchCurrentUserFromAuth();
   if (error) {
-    // console.warn('Error in supabasePlaceholders.getCurrentUser via fetchCurrentUserFromAuth:', error.message);
     return null;
   }
   if (user && typeof localStorage !== 'undefined') {
@@ -94,7 +96,7 @@ export async function updateUserDetails(
        email: updatedData.email,
        displayName: updatedData.display_name,
        whatsapp: updatedData.whatsapp,
-       role: updatedData.role,
+       isAdmin: updatedData.is_admin,
        createdAt: updatedData.created_at,
        addressStreet: updatedData.address_street,
        addressNumber: updatedData.address_number,
@@ -105,7 +107,6 @@ export async function updateUserDetails(
        addressZip: updatedData.address_zip,
    };
 
-   // Call our own getCurrentUser from this file to potentially update localStorage
    const currentUserFromStorage = await getCurrentUser();
    if (currentUserFromStorage && currentUserFromStorage.userId === userId && typeof localStorage !== 'undefined') {
       localStorage.setItem('currentUser', JSON.stringify(updatedUser));
@@ -580,7 +581,7 @@ export async function fetchDisplayableProductById(cycleProductId: string): Promi
 // CART
 export async function fetchCartItems(): Promise<CartItem[]> {
   console.log('fetchCartItems called (from Supabase)');
-  const user = await getCurrentUser(); // Uses the corrected getCurrentUser from this file
+  const user = await getCurrentUser(); 
   if (!user) {
     console.warn('fetchCartItems called without a logged-in user.');
     return [];
@@ -1259,7 +1260,7 @@ export async function fetchAdminUsers(): Promise<User[]> {
   console.log('fetchAdminUsers called (from Supabase)');
   const { data, error } = await supabase
     .from('profiles')
-    .select('*')
+    .select('*') // Ensure this selects is_admin if the column exists
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -1275,7 +1276,7 @@ export async function fetchAdminUsers(): Promise<User[]> {
       email: profile.email,
       displayName: profile.display_name,
       whatsapp: profile.whatsapp,
-      role: profile.role as 'customer' | 'admin',
+      isAdmin: profile.is_admin, // Map from is_admin
       createdAt: profile.created_at,
       addressStreet: profile.address_street,
       addressNumber: profile.address_number,
@@ -1294,10 +1295,12 @@ export async function signInWithEmail(email: string, password: string): Promise<
 
   if (signInAuthError) {
     if (signInAuthError.message !== 'Invalid login credentials') {
-        console.error('Supabase sign in error:', signInAuthError.message);
-    }
-    if (signInAuthError.message === 'Failed to fetch' || signInAuthError.message.includes('fetch failed')) {
+        // Do not log "Invalid login credentials" to console.error, it's an expected user error.
+    } else if (signInAuthError.message === 'Failed to fetch' || signInAuthError.message.includes('fetch failed')) {
+      console.error('Supabase sign in error:', signInAuthError.message);
       return { user: null, error: { message: 'Network error: Unable to connect to authentication service. Please check your internet connection and ensure the Supabase service is reachable and configured correctly (URL/Key).' } };
+    } else {
+      console.error('Supabase sign in error:', signInAuthError.message);
     }
     return { user: null, error: { message: signInAuthError.message } };
   }
@@ -1309,7 +1312,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
   // Fetch profile details
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('*')
+    .select('*') // Ensure this selects is_admin
     .eq('id', authData.user.id)
     .single();
 
@@ -1320,7 +1323,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
       email: authData.user.email || 'N/A',
       displayName: authData.user.user_metadata?.display_name || authData.user.email?.split('@')[0] || 'User',
       whatsapp: authData.user.user_metadata?.whatsapp || '',
-      role: (authData.user.user_metadata?.role as 'customer' | 'admin') || 'customer',
+      isAdmin: authData.user.user_metadata?.is_admin === true,
       createdAt: authData.user.created_at || new Date().toISOString(),
     };
     return { user: basicUser, error: null };
@@ -1333,7 +1336,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
         email: authData.user.email || 'N/A',
         displayName: authData.user.user_metadata?.display_name || authData.user.email?.split('@')[0] || 'User',
         whatsapp: authData.user.user_metadata?.whatsapp || '',
-        role: (authData.user.user_metadata?.role as 'customer' | 'admin') || 'customer',
+        isAdmin: authData.user.user_metadata?.is_admin === true,
         createdAt: authData.user.created_at || new Date().toISOString(),
       };
       return { user: basicUser, error: null };
@@ -1344,7 +1347,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
     email: profile.email,
     displayName: profile.display_name,
     whatsapp: profile.whatsapp,
-    role: profile.role,
+    isAdmin: profile.is_admin,
     createdAt: profile.created_at,
     addressStreet: profile.address_street,
     addressNumber: profile.address_number,
@@ -1386,6 +1389,7 @@ export async function signUpWithEmail(
       data: {
         display_name: profileData?.displayName || email.split('@')[0] || 'Usuário',
         whatsapp: profileData?.whatsapp || '',
+        is_admin: false, // Default to false
       },
     },
   });
@@ -1420,8 +1424,6 @@ export async function signOut(): Promise<{ error: { message: string } | null }> 
 
 export async function checkAdminRole(): Promise<boolean> {
   console.log('checkAdminRole placeholder called');
-  const user = await getCurrentUser(); // Uses the corrected getCurrentUser from this file
-  return user?.role === 'admin';
+  const user = await getCurrentUser(); 
+  return user?.isAdmin === true;
 }
-
-    

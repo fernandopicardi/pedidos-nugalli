@@ -196,7 +196,7 @@ export default function AccountPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Tipo de Conta</Label>
-                  <Input id="role" type="text" value={user.role === 'admin' ? 'Administrador' : 'Cliente'} readOnly className="bg-muted cursor-not-allowed" />
+                  <Input id="role" type="text" value={user.isAdmin ? 'Administrador' : 'Cliente'} readOnly className="bg-muted cursor-not-allowed" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="displayName">Nome de Exibição</Label>
