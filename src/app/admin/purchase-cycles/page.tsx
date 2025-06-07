@@ -30,14 +30,14 @@ export default function PurchaseCycleManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCycle, setEditingCycle] = useState<PurchaseCycle | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false); // Added for form submission state
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   const loadPurchaseCycles = useCallback(async () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
-        .from('Purchase Cycles')
+        .from('purchase_cycles')
         .select('*')
         .order('start_date', { ascending: false });
       if (error) throw error;
@@ -48,7 +48,7 @@ export default function PurchaseCycleManagementPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]); // toast is stable, setIsLoading and setPurchaseCycles are stable
+  }, [toast]);
 
   useEffect(() => {
     loadPurchaseCycles();
@@ -67,14 +67,14 @@ export default function PurchaseCycleManagementPage() {
 
       if ('cycleId' in formData && formData.cycleId) { // Editing existing cycle
         const { error: updateError } = await supabase
-          .from('Purchase Cycles')
+          .from('purchase_cycles')
           .update(dbPayload)
           .eq('id', formData.cycleId);
         if (updateError) throw updateError;
         successMessage = `Ciclo "${formData.name}" atualizado com sucesso.`;
       } else { // Creating new cycle
         const { error: insertError } = await supabase
-          .from('Purchase Cycles')
+          .from('purchase_cycles')
           .insert(dbPayload);
         if (insertError) throw insertError;
         successMessage = `Ciclo "${formData.name}" criado com sucesso.`;
@@ -106,7 +106,7 @@ export default function PurchaseCycleManagementPage() {
     setIsLoading(true); // Indicate loading for delete operation
     try {
       const { error } = await supabase
-        .from('Purchase Cycles')
+        .from('purchase_cycles')
         .delete()
         .eq('id', cycleId);
       
