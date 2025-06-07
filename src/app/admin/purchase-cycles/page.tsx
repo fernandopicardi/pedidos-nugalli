@@ -34,23 +34,38 @@ export default function PurchaseCycleManagementPage() {
   const { toast } = useToast();
 
   const loadPurchaseCycles = useCallback(async () => {
+    console.log('[PurchaseCyclePage] loadPurchaseCycles called');
     setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('purchase_cycles')
-        .select('*') // Supabase deve retornar a coluna PK 'cycle_id' aqui
+        .select('*') 
         .order('start_date', { ascending: false });
+      
       if (error) throw error;
-      setPurchaseCycles(data.map(dbCycle => ({ 
-        cycleId: dbCycle.cycle_id, // Mapear da coluna 'cycle_id' do DB
-        name: dbCycle.name, 
-        startDate: dbCycle.start_date, 
-        endDate: dbCycle.end_date, 
-        isActive: dbCycle.is_active, 
-        createdAt: dbCycle.created_at 
-      } as PurchaseCycle)));
+
+      if (data) {
+        console.log('[PurchaseCyclePage] loadPurchaseCycles - Raw data from Supabase (first 2):', JSON.stringify(data.slice(0, 2), null, 2));
+      } else {
+        console.log('[PurchaseCyclePage] loadPurchaseCycles - No data received from Supabase.');
+      }
+
+      setPurchaseCycles(data.map(dbCycle => {
+        console.log('[PurchaseCyclePage] loadPurchaseCycles - Mapping dbCycle:', JSON.stringify(dbCycle));
+        // Assuming the primary key column in your Supabase table 'purchase_cycles' is 'cycle_id'
+        const mappedCycle = { 
+          cycleId: dbCycle.cycle_id, 
+          name: dbCycle.name, 
+          startDate: dbCycle.start_date, 
+          endDate: dbCycle.end_date, 
+          isActive: dbCycle.is_active, 
+          createdAt: dbCycle.created_at 
+        } as PurchaseCycle;
+        console.log('[PurchaseCyclePage] loadPurchaseCycles - Mapped cycle object:', JSON.stringify(mappedCycle));
+        return mappedCycle;
+      }));
     } catch (error: any) {
-      console.error('Failed to fetch purchase cycles:', error);
+      console.error('[PurchaseCyclePage] Failed to fetch purchase cycles:', error);
       toast({ title: "Erro ao Carregar", description: error?.message || "Não foi possível carregar os ciclos de compra.", variant: "destructive" });
     } finally {
       setIsLoading(false);
@@ -65,8 +80,10 @@ export default function PurchaseCycleManagementPage() {
     setIsSubmitting(true);
     let successMessage = "";
     
-    const isEditing = 'cycleId' in formData && typeof formData.cycleId === 'string' && formData.cycleId.length > 0;
-    const cycleIdToUpdate = isEditing ? formData.cycleId : undefined;
+    // Explicitly type formData for checking cycleId
+    const typedFormData = formData as (Partial<Omit<PurchaseCycle, 'cycleId' | 'createdAt'>> & { cycleId?: string });
+    const isEditing = typedFormData.cycleId && typeof typedFormData.cycleId === 'string' && typedFormData.cycleId.length > 0;
+    const cycleIdToUpdate = isEditing ? typedFormData.cycleId : undefined;
     
     try {
       const dbPayload = {
@@ -80,7 +97,7 @@ export default function PurchaseCycleManagementPage() {
         const { error: updateError } = await supabase
           .from('purchase_cycles')
           .update(dbPayload)
-          .eq('cycle_id', cycleIdToUpdate); // Usar 'cycle_id' para a coluna PK
+          .eq('cycle_id', cycleIdToUpdate); // Assumes DB column is 'cycle_id'
         if (updateError) throw updateError;
         successMessage = `Ciclo "${formData.name}" atualizado com sucesso.`;
       } else { 
@@ -96,7 +113,7 @@ export default function PurchaseCycleManagementPage() {
       setEditingCycle(null);
       await loadPurchaseCycles();
     } catch (error: any) {
-      console.error("Failed to save purchase cycle:", error);
+      console.error('[PurchaseCyclePage] Failed to save purchase cycle:', error);
       toast({ title: "Erro ao Salvar", description: error.message || "Não foi possível salvar o ciclo de compra.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
@@ -109,24 +126,37 @@ export default function PurchaseCycleManagementPage() {
   };
 
   const openEditCycleModal = (cycle: PurchaseCycle) => {
+    console.log('[PurchaseCyclePage] openEditCycleModal called with cycleId:', cycle.cycleId, 'Full cycle:', JSON.stringify(cycle));
     setEditingCycle(cycle);
     setIsModalOpen(true);
   };
 
   const handleDeleteCycle = async (cycleIdToDelete: string, cycleName: string) => {
+    console.log('[PurchaseCyclePage] handleDeleteCycle called for cycleId:', cycleIdToDelete, 'Name:', cycleName);
+
+    if (!cycleIdToDelete || typeof cycleIdToDelete !== 'string' || cycleIdToDelete.trim() === '') {
+      toast({
+        title: "Erro Interno",
+        description: "ID do ciclo inválido ou ausente. Não é possível deletar.",
+        variant: "destructive",
+      });
+      console.error('[PurchaseCyclePage] handleDeleteCycle: cycleIdToDelete is invalid or missing. Value:', cycleIdToDelete);
+      return; 
+    }
+
     setIsLoading(true); 
     try {
       const { error } = await supabase
         .from('purchase_cycles')
         .delete()
-        .eq('cycle_id', cycleIdToDelete); // Usar 'cycle_id' para a coluna PK
+        .eq('cycle_id', cycleIdToDelete); // Assumes DB column is 'cycle_id'
       
       if (error) throw error;
 
       toast({ title: "Ciclo de Compra Deletado", description: `O ciclo "${cycleName}" foi deletado.` });
       await loadPurchaseCycles();
     } catch (error: any) {
-      console.error("Failed to delete purchase cycle:", error);
+      console.error('[PurchaseCyclePage] Failed to delete purchase cycle:', error);
       toast({ title: "Erro ao Deletar", description: error.message || "Não foi possível deletar o ciclo de compra.", variant: "destructive" });
     } finally {
       setIsLoading(false); 
@@ -153,7 +183,7 @@ export default function PurchaseCycleManagementPage() {
             setEditingCycle(null); 
           }
         }}>
-        <DialogContent key={editingCycle ? editingCycle.cycleId : 'new-cycle-modal'} className="sm:max-w-[600px] bg-card shadow-lg">
+        <DialogContent key={editingCycle ? `modal-${editingCycle.cycleId}` : 'modal-new-cycle'} className="sm:max-w-[600px] bg-card shadow-lg">
           <DialogHeader>
             <DialogTitle className="font-headline text-2xl">
               {editingCycle ? 'Editar Ciclo de Compra' : 'Novo Ciclo de Compra'}
@@ -200,7 +230,8 @@ export default function PurchaseCycleManagementPage() {
             </TableHeader>
             <TableBody>
               {purchaseCycles.map((cycle) => (
-                <TableRow key={cycle.cycleId}>
+                // Make sure cycle.cycleId has a valid value here for the key
+                <TableRow key={cycle.cycleId || `cycle-fallback-${Math.random()}`}> 
                   <TableCell className="font-medium">{cycle.name}</TableCell>
                   <TableCell>{formatDate(cycle.startDate)}</TableCell>
                   <TableCell>{formatDate(cycle.endDate)}</TableCell>
@@ -215,7 +246,7 @@ export default function PurchaseCycleManagementPage() {
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm">
+                        <Button variant="destructive" size="sm" disabled={!cycle.cycleId}>
                           <Trash2 size={16} className="mr-1" /> Deletar
                         </Button>
                       </AlertDialogTrigger>
