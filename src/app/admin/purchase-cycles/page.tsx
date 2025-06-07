@@ -33,6 +33,11 @@ export default function PurchaseCycleManagementPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    console.log('[PurchaseCyclePage] editingCycle state changed:', editingCycle ? editingCycle.cycleId : null);
+  }, [editingCycle]);
+
+
   const loadPurchaseCycles = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -42,7 +47,7 @@ export default function PurchaseCycleManagementPage() {
         .order('start_date', { ascending: false });
       if (error) throw error;
       setPurchaseCycles(data.map(cycle => ({ 
-        cycleId: cycle.cycle_id, // Assuming Supabase returns 'cycle_id'
+        cycleId: cycle.id, // Supabase returns 'id' as primary key by default
         name: cycle.name, 
         startDate: cycle.start_date, 
         endDate: cycle.end_date, 
@@ -65,13 +70,12 @@ export default function PurchaseCycleManagementPage() {
     setIsSubmitting(true);
     let successMessage = "";
 
-    // Diagnostic logs
     console.log('[PurchaseCyclePage] handleFormSubmit - formData received:', JSON.stringify(formData));
-    const isEditing = 'cycleId' in formData && formData.cycleId && typeof formData.cycleId === 'string' && formData.cycleId.length > 0;
-    console.log('[PurchaseCyclePage] handleFormSubmit - isEditing check:', isEditing);
-    if (isEditing) {
-        console.log('[PurchaseCyclePage] handleFormSubmit - formData.cycleId value for update:', (formData as { cycleId: string }).cycleId);
-    }
+    
+    const isEditing = 'cycleId' in formData && typeof formData.cycleId === 'string' && formData.cycleId.length > 0;
+    const cycleIdToUpdate = isEditing ? (formData as { cycleId: string }).cycleId : undefined;
+    
+    console.log('[PurchaseCyclePage] handleFormSubmit - isEditing check:', isEditing, 'cycleId to update:', cycleIdToUpdate);
 
     try {
       const dbPayload = {
@@ -81,15 +85,16 @@ export default function PurchaseCycleManagementPage() {
         is_active: formData.isActive,
       };
 
-      if (isEditing) { // Editing existing cycle
-        const cycleIdToUpdate = (formData as { cycleId: string }).cycleId;
+      if (isEditing && cycleIdToUpdate) { 
+        console.log('[PurchaseCyclePage] handleFormSubmit - Attempting UPDATE for ID:', cycleIdToUpdate);
         const { error: updateError } = await supabase
           .from('purchase_cycles')
           .update(dbPayload)
-          .eq('cycle_id', cycleIdToUpdate);
+          .eq('id', cycleIdToUpdate); // Changed 'cycle_id' to 'id'
         if (updateError) throw updateError;
         successMessage = `Ciclo "${formData.name}" atualizado com sucesso.`;
-      } else { // Creating new cycle
+      } else { 
+        console.log('[PurchaseCyclePage] handleFormSubmit - Attempting CREATE.');
         const { error: insertError } = await supabase
           .from('purchase_cycles')
           .insert(dbPayload);
@@ -110,11 +115,13 @@ export default function PurchaseCycleManagementPage() {
   };
 
   const openNewCycleModal = () => {
+    console.log('[PurchaseCyclePage] openNewCycleModal called');
     setEditingCycle(null);
     setIsModalOpen(true);
   };
 
   const openEditCycleModal = (cycle: PurchaseCycle) => {
+    console.log('[PurchaseCyclePage] openEditCycleModal called with cycleId:', cycle.cycleId);
     setEditingCycle(cycle);
     setIsModalOpen(true);
   };
@@ -125,7 +132,7 @@ export default function PurchaseCycleManagementPage() {
       const { error } = await supabase
         .from('purchase_cycles')
         .delete()
-        .eq('cycle_id', cycleId);
+        .eq('id', cycleId); // Changed 'cycle_id' to 'id'
       
       if (error) throw error;
 
@@ -154,14 +161,12 @@ export default function PurchaseCycleManagementPage() {
       />
 
       <Dialog open={isModalOpen} onOpenChange={(isOpen) => { setIsModalOpen(isOpen); if (!isOpen) setEditingCycle(null); }}>
-        {/* Key was already on DialogContent, ensure PurchaseCycleForm also gets a key if needed, or rely on DialogContent's key */}
         <DialogContent key={editingCycle ? editingCycle.cycleId : 'new-cycle-modal'} className="sm:max-w-[600px] bg-card shadow-lg">
           <DialogHeader>
             <DialogTitle className="font-headline text-2xl">
               {editingCycle ? 'Editar Ciclo de Compra' : 'Novo Ciclo de Compra'}
             </DialogTitle>
           </DialogHeader>
-          {/* Adding key directly to the form component */}
           <PurchaseCycleForm
             key={editingCycle ? `form-${editingCycle.cycleId}` : 'form-new'}
             initialData={editingCycle}
@@ -244,4 +249,5 @@ export default function PurchaseCycleManagementPage() {
     </PageContainer>
   );
 }
+
     
