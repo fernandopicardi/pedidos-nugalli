@@ -41,7 +41,14 @@ export default function PurchaseCycleManagementPage() {
         .select('*')
         .order('start_date', { ascending: false });
       if (error) throw error;
-      setPurchaseCycles(data.map(cycle => ({ cycleId: cycle.cycle_id, name: cycle.name, startDate: cycle.start_date, endDate: cycle.end_date, isActive: cycle.is_active, createdAt: cycle.created_at } as PurchaseCycle)));
+      setPurchaseCycles(data.map(cycle => ({ 
+        cycleId: cycle.cycle_id, // Assuming Supabase returns 'cycle_id'
+        name: cycle.name, 
+        startDate: cycle.start_date, 
+        endDate: cycle.end_date, 
+        isActive: cycle.is_active, 
+        createdAt: cycle.created_at 
+      } as PurchaseCycle)));
     } catch (error: any) {
       console.error('Failed to fetch purchase cycles:', error);
       toast({ title: "Erro ao Carregar", description: error?.message || "Não foi possível carregar os ciclos de compra.", variant: "destructive" });
@@ -57,6 +64,15 @@ export default function PurchaseCycleManagementPage() {
   const handleFormSubmit = async (formData: Omit<PurchaseCycle, 'cycleId' | 'createdAt'> | (Partial<Omit<PurchaseCycle, 'cycleId' | 'createdAt'>> & { cycleId: string })) => {
     setIsSubmitting(true);
     let successMessage = "";
+
+    // Diagnostic logs
+    console.log('[PurchaseCyclePage] handleFormSubmit - formData received:', JSON.stringify(formData));
+    const isEditing = 'cycleId' in formData && formData.cycleId && typeof formData.cycleId === 'string' && formData.cycleId.length > 0;
+    console.log('[PurchaseCyclePage] handleFormSubmit - isEditing check:', isEditing);
+    if (isEditing) {
+        console.log('[PurchaseCyclePage] handleFormSubmit - formData.cycleId value for update:', (formData as { cycleId: string }).cycleId);
+    }
+
     try {
       const dbPayload = {
         name: formData.name,
@@ -65,11 +81,12 @@ export default function PurchaseCycleManagementPage() {
         is_active: formData.isActive,
       };
 
-      if ('cycleId' in formData && formData.cycleId) { // Editing existing cycle
+      if (isEditing) { // Editing existing cycle
+        const cycleIdToUpdate = (formData as { cycleId: string }).cycleId;
         const { error: updateError } = await supabase
           .from('purchase_cycles')
           .update(dbPayload)
-          .eq('cycle_id', formData.cycleId);
+          .eq('cycle_id', cycleIdToUpdate);
         if (updateError) throw updateError;
         successMessage = `Ciclo "${formData.name}" atualizado com sucesso.`;
       } else { // Creating new cycle
@@ -83,7 +100,7 @@ export default function PurchaseCycleManagementPage() {
       toast({ title: "Sucesso!", description: successMessage });
       setIsModalOpen(false);
       setEditingCycle(null);
-      await loadPurchaseCycles(); // Refresh list
+      await loadPurchaseCycles();
     } catch (error: any) {
       console.error("Failed to save purchase cycle:", error);
       toast({ title: "Erro ao Salvar", description: error.message || "Não foi possível salvar o ciclo de compra.", variant: "destructive" });
@@ -103,7 +120,7 @@ export default function PurchaseCycleManagementPage() {
   };
 
   const handleDeleteCycle = async (cycleId: string, cycleName: string) => {
-    setIsLoading(true); // Indicate loading for delete operation
+    setIsLoading(true);
     try {
       const { error } = await supabase
         .from('purchase_cycles')
@@ -113,7 +130,7 @@ export default function PurchaseCycleManagementPage() {
       if (error) throw error;
 
       toast({ title: "Ciclo de Compra Deletado", description: `O ciclo "${cycleName}" foi deletado.` });
-      await loadPurchaseCycles(); // Refresh list
+      await loadPurchaseCycles();
     } catch (error: any) {
       console.error("Failed to delete purchase cycle:", error);
       toast({ title: "Erro ao Deletar", description: error.message || "Não foi possível deletar o ciclo de compra.", variant: "destructive" });
@@ -137,22 +154,25 @@ export default function PurchaseCycleManagementPage() {
       />
 
       <Dialog open={isModalOpen} onOpenChange={(isOpen) => { setIsModalOpen(isOpen); if (!isOpen) setEditingCycle(null); }}>
+        {/* Key was already on DialogContent, ensure PurchaseCycleForm also gets a key if needed, or rely on DialogContent's key */}
         <DialogContent key={editingCycle ? editingCycle.cycleId : 'new-cycle-modal'} className="sm:max-w-[600px] bg-card shadow-lg">
           <DialogHeader>
             <DialogTitle className="font-headline text-2xl">
               {editingCycle ? 'Editar Ciclo de Compra' : 'Novo Ciclo de Compra'}
             </DialogTitle>
           </DialogHeader>
+          {/* Adding key directly to the form component */}
           <PurchaseCycleForm
+            key={editingCycle ? `form-${editingCycle.cycleId}` : 'form-new'}
             initialData={editingCycle}
             onSubmit={handleFormSubmit}
             onClose={() => { setIsModalOpen(false); setEditingCycle(null); }}
-            isSubmitting={isSubmitting} // Pass submission state to form
+            isSubmitting={isSubmitting}
           />
         </DialogContent>
       </Dialog>
 
-      {isLoading && purchaseCycles.length === 0 ? ( // Show loader only on initial full load
+      {isLoading && purchaseCycles.length === 0 ? (
         <div className="flex items-center justify-center py-10">
           <Loader2 className="h-8 w-8 animate-spin text-primary mr-3" />
           <p>Carregando ciclos de compra...</p>
@@ -224,3 +244,4 @@ export default function PurchaseCycleManagementPage() {
     </PageContainer>
   );
 }
+    

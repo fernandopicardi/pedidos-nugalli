@@ -15,7 +15,7 @@ interface PurchaseCycleFormProps {
   initialData?: PurchaseCycle | null;
   onSubmit: (data: Omit<PurchaseCycle, 'cycleId' | 'createdAt'> | (Partial<Omit<PurchaseCycle, 'cycleId' | 'createdAt'>> & { cycleId: string })) => Promise<void>;
   onClose: () => void;
-  isSubmitting?: boolean; // Added to receive submitting state from parent
+  isSubmitting?: boolean;
 }
 
 export function PurchaseCycleForm({ initialData, onSubmit, onClose, isSubmitting }: PurchaseCycleFormProps) {
@@ -23,21 +23,22 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose, isSubmitting
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isActive, setIsActive] = useState(false);
-  // Removed local isSubmitting, will use prop from parent
-  const { toast } = useToast(); // Keep for local validation toasts
+  const { toast } = useToast();
 
   useEffect(() => {
+    console.log('[PurchaseCycleForm] useEffect - initialData received:', JSON.stringify(initialData));
     if (initialData) {
       setName(initialData.name);
       setStartDate(initialData.startDate ? new Date(initialData.startDate).toISOString().substring(0, 16) : ''); 
       setEndDate(initialData.endDate ? new Date(initialData.endDate).toISOString().substring(0, 16) : '');
       setIsActive(initialData.isActive);
+      console.log('[PurchaseCycleForm] useEffect - Populated form for editing cycleId:', initialData.cycleId);
     } else {
       const now = new Date();
       const localNow = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
       const today = localNow.toISOString().substring(0, 16);
       
-      const nextMonthDate = new Date(new Date(now).setMonth(now.getMonth() + 1)); // Ensure 'now' is not mutated
+      const nextMonthDate = new Date(new Date(now).setMonth(now.getMonth() + 1));
       const localNextMonth = new Date(nextMonthDate.getTime() - (nextMonthDate.getTimezoneOffset() * 60000));
       const nextMonth = localNextMonth.toISOString().substring(0, 16);
       
@@ -45,14 +46,12 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose, isSubmitting
       setStartDate(today);
       setEndDate(nextMonth);
       setIsActive(false);
+      console.log('[PurchaseCycleForm] useEffect - Reset form for new cycle.');
     }
   }, [initialData]);
 
-  // Removed useEffect that fetched allProducts as it wasn't used for cycle form logic
-
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    // Local validation, parent handles submission state
     if (!name.trim()) {
       toast({ title: "Erro de Validação", description: "Nome do ciclo é obrigatório.", variant: "destructive" });
       return;
@@ -66,21 +65,27 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose, isSubmitting
       return;
     }
 
-    const cycleData = { 
+    const cycleDataPayload = { 
       name, 
       startDate: new Date(startDate).toISOString(), 
       endDate: new Date(endDate).toISOString(), 
       isActive 
     };
 
-    // Call the parent's onSubmit function
-    // The parent (page) will handle its own isSubmitting state, toasts for save, and onClose.
-    if (initialData?.cycleId) {
-      await onSubmit({ ...cycleData, cycleId: initialData.cycleId });
+    // Diagnostic logs
+    console.log('[PurchaseCycleForm] handleSubmit - Submitting. initialData:', JSON.stringify(initialData));
+    console.log('[PurchaseCycleForm] handleSubmit - initialData?.cycleId value:', initialData?.cycleId);
+    const isEditingForm = initialData?.cycleId && typeof initialData.cycleId === 'string' && initialData.cycleId.length > 0;
+    console.log('[PurchaseCycleForm] handleSubmit - isEditingForm check:', isEditingForm);
+
+
+    if (isEditingForm) {
+      console.log('[PurchaseCycleForm] handleSubmit - Calling onSubmit for UPDATE with cycleId:', initialData.cycleId);
+      await onSubmit({ ...cycleDataPayload, cycleId: initialData.cycleId as string }); // Added 'as string' for type safety if check passes
     } else {
-      await onSubmit(cycleData as Omit<PurchaseCycle, 'cycleId' | 'createdAt'>);
+      console.log('[PurchaseCycleForm] handleSubmit - Calling onSubmit for CREATE (no cycleId or invalid initialData.cycleId).');
+      await onSubmit(cycleDataPayload as Omit<PurchaseCycle, 'cycleId' | 'createdAt'>);
     }
-    // Toasts for success/failure and onClose are now handled by the page component
   };
 
   return (
@@ -146,3 +151,4 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose, isSubmitting
     </form>
   );
 }
+    
