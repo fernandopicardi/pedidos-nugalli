@@ -41,10 +41,10 @@ export default function PurchaseCycleManagementPage() {
         .select('*')
         .order('start_date', { ascending: false });
       if (error) throw error;
-      setPurchaseCycles(data.map(cycle => ({ cycleId: cycle.id, name: cycle.name, startDate: cycle.start_date, endDate: cycle.end_date, isActive: cycle.is_active, createdAt: cycle.created_at } as PurchaseCycle)));
-    } catch (error) {
+      setPurchaseCycles(data.map(cycle => ({ cycleId: cycle.cycle_id, name: cycle.name, startDate: cycle.start_date, endDate: cycle.end_date, isActive: cycle.is_active, createdAt: cycle.created_at } as PurchaseCycle)));
+    } catch (error: any) {
       console.error('Failed to fetch purchase cycles:', error);
-      toast({ title: "Erro ao Carregar", description: "Não foi possível carregar os ciclos de compra.", variant: "destructive" });
+      toast({ title: "Erro ao Carregar", description: error?.message || "Não foi possível carregar os ciclos de compra.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -69,7 +69,7 @@ export default function PurchaseCycleManagementPage() {
         const { error: updateError } = await supabase
           .from('purchase_cycles')
           .update(dbPayload)
-          .eq('id', formData.cycleId);
+          .eq('cycle_id', formData.cycleId);
         if (updateError) throw updateError;
         successMessage = `Ciclo "${formData.name}" atualizado com sucesso.`;
       } else { // Creating new cycle
@@ -108,7 +108,7 @@ export default function PurchaseCycleManagementPage() {
       const { error } = await supabase
         .from('purchase_cycles')
         .delete()
-        .eq('id', cycleId);
+        .eq('cycle_id', cycleId);
       
       if (error) throw error;
 
@@ -137,7 +137,7 @@ export default function PurchaseCycleManagementPage() {
       />
 
       <Dialog open={isModalOpen} onOpenChange={(isOpen) => { setIsModalOpen(isOpen); if (!isOpen) setEditingCycle(null); }}>
-        <DialogContent className="sm:max-w-[600px] bg-card shadow-lg">
+        <DialogContent key={editingCycle ? editingCycle.cycleId : 'new-cycle-modal'} className="sm:max-w-[600px] bg-card shadow-lg">
           <DialogHeader>
             <DialogTitle className="font-headline text-2xl">
               {editingCycle ? 'Editar Ciclo de Compra' : 'Novo Ciclo de Compra'}
