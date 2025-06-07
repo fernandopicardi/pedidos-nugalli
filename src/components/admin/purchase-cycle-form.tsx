@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabaseClient'; 
+// import { supabase } from '@/lib/supabaseClient'; // Not directly used here anymore for DB ops
 import { Loader2 } from 'lucide-react';
 
 interface PurchaseCycleFormProps {
@@ -28,11 +28,15 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose, isSubmitting
   useEffect(() => {
     if (initialData) {
       setName(initialData.name);
+      // Ensure dates are correctly formatted for datetime-local input
+      // It expects YYYY-MM-DDTHH:mm
       setStartDate(initialData.startDate ? new Date(initialData.startDate).toISOString().substring(0, 16) : ''); 
       setEndDate(initialData.endDate ? new Date(initialData.endDate).toISOString().substring(0, 16) : '');
       setIsActive(initialData.isActive);
     } else {
+      // Default for new cycle: start today, end in one month
       const now = new Date();
+      // Adjust for local timezone to ensure correct default for datetime-local
       const localNow = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
       const today = localNow.toISOString().substring(0, 16);
       
@@ -64,6 +68,7 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose, isSubmitting
 
     const cycleDataPayload = { 
       name, 
+      // Convert local datetime-local string back to full ISO string for Supabase
       startDate: new Date(startDate).toISOString(), 
       endDate: new Date(endDate).toISOString(),   
       isActive 
@@ -72,8 +77,10 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose, isSubmitting
     const isEditingForm = initialData?.cycleId && typeof initialData.cycleId === 'string' && initialData.cycleId.length > 0;
 
     if (isEditingForm) {
+      // Pass cycleId along with other data for an update
       await onSubmit({ ...cycleDataPayload, cycleId: initialData.cycleId as string }); 
     } else {
+      // No cycleId for a new cycle
       await onSubmit(cycleDataPayload as Omit<PurchaseCycle, 'cycleId' | 'createdAt'>);
     }
   };
