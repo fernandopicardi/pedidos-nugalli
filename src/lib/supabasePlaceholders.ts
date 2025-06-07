@@ -1,6 +1,6 @@
 
 import type { Product, PurchaseCycle, Order, CartItem, CycleProduct, User, DisplayableProduct, OrderItem } from '@/types';
-import { supabase } from './supabaseClient';
+import { supabase } from '@/lib/supabaseClient';
 import { getUser as fetchCurrentUserFromAuth } from '../lib/auth';
 
 // --- Cart Update Listener System ---
@@ -1292,8 +1292,8 @@ export async function fetchAdminUsers(): Promise<User[]> {
 export async function signInWithEmail(email: string, password: string): Promise<{ user: User | null, error: { message: string } | null }> {
   // Delegate to the main auth.ts function for consistency
   // This is a placeholder and assumes auth.ts is the source of truth.
-  // For actual use, import and call signInWithEmail from '@/lib/auth'
-  console.warn("signInWithEmail from supabasePlaceholders.ts is a placeholder. Use from '@/lib/auth'.");
+  // The actual implementation should be in '@/lib/auth' and this file should not be used for auth.
+  // This placeholder is kept only to avoid breaking existing imports in some parts of the application.
   const { data: authData, error: signInAuthError } = await supabase.auth.signInWithPassword({ email, password });
 
   if (signInAuthError) {
