@@ -115,11 +115,11 @@ export default function AdminDashboardPage() {
             <Card className="h-full">
               <CardHeader>
                 <CardTitle className="flex items-center text-xl font-headline">
-                  <Package size={22} className="mr-3 text-primary"/> Gerenciar Produtos (Master)
+                  <Package size={22} className="mr-3 text-primary"/> Gerenciar Produtos
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground text-sm">Adicione e atualize os produtos do catálogo mestre.</p>
+                <p className="text-muted-foreground text-sm">Adicione e atualize os produtos do catálogo.</p>
               </CardContent>
             </Card>
           </Link>

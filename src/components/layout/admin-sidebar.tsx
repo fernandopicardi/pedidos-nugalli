@@ -22,7 +22,7 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 const adminNavItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/purchase-cycles', label: 'Ciclos de Compra', icon: CalendarClock },
-  { href: '/admin/products', label: 'Produtos (Master)', icon: Package },
+  { href: '/admin/products', label: 'Produtos', icon: Package },
   { href: '/admin/orders', label: 'Pedidos', icon: ShoppingBag },
   { href: '/admin/customers', label: 'Clientes', icon: Users },
 ];
@@ -42,7 +42,7 @@ export function AdminSidebar() {
          <Link href="/admin" className="flex items-center gap-2">
           <Home className="text-sidebar-primary" />
           <h1 className="text-2xl font-headline font-bold text-sidebar-primary group-data-[collapsible=icon]:hidden">
-            Panel Admin
+            Painel Admin
           </h1>
         </Link>
       </SidebarHeader>
@@ -68,7 +68,7 @@ export function AdminSidebar() {
         <Button variant="ghost" asChild className="w-full justify-start gap-2 group-data-[collapsible=icon]:justify-center">
           <Link href="/">
             <ArrowLeft size={18} />
-            <span className="group-data-[collapsible=icon]:hidden">Voltar</span>
+            <span className="group-data-[collapsible=icon]:hidden">Voltar ao Site</span>
           </Link>
         </Button>
         <Button variant="ghost" onClick={handleSignOut} className="w-full justify-start gap-2 group-data-[collapsible=icon]:justify-center">
@@ -96,7 +96,7 @@ export function AdminLayoutWrapper({ children }: { children: ReactNode }) {
 
   if (isLoading) {
     return (
-      <PageContainer className="flex flex-col items-center justify-center min-h-[calc(100vh-5rem)]"> {/* Adjusted for header */}
+      <PageContainer className="flex flex-col items-center justify-center min-h-[calc(100vh-5rem)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
         <p className="text-muted-foreground">Verificando permissões...</p>
       </PageContainer>
@@ -105,7 +105,7 @@ export function AdminLayoutWrapper({ children }: { children: ReactNode }) {
 
   if (!isAuthorized) {
     return (
-      <PageContainer className="flex flex-col items-center justify-center min-h-[calc(100vh-5rem)] text-center"> {/* Adjusted for header */}
+      <PageContainer className="flex flex-col items-center justify-center min-h-[calc(100vh-5rem)] text-center">
         <AlertCircle className="h-16 w-16 text-destructive mb-6" />
         <h1 className="text-3xl font-headline text-destructive mb-3">Acesso Negado</h1>
         <p className="text-lg text-muted-foreground mb-8">Você não tem permissão para visualizar esta página.</p>
@@ -118,9 +118,7 @@ export function AdminLayoutWrapper({ children }: { children: ReactNode }) {
 
   return (
     <SidebarProvider defaultOpen>
-      {/* The main flex container should allow content to flow after the sticky Header */}
-      {/* The Sidebar component itself is now adjusted to sit below the header */}
-      <div className="flex flex-1"> {/* flex-1 allows this to take available space in <main> */}
+      <div className="flex flex-1"> 
         <AdminSidebar />
         <SidebarInset className="flex-1 overflow-y-auto">
           {children}
