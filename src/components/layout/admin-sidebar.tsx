@@ -14,7 +14,7 @@ import {
   SidebarFooter
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { Home, CalendarClock, Package, ShoppingBag, LogOut, Users, AlertCircle, Loader2, ArrowLeft, LayoutDashboard } from 'lucide-react'; // Added ArrowLeft, removed ExternalLink if not used elsewhere
+import { Home, CalendarClock, Package, ShoppingBag, LogOut, Users, AlertCircle, Loader2, ArrowLeft, LayoutDashboard } from 'lucide-react';
 import { signOut, checkAdminRole } from '@/lib/supabasePlaceholders';
 import { PageContainer } from '@/components/shared/page-container';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
@@ -33,7 +33,7 @@ export function AdminSidebar() {
 
   const handleSignOut = async () => {
     await signOut();
-    router.push('/auth'); // Redirect to auth page after sign out
+    router.push('/auth'); 
   };
 
   return (
@@ -96,7 +96,7 @@ export function AdminLayoutWrapper({ children }: { children: ReactNode }) {
 
   if (isLoading) {
     return (
-      <PageContainer className="flex flex-col items-center justify-center min-h-screen">
+      <PageContainer className="flex flex-col items-center justify-center min-h-[calc(100vh-5rem)]"> {/* Adjusted for header */}
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
         <p className="text-muted-foreground">Verificando permissões...</p>
       </PageContainer>
@@ -105,7 +105,7 @@ export function AdminLayoutWrapper({ children }: { children: ReactNode }) {
 
   if (!isAuthorized) {
     return (
-      <PageContainer className="flex flex-col items-center justify-center min-h-screen text-center">
+      <PageContainer className="flex flex-col items-center justify-center min-h-[calc(100vh-5rem)] text-center"> {/* Adjusted for header */}
         <AlertCircle className="h-16 w-16 text-destructive mb-6" />
         <h1 className="text-3xl font-headline text-destructive mb-3">Acesso Negado</h1>
         <p className="text-lg text-muted-foreground mb-8">Você não tem permissão para visualizar esta página.</p>
@@ -118,7 +118,9 @@ export function AdminLayoutWrapper({ children }: { children: ReactNode }) {
 
   return (
     <SidebarProvider defaultOpen>
-      <div className="flex h-screen bg-background">
+      {/* The main flex container should allow content to flow after the sticky Header */}
+      {/* The Sidebar component itself is now adjusted to sit below the header */}
+      <div className="flex flex-1"> {/* flex-1 allows this to take available space in <main> */}
         <AdminSidebar />
         <SidebarInset className="flex-1 overflow-y-auto">
           {children}
