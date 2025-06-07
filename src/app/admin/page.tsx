@@ -90,7 +90,7 @@ export default function AdminDashboardPage() {
           <Card>
             <CardContent className="p-6 flex items-center">
               <AlertCircle className="h-6 w-6 text-destructive mr-3"/>
-              <p className="text-destructive-foreground">Nenhum ciclo de compra ativo encontrado ou erro ao carregar dados.</p>
+              <p className="text-destructive">Nenhum ciclo de compra ativo encontrado ou erro ao carregar dados.</p>
             </CardContent>
           </Card>
         )}
