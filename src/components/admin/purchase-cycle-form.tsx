@@ -26,19 +26,13 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose, isSubmitting
   const { toast } = useToast();
 
   useEffect(() => {
-    console.log('[PurchaseCycleForm] useEffect - initialData received:', JSON.stringify(initialData));
     if (initialData) {
       setName(initialData.name);
-      // Ensure dates are correctly formatted for datetime-local input
-      // It expects YYYY-MM-DDTHH:mm
       setStartDate(initialData.startDate ? new Date(initialData.startDate).toISOString().substring(0, 16) : ''); 
       setEndDate(initialData.endDate ? new Date(initialData.endDate).toISOString().substring(0, 16) : '');
       setIsActive(initialData.isActive);
-      console.log('[PurchaseCycleForm] useEffect - Populated form for editing. Name:', initialData.name, 'ID:', initialData.cycleId);
     } else {
-      // Defaults for a new cycle
       const now = new Date();
-      // Adjust for local timezone to prefill datetime-local correctly
       const localNow = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
       const today = localNow.toISOString().substring(0, 16);
       
@@ -50,7 +44,6 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose, isSubmitting
       setStartDate(today);
       setEndDate(nextMonth);
       setIsActive(false);
-      console.log('[PurchaseCycleForm] useEffect - Reset form for new cycle.');
     }
   }, [initialData]);
 
@@ -71,25 +64,16 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose, isSubmitting
 
     const cycleDataPayload = { 
       name, 
-      startDate: new Date(startDate).toISOString(), // Convert to ISO string for Supabase
-      endDate: new Date(endDate).toISOString(),   // Convert to ISO string for Supabase
+      startDate: new Date(startDate).toISOString(), 
+      endDate: new Date(endDate).toISOString(),   
       isActive 
     };
-
-    // Diagnostic logs
-    console.log('[PurchaseCycleForm] handleSubmit - Submitting. initialData:', JSON.stringify(initialData));
-    console.log('[PurchaseCycleForm] handleSubmit - initialData?.cycleId value:', initialData?.cycleId);
     
-    // Explicitly check for cycleId and ensure it's a non-empty string for editing
     const isEditingForm = initialData?.cycleId && typeof initialData.cycleId === 'string' && initialData.cycleId.length > 0;
-    console.log('[PurchaseCycleForm] handleSubmit - isEditingForm check (form-level):', isEditingForm);
-
 
     if (isEditingForm) {
-      console.log('[PurchaseCycleForm] handleSubmit - Calling onSubmit for UPDATE with cycleId:', initialData.cycleId, 'Payload:', JSON.stringify({ ...cycleDataPayload, cycleId: initialData.cycleId as string }));
-      await onSubmit({ ...cycleDataPayload, cycleId: initialData.cycleId as string }); // Added 'as string' for type safety if check passes
+      await onSubmit({ ...cycleDataPayload, cycleId: initialData.cycleId as string }); 
     } else {
-      console.log('[PurchaseCycleForm] handleSubmit - Calling onSubmit for CREATE (no cycleId or invalid initialData.cycleId). Payload:', JSON.stringify(cycleDataPayload));
       await onSubmit(cycleDataPayload as Omit<PurchaseCycle, 'cycleId' | 'createdAt'>);
     }
   };

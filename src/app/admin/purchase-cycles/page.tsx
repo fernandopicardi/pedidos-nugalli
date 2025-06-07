@@ -33,26 +33,21 @@ export default function PurchaseCycleManagementPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    console.log('[PurchaseCyclePage] editingCycle state changed (top of component):', editingCycle ? editingCycle.cycleId : null);
-  }, [editingCycle]);
-
-
   const loadPurchaseCycles = useCallback(async () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('purchase_cycles')
-        .select('*')
+        .select('*') // Supabase deve retornar a coluna PK 'cycle_id' aqui
         .order('start_date', { ascending: false });
       if (error) throw error;
-      setPurchaseCycles(data.map(cycle => ({ 
-        cycleId: cycle.id, // Supabase returns 'id' as primary key by default
-        name: cycle.name, 
-        startDate: cycle.start_date, 
-        endDate: cycle.end_date, 
-        isActive: cycle.is_active, 
-        createdAt: cycle.created_at 
+      setPurchaseCycles(data.map(dbCycle => ({ 
+        cycleId: dbCycle.cycle_id, // Mapear da coluna 'cycle_id' do DB
+        name: dbCycle.name, 
+        startDate: dbCycle.start_date, 
+        endDate: dbCycle.end_date, 
+        isActive: dbCycle.is_active, 
+        createdAt: dbCycle.created_at 
       } as PurchaseCycle)));
     } catch (error: any) {
       console.error('Failed to fetch purchase cycles:', error);
@@ -69,15 +64,10 @@ export default function PurchaseCycleManagementPage() {
   const handleFormSubmit = async (formData: Omit<PurchaseCycle, 'cycleId' | 'createdAt'> | (Partial<Omit<PurchaseCycle, 'cycleId' | 'createdAt'>> & { cycleId: string })) => {
     setIsSubmitting(true);
     let successMessage = "";
-
-    console.log('[PurchaseCyclePage] handleFormSubmit - formData received:', JSON.stringify(formData));
     
-    // Explicitly check for cycleId and ensure it's a non-empty string for editing
     const isEditing = 'cycleId' in formData && typeof formData.cycleId === 'string' && formData.cycleId.length > 0;
-    const cycleIdToUpdate = isEditing ? (formData as { cycleId: string }).cycleId : undefined;
+    const cycleIdToUpdate = isEditing ? formData.cycleId : undefined;
     
-    console.log('[PurchaseCyclePage] handleFormSubmit - isEditing check:', isEditing, 'cycleId to update:', cycleIdToUpdate);
-
     try {
       const dbPayload = {
         name: formData.name,
@@ -87,15 +77,13 @@ export default function PurchaseCycleManagementPage() {
       };
 
       if (isEditing && cycleIdToUpdate) { 
-        console.log('[PurchaseCyclePage] handleFormSubmit - Attempting UPDATE for ID:', cycleIdToUpdate);
         const { error: updateError } = await supabase
           .from('purchase_cycles')
           .update(dbPayload)
-          .eq('id', cycleIdToUpdate); // Ensure this targets the 'id' column if that's your PK
+          .eq('cycle_id', cycleIdToUpdate); // Usar 'cycle_id' para a coluna PK
         if (updateError) throw updateError;
         successMessage = `Ciclo "${formData.name}" atualizado com sucesso.`;
       } else { 
-        console.log('[PurchaseCyclePage] handleFormSubmit - Attempting CREATE.');
         const { error: insertError } = await supabase
           .from('purchase_cycles')
           .insert(dbPayload);
@@ -105,8 +93,7 @@ export default function PurchaseCycleManagementPage() {
       
       toast({ title: "Sucesso!", description: successMessage });
       setIsModalOpen(false);
-      setEditingCycle(null); // Clear editing state
-      console.log('[PurchaseCyclePage] handleFormSubmit - Successfully saved, setEditingCycle to null.');
+      setEditingCycle(null);
       await loadPurchaseCycles();
     } catch (error: any) {
       console.error("Failed to save purchase cycle:", error);
@@ -117,24 +104,22 @@ export default function PurchaseCycleManagementPage() {
   };
 
   const openNewCycleModal = () => {
-    console.log('[PurchaseCyclePage] openNewCycleModal called - setting editingCycle to null.');
     setEditingCycle(null);
     setIsModalOpen(true);
   };
 
   const openEditCycleModal = (cycle: PurchaseCycle) => {
-    console.log('[PurchaseCyclePage] openEditCycleModal called with cycleId:', cycle.cycleId, 'Full cycle:', JSON.stringify(cycle));
     setEditingCycle(cycle);
     setIsModalOpen(true);
   };
 
-  const handleDeleteCycle = async (cycleId: string, cycleName: string) => {
-    setIsLoading(true); // Consider setting to true only for the delete operation itself if preferred
+  const handleDeleteCycle = async (cycleIdToDelete: string, cycleName: string) => {
+    setIsLoading(true); 
     try {
       const { error } = await supabase
         .from('purchase_cycles')
         .delete()
-        .eq('id', cycleId); // Ensure this targets the 'id' column if that's your PK
+        .eq('cycle_id', cycleIdToDelete); // Usar 'cycle_id' para a coluna PK
       
       if (error) throw error;
 
@@ -144,7 +129,7 @@ export default function PurchaseCycleManagementPage() {
       console.error("Failed to delete purchase cycle:", error);
       toast({ title: "Erro ao Deletar", description: error.message || "Não foi possível deletar o ciclo de compra.", variant: "destructive" });
     } finally {
-      setIsLoading(false); // Reset loading state
+      setIsLoading(false); 
     }
   };
   
@@ -163,10 +148,8 @@ export default function PurchaseCycleManagementPage() {
       />
 
       <Dialog open={isModalOpen} onOpenChange={(isOpen) => { 
-          console.log('[PurchaseCyclePage] Dialog onOpenChange - isOpen:', isOpen);
           setIsModalOpen(isOpen); 
           if (!isOpen) {
-            console.log('[PurchaseCyclePage] Dialog onOpenChange - closing, setting editingCycle to null.');
             setEditingCycle(null); 
           }
         }}>
@@ -181,7 +164,6 @@ export default function PurchaseCycleManagementPage() {
             initialData={editingCycle}
             onSubmit={handleFormSubmit}
             onClose={() => { 
-              console.log('[PurchaseCyclePage] PurchaseCycleForm onClose called - setting editingCycle to null.');
               setIsModalOpen(false); 
               setEditingCycle(null); 
             }}
