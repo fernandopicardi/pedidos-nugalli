@@ -27,7 +27,7 @@ const DIETARY_OPTIONS = ["vegano", "sem glúten", "sem lactose", "KOSHER", "ZERO
 export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
+  const [imageUrl, setImageUrl] = useState(''); // For display and holds existing URL or blob preview
   const [selectedCategorias, setSelectedCategorias] = useState<string[]>([]);
   const [selectedDietary, setSelectedDietary] = useState<string[]>([]);
   const [productPeso, setProductPeso] = useState('');
@@ -45,7 +45,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
     if (initialData) {
       setName(initialData.name);
       setDescription(initialData.description);
-      setImageUrl(initialData.imageUrl || '');
+      setImageUrl(initialData.imageUrl || ''); // Initialize with existing image URL
       setSelectedImageFile(null); // Reset file on data change
 
       setSelectedCategorias(initialData.attributes?.categoria || []);
@@ -67,7 +67,6 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
           })
           .finally(() => setIsLoadingAvailability(false));
       } else {
-        // For new products, default to available, but UI is disabled until product is created.
         setIsAvailableInActiveCycle(true);
         setIsLoadingAvailability(false);
       }
@@ -83,7 +82,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       setProductCacau('');
       setProductUnidade('');
       setProductSabor('');
-      setIsAvailableInActiveCycle(true); // Default for new
+      setIsAvailableInActiveCycle(true);
       setIsLoadingAvailability(false);
     }
   }, [initialData, toast]);
@@ -94,20 +93,13 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
     );
   };
 
-  const handleDirectImageUrlChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setImageUrl(event.target.value);
-    setSelectedImageFile(null); // Clear selected file if user types a URL
-  };
-
   const handleImageFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] || null;
     setSelectedImageFile(file);
     if (file) {
-        // Display local preview
-        setImageUrl(URL.createObjectURL(file));
+        setImageUrl(URL.createObjectURL(file)); // Set blob URL for preview
     } else {
-        // If file is deselected, revert to initialData's imageUrl or empty if new
-        setImageUrl(initialData?.imageUrl || '');
+        setImageUrl(initialData?.imageUrl || ''); // Revert to existing or empty
     }
   };
 
@@ -126,13 +118,19 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
        return;
     }
 
-    let finalImageUrlToSave = imageUrl;
+    // For new products, an image upload is mandatory
+    if (!initialData && !selectedImageFile) {
+        toast({ title: "Imagem Obrigatória", description: "Por favor, selecione uma imagem para o novo produto.", variant: "destructive" });
+        setIsSubmitting(false);
+        return;
+    }
+
+    let finalImageUrlToSave: string = initialData?.imageUrl || ''; // Default to existing or empty
 
     if (selectedImageFile) {
       setIsUploadingImage(true);
-      // Using "products" as a folder within the bucket for better organization
       const filePath = `products/${Date.now()}_${selectedImageFile.name}`;
-      const bucketName = 'produtos-nugalli'; // Confirmed bucket name
+      const bucketName = 'produtos-nugalli';
 
       try {
         const { data: uploadData, error: uploadError } = await supabase.storage
@@ -140,11 +138,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
           .upload(filePath, selectedImageFile);
 
         if (uploadError) {
-            let detailedErrorMessage = `Falha ao carregar nova imagem: ${uploadError.message}`;
-            if (uploadError.message.toLowerCase().includes("bucket not found")) {
-                detailedErrorMessage = `Erro no Upload: O bucket '${bucketName}' não foi encontrado no Supabase Storage. Verifique o nome e as configurações do bucket.`;
-            }
-            toast({ title: "Erro no Upload", description: detailedErrorMessage, variant: "destructive", duration: 10000 });
+            toast({ title: "Erro no Upload da Imagem", description: `Falha ao carregar nova imagem: ${uploadError.message}`, variant: "destructive", duration: 7000 });
             setIsUploadingImage(false);
             setIsSubmitting(false);
             return;
@@ -157,10 +151,9 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
             return;
         }
 
-        // Get public URL for the uploaded file
         const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(uploadData.path);
-        finalImageUrlToSave = publicUrlData.publicUrl;
-        toast({ title: "Upload Sucesso", description: "Nova imagem carregada." });
+        finalImageUrlToSave = publicUrlData.publicUrl; // This is a string
+        toast({ title: "Upload de Imagem Sucesso", description: "Nova imagem carregada." });
       } catch (error: any) {
         console.error("Error uploading image during submit:", error);
         toast({ title: "Erro Crítico no Upload", description: `Falha ao carregar nova imagem: ${error.message}`, variant: "destructive" });
@@ -171,10 +164,9 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       setIsUploadingImage(false);
     }
     
-    if (!finalImageUrlToSave && !initialData?.imageUrl) {
+    // Fallback if no image was ever set (should be caught by mandatory upload for new products)
+    if (!finalImageUrlToSave) {
       finalImageUrlToSave = 'https://placehold.co/400x300.png?text=Produto';
-    } else if (!finalImageUrlToSave && initialData?.imageUrl) {
-        finalImageUrlToSave = initialData.imageUrl;
     }
 
 
@@ -189,7 +181,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
     const productDataPayload = {
       name,
       description,
-      imageUrl: finalImageUrlToSave, // This is the URL to be saved in 'products' table column (e.g., image_url)
+      imageUrl: finalImageUrlToSave, // This 'imageUrl' (string) will be mapped to 'image_url' for the DB
       attributes: productAttributes
     };
 
@@ -202,21 +194,14 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       }
 
       if (savedProduct && savedProduct.productId) {
-        // Only attempt to set availability if product save was successful and it's an existing product or a newly created one
         await setProductAvailabilityInActiveCycle(savedProduct.productId, isAvailableInActiveCycle);
-        // Toast for availability update is now handled by parent or can be added here if needed.
       } else {
-         console.warn("Product was not saved or ID is missing from savedProduct, skipping availability update. Saved Product:", savedProduct);
-         // This case might happen if onSubmit itself had an error and didn't return a full product object.
+         console.warn("Product was not saved or ID is missing, skipping availability update. Saved Product:", savedProduct);
       }
 
-      onClose(savedProduct); // Pass the saved product back to close the modal
+      onClose(savedProduct); 
     } catch (error: any) {
-      // This catch block now primarily handles errors from onSubmit or setProductAvailabilityInActiveCycle
-      // The onSubmit (handleFormSubmit in products/page.tsx) should throw if Supabase product save fails.
       console.error("Error in ProductForm handleSubmit (after calling onSubmit or during availability):", error);
-      // A specific toast for product save error is already handled in products/page.tsx
-      // This toast is for errors specifically from setProductAvailabilityInActiveCycle, or if onSubmit re-throws
       if (!String(error.message).toLowerCase().includes("produto") && !String(error.message).toLowerCase().includes("bucket")) {
          toast({ title: "Erro ao Finalizar", description: `Ocorreu um problema ao salvar os dados completos: ${error.message || 'Erro desconhecido.'}`, variant: "destructive" });
       }
@@ -236,38 +221,30 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         <Label htmlFor="product-description" className="font-semibold">Descrição Detalhada</Label>
         <Textarea id="product-description" value={description} onChange={(e) => setDescription(e.target.value)} required className="mt-1" rows={4} />
       </div>
-
+      
       <div>
-        <Label htmlFor="product-image-url-input" className="font-semibold">URL da Imagem</Label>
-        <Input
-          id="product-image-url-input"
-          type="text"
-          value={imageUrl.startsWith('blob:') ? '' : imageUrl} // Don't show blob URL in this input
-          onChange={handleDirectImageUrlChange}
-          placeholder="https://exemplo.com/imagem.png ou carregue abaixo"
-          className="mt-1"
-        />
-        {imageUrl && ( // Show preview if imageUrl is set (could be blob or direct URL)
+         <Label htmlFor="imageUpload" className="font-semibold">Imagem do Produto</Label>
+         <div className="flex items-center space-x-2 mt-1">
+           <Input id="imageUpload" type="file" accept="image/*" onChange={handleImageFileChange} disabled={isUploadingImage || isSubmitting} className="flex-grow"/>
+         </div>
+         {selectedImageFile && <p className="text-xs text-muted-foreground mt-1">Nova imagem selecionada: {selectedImageFile.name}. Será carregada ao salvar.</p>}
+         {!selectedImageFile && initialData?.imageUrl && <p className="text-xs text-muted-foreground mt-1">Imagem atual será mantida. Carregue uma nova para substituir.</p>}
+         {!selectedImageFile && !initialData && <p className="text-xs text-destructive mt-1">Upload de imagem é obrigatório para novo produto.</p>}
+         {isUploadingImage && <div className="flex items-center mt-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin mr-2" />Carregando imagem...</div>}
+      </div>
+
+      {imageUrl && ( // Show preview if imageUrl is set (could be blob or existing URL)
           <div className="mt-2 w-32 h-32 relative border rounded-md overflow-hidden">
             <img 
                 src={imageUrl} 
                 alt="Preview do Produto" 
                 className="object-cover w-full h-full" 
                 data-ai-hint="chocolate item"
-                onError={(e) => (e.currentTarget.src = 'https://placehold.co/300x300.png?text=Preview')} // Fallback for broken image URLs
+                onError={(e) => (e.currentTarget.src = 'https://placehold.co/300x300.png?text=Preview')}
             />
           </div>
-        )}
-      </div>
+      )}
 
-      <div>
-         <Label htmlFor="imageUpload" className="font-semibold">Carregar Nova Imagem (substitui URL acima)</Label>
-         <div className="flex items-center space-x-2 mt-1">
-           <Input id="imageUpload" type="file" accept="image/*" onChange={handleImageFileChange} disabled={isUploadingImage || isSubmitting} className="flex-grow"/>
-         </div>
-         {selectedImageFile && <p className="text-xs text-muted-foreground mt-1">Nova imagem selecionada: {selectedImageFile.name}. Será carregada ao salvar.</p>}
-         {isUploadingImage && <div className="flex items-center mt-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin mr-2" />Carregando imagem...</div>}
-      </div>
 
       <Separator />
       <p className="font-semibold text-lg">Atributos do Produto</p>
