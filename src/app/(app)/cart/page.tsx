@@ -35,8 +35,8 @@ export default function CartPage() {
 
       try {
         const { data: items, error } = await supabase
-          .from('Cart Items')
-          .select(\`
+          .from('cart_items') // Corrected table name
+          .select(`
             cart_item_id, 
             quantity,
             cycle_product_id, 
@@ -45,9 +45,9 @@ export default function CartPage() {
               product_name_snapshot,
               price_in_cycle,
               display_image_url,
-              Products ( description )
+              products ( description )
             )
-          \`)
+          `)
           .eq('user_id', user.userId);
 
         if (error) {
@@ -63,7 +63,7 @@ export default function CartPage() {
             price: item.cycle_products?.price_in_cycle || 0,
             imageUrl: item.cycle_products?.display_image_url || 'https://placehold.co/600x400.png',
             quantity: item.quantity,
-            description: item.cycle_products?.Products?.description || '',
+            description: item.cycle_products?.products?.description || '',
           }));
           setCartItems(mappedItems);
         } else {
@@ -90,7 +90,7 @@ export default function CartPage() {
 
     try {
       const { error } = await supabase
-        .from('Cart Items')
+        .from('cart_items') // Corrected table name
         .update({ quantity: newQuantity })
         .eq('cart_item_id', cartItemId);
 
@@ -108,7 +108,7 @@ export default function CartPage() {
     const originalCartItems = [...cartItems];
     try {
       const { error: supabaseError } = await supabase
-        .from('Cart Items')
+        .from('cart_items') // Corrected table name
         .delete()
         .eq('cart_item_id', cartItemId);
 
@@ -143,10 +143,10 @@ export default function CartPage() {
       const order = await processCheckout(cartItems);
       toast({
         title: "Pedido Realizado!",
-        description: \`Seu pedido #${order.orderNumber} foi confirmado.\`,
+        description: `Seu pedido #${order.orderNumber} foi confirmado.`,
       });
       setCartItems([]);
-      // router.push(\`/order-confirmation/\${order.orderId}\`); 
+      // router.push(`/order-confirmation/${order.orderId}`); 
     } catch (error: any) {
       toast({ title: "Erro no Checkout", description: error?.message || "Não foi possível finalizar seu pedido. Tente novamente.", variant: "destructive" });
     } finally {
