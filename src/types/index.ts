@@ -1,4 +1,5 @@
 
+
 export interface User {
   userId: string; // Auth UID
   email: string;
@@ -45,11 +46,17 @@ export interface CycleProduct { // Product offering within a specific cycle
   displayImageUrl?: string; // Typically the first from Product.imageUrls or a specific one for the cycle
   createdAt: string; // ISO date string (timestamp)
   updatedAt: string; // ISO date string (timestamp)
+  product?: Product; // Optional: For joined master product details in some contexts
+}
+
+// Type to include master product details alongside cycle product info
+export interface CycleProductWithProductDetails extends CycleProduct {
+  product?: Product; // Details of the master product
 }
 
 
 // New type for product data displayed in the ProductCard and ProductGrid
-export interface DisplayableProduct extends Omit<CycleProduct, 'productNameSnapshot' | 'priceInCycle' | 'displayImageUrl' | 'createdAt' | 'updatedAt'> {
+export interface DisplayableProduct extends Omit<CycleProduct, 'productNameSnapshot' | 'priceInCycle' | 'displayImageUrl' | 'createdAt' | 'updatedAt' | 'product'> {
   name: string; // From CycleProduct.productNameSnapshot
   description: string; // From master Product.description
   price: number; // From CycleProduct.priceInCycle
@@ -92,4 +99,5 @@ export interface Order {
   orderDate: string; // ISO date string (timestamp)
   adminNotes?: string;
 }
+
 

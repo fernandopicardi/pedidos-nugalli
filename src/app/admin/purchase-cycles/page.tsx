@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle as FormDialogTitle } f
 import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { PageContainer } from '@/components/shared/page-container';
 import { PurchaseCycleForm } from '@/components/admin/purchase-cycle-form';
-import { PlusCircle, Edit3, Trash2, Loader2, CalendarOff } from 'lucide-react';
+import { PlusCircle, Edit3, Trash2, Loader2, CalendarOff, Settings2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -295,6 +296,11 @@ export default function PurchaseCycleManagementPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right space-x-2">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/admin/purchase-cycles/${cycle.cycleId}/manage-products`}>
+                        <Settings2 size={16} className="mr-1" /> Ger. Produtos
+                      </Link>
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => openEditCycleModal(cycle)}>
                       <Edit3 size={16} className="mr-1" /> Editar
                     </Button>
@@ -308,7 +314,7 @@ export default function PurchaseCycleManagementPage() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Confirmar Deleção</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Tem certeza que deseja deletar o ciclo de compra "{cycle.name}"? Esta ação não pode ser desfeita.
+                            Tem certeza que deseja deletar o ciclo de compra "{cycle.name}"? Esta ação não pode ser desfeita. Deletar um ciclo removerá todos os produtos associados exclusivamente a ele.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -329,3 +335,4 @@ export default function PurchaseCycleManagementPage() {
     </PageContainer>
   );
 }
+

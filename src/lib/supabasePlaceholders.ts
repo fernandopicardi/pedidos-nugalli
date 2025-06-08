@@ -1,5 +1,6 @@
 
-import type { Product, PurchaseCycle, Order, CartItem, CycleProduct, User, DisplayableProduct, OrderItem } from '@/types';
+
+import type { Product, PurchaseCycle, Order, CartItem, CycleProduct, User, DisplayableProduct, OrderItem, CycleProductWithProductDetails } from '@/types';
 import { supabase } from '@/lib/supabaseClient';
 import { getUser as fetchCurrentUserFromAuth } from '../lib/auth';
 
@@ -172,6 +173,8 @@ export async function updateProduct(productId: string, productData: Partial<Omit
   if (productData.description !== undefined) updatePayload.description = productData.description;
   if (productData.imageUrl !== undefined) updatePayload.image_url = productData.imageUrl;
   if (productData.attributes !== undefined) updatePayload.attributes = productData.attributes;
+  updatePayload.updated_at = new Date().toISOString();
+
 
   const { data, error } = await supabase
     .from('products')
@@ -239,6 +242,33 @@ export async function fetchPurchaseCycles(): Promise<PurchaseCycle[]> {
     createdAt: pc.created_at
   })) as PurchaseCycle[];
 }
+
+export async function fetchPurchaseCycleById(cycleId: string): Promise<PurchaseCycle | null> {
+  const { data, error } = await supabase
+    .from('purchase_cycles')
+    .select('cycle_id, name, start_date, end_date, is_active, created_at, description')
+    .eq('cycle_id', cycleId)
+    .maybeSingle();
+
+  if (error) {
+    console.error(`fetchPurchaseCycleById for ${cycleId} error:`, error.message);
+    if (error.message.includes('fetch failed')) {
+      throw new Error(`Network error: Unable to fetch purchase cycle ${cycleId}.`);
+    }
+    throw error;
+  }
+  if (!data) return null;
+  return {
+    cycleId: data.cycle_id,
+    name: data.name,
+    startDate: data.start_date,
+    endDate: data.end_date,
+    isActive: data.is_active,
+    description: data.description,
+    createdAt: data.created_at
+  } as PurchaseCycle;
+}
+
 
 export async function createPurchaseCycle(cycleData: Omit<PurchaseCycle, 'cycleId' | 'createdAt'>): Promise<PurchaseCycle> {
   if (cycleData.isActive) {
@@ -346,45 +376,105 @@ export async function deletePurchaseCycle(cycleId: string): Promise<void> {
   }
 }
 
-export async function fetchCycleProducts(cycleId: string): Promise<CycleProduct[]> {
+export async function fetchCycleProductsWithDetails(cycleId: string): Promise<CycleProductWithProductDetails[]> {
   const { data, error } = await supabase
     .from('cycle_products')
-    .select('*, products(product_id, name, description, image_url, attributes)')
-    .eq('cycle_id', cycleId);
+    .select(`
+      *,
+      products ( product_id, name, description, image_url, attributes )
+    `)
+    .eq('cycle_id', cycleId)
+    .order('created_at', { ascending: false });
 
   if (error) {
-    console.error(`fetchCycleProducts for cycle ${cycleId} error:`, error.message);
-    if (error && typeof error.message === 'string' && (error.message === 'Failed to fetch' || error.message.includes('fetch failed'))) {
-      throw new Error('Network error: Unable to fetch cycle products for cycle ' + cycleId + '. Please check connection and Supabase config.');
+    console.error(`fetchCycleProductsWithDetails for cycle ${cycleId} error:`, error.message);
+    if (error.message.includes('fetch failed')) {
+      throw new Error(`Network error: Unable to fetch products for cycle ${cycleId}.`);
     }
     throw error;
   }
   return data.map(cp => ({
-      cycleProductId: cp.cycle_product_id,
-      cycleId: cp.cycle_id,
-      productId: cp.product_id,
-      productNameSnapshot: cp.product_name_snapshot || cp.products?.name || 'N/A',
-      priceInCycle: cp.price_in_cycle,
-      isAvailableInCycle: cp.is_available_in_cycle,
-      displayImageUrl: cp.display_image_url || cp.products?.image_url || 'https://placehold.co/400x300.png?text=Produto',
-      createdAt: cp.created_at,
-      updatedAt: cp.updated_at
-  })) as CycleProduct[];
+    cycleProductId: cp.cycle_product_id,
+    cycleId: cp.cycle_id,
+    productId: cp.product_id,
+    productNameSnapshot: cp.product_name_snapshot || cp.products?.name || 'N/A',
+    priceInCycle: cp.price_in_cycle,
+    isAvailableInCycle: cp.is_available_in_cycle,
+    displayImageUrl: cp.display_image_url || cp.products?.image_url,
+    createdAt: cp.created_at,
+    updatedAt: cp.updated_at,
+    product: cp.products ? { // Embed master product details
+        productId: cp.products.product_id,
+        name: cp.products.name,
+        description: cp.products.description,
+        imageUrl: cp.products.image_url,
+        attributes: cp.products.attributes,
+        createdAt: '', // Not typically needed here, but part of Product type
+        updatedAt: ''  // Not typically needed here
+    } : undefined
+  })) as CycleProductWithProductDetails[];
 }
 
-export async function createCycleProduct(cycleProductData: Omit<CycleProduct, 'cycleProductId' | 'createdAt' | 'updatedAt'>): Promise<CycleProduct> {
+export async function fetchMasterProductsNotInCycle(cycleId: string): Promise<MasterProduct[]> {
+  // First, get all product_ids that are already in the target cycle
+  const { data: existingCycleProductIdsData, error: existingIdsError } = await supabase
+    .from('cycle_products')
+    .select('product_id')
+    .eq('cycle_id', cycleId);
+
+  if (existingIdsError) {
+    console.error(`Error fetching existing product IDs for cycle ${cycleId}:`, existingIdsError.message);
+    if (existingIdsError.message.includes('fetch failed')) {
+      throw new Error(`Network error: Unable to fetch existing product IDs for cycle ${cycleId}.`);
+    }
+    throw existingIdsError;
+  }
+  const existingProductIds = existingCycleProductIdsData.map(item => item.product_id);
+
+  // Then, fetch all master products and filter them client-side
+  // Or, if you expect a very large number of master products, use .not('product_id', 'in', `(${existingProductIds.join(',')})`)
+  // but be careful with very long IN clauses. For typical catalogs, client-side filter is fine.
+  
+  let query = supabase.from('products').select('*').order('name', { ascending: true });
+  if (existingProductIds.length > 0) {
+    query = query.not('product_id', 'in', `(${existingProductIds.map(id => `'${id}'`).join(',')})`);
+  }
+  
+  const { data: masterProductsData, error: masterProductsError } = await query;
+
+  if (masterProductsError) {
+    console.error('Error fetching master products:', masterProductsError.message);
+    if (masterProductsError.message.includes('fetch failed')) {
+      throw new Error('Network error: Unable to fetch master products.');
+    }
+    throw masterProductsError;
+  }
+  return masterProductsData.map(p => ({
+    productId: p.product_id,
+    name: p.name,
+    description: p.description,
+    imageUrl: p.image_url,
+    attributes: p.attributes,
+    createdAt: p.created_at,
+    updatedAt: p.updated_at
+  })) as MasterProduct[];
+}
+
+
+// Type for createCycleProduct was not fully Omit before, fixed.
+export async function createCycleProduct(cycleProductData: Omit<CycleProduct, 'cycleProductId' | 'createdAt' | 'updatedAt' | 'product'>): Promise<CycleProduct> {
+  const payload = {
+    cycle_id: cycleProductData.cycleId,
+    product_id: cycleProductData.productId,
+    product_name_snapshot: cycleProductData.productNameSnapshot,
+    price_in_cycle: cycleProductData.priceInCycle,
+    is_available_in_cycle: cycleProductData.isAvailableInCycle,
+    display_image_url: cycleProductData.displayImageUrl,
+  };
+
   const { data, error } = await supabase
     .from('cycle_products')
-    .insert([
-      {
-        cycle_id: cycleProductData.cycleId,
-        product_id: cycleProductData.productId,
-        product_name_snapshot: cycleProductData.productNameSnapshot,
-        price_in_cycle: cycleProductData.priceInCycle,
-        is_available_in_cycle: cycleProductData.isAvailableInCycle,
-        display_image_url: cycleProductData.displayImageUrl,
-      },
-    ])
+    .insert([payload])
     .select()
     .single();
 
@@ -408,14 +498,16 @@ export async function createCycleProduct(cycleProductData: Omit<CycleProduct, 'c
   } as CycleProduct;
 }
 
-export async function updateCycleProduct(cycleProductId: string, cycleProductData: Partial<Omit<CycleProduct, 'cycleProductId' | 'createdAt' | 'updatedAt'>>): Promise<CycleProduct> {
+export async function updateCycleProduct(cycleProductId: string, cycleProductData: Partial<Omit<CycleProduct, 'cycleProductId' | 'cycleId' | 'productId' | 'createdAt' | 'updatedAt' | 'product' | 'productNameSnapshot' | 'displayImageUrl'>>): Promise<CycleProduct> {
   const updatePayload: Record<string, any> = {};
-  if (cycleProductData.cycleId !== undefined) updatePayload.cycle_id = cycleProductData.cycleId;
-  if (cycleProductData.productId !== undefined) updatePayload.product_id = cycleProductData.productId;
-  if (cycleProductData.productNameSnapshot !== undefined) updatePayload.product_name_snapshot = cycleProductData.productNameSnapshot;
+  // Only price and availability are typically updated this way
   if (cycleProductData.priceInCycle !== undefined) updatePayload.price_in_cycle = cycleProductData.priceInCycle;
   if (cycleProductData.isAvailableInCycle !== undefined) updatePayload.is_available_in_cycle = cycleProductData.isAvailableInCycle;
+  // product_name_snapshot and display_image_url could also be updatable if product master data changes and needs repropagation
+  if (cycleProductData.productNameSnapshot !== undefined) updatePayload.product_name_snapshot = cycleProductData.productNameSnapshot;
   if (cycleProductData.displayImageUrl !== undefined) updatePayload.display_image_url = cycleProductData.displayImageUrl;
+  
+  updatePayload.updated_at = new Date().toISOString();
 
   const { data, error } = await supabase
     .from('cycle_products')
@@ -1039,7 +1131,7 @@ export async function fetchActivePurchaseCycleProducts(): Promise<DisplayablePro
   return fetchDisplayableProducts();
 }
 
-export async function fetchProductAvailabilityInActiveCycle(productId: string): Promise<boolean> {
+export async function fetchProductAvailabilityInActiveCycle(productId: string, priceIfCreating?: number): Promise<boolean> {
     const { data: activeCycle, error: cycleError } = await supabase
         .from('purchase_cycles')
         .select('cycle_id')
@@ -1056,8 +1148,8 @@ export async function fetchProductAvailabilityInActiveCycle(productId: string): 
     }
 
     const { data: cycleProduct, error: cpError } = await supabase
-        .from('cycle_products') // Corrected table name
-        .select('is_available_in_cycle')
+        .from('cycle_products')
+        .select('is_available_in_cycle, price_in_cycle')
         .eq('cycle_id', activeCycle.cycle_id)
         .eq('product_id', productId)
         .maybeSingle();
@@ -1067,12 +1159,32 @@ export async function fetchProductAvailabilityInActiveCycle(productId: string): 
         if (cpError && typeof cpError.message === 'string' && (cpError.message.includes('fetch failed'))) {
            console.warn('Network error fetching cycle product for ' + productId + ' in active cycle.');
         }
-        return false;
+        return false; // Treat error as not available or price not found
     }
     return cycleProduct ? cycleProduct.is_available_in_cycle : false;
 }
 
-export async function setProductAvailabilityInActiveCycle(productId: string, isAvailable: boolean): Promise<void> {
+export async function fetchPriceInActiveCycle(productId: string): Promise<number | null> {
+    const { data: activeCycle, error: cycleError } = await supabase
+        .from('purchase_cycles')
+        .select('cycle_id')
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle();
+    if (cycleError || !activeCycle) { return null; }
+
+    const { data: cycleProduct, error: cpError } = await supabase
+        .from('cycle_products')
+        .select('price_in_cycle')
+        .eq('cycle_id', activeCycle.cycle_id)
+        .eq('product_id', productId)
+        .maybeSingle();
+    if (cpError || !cycleProduct) { return null; }
+    return cycleProduct.price_in_cycle;
+}
+
+
+export async function setProductAvailabilityInActiveCycle(productId: string, isAvailable: boolean, priceInCycle?: number): Promise<void> {
     const { data: activeCycle, error: cycleError } = await supabase
         .from('purchase_cycles')
         .select('cycle_id')
@@ -1089,7 +1201,7 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
     }
 
     const { data: existingCycleProduct, error: fetchCpError } = await supabase
-        .from('cycle_products') // Corrected table name
+        .from('cycle_products') 
         .select('cycle_product_id, product_name_snapshot, price_in_cycle, display_image_url')
         .eq('cycle_id', activeCycle.cycle_id)
         .eq('product_id', productId)
@@ -1104,18 +1216,26 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
     }
 
     if (existingCycleProduct) {
+        const updatePayload: { is_available_in_cycle: boolean; price_in_cycle?: number, updated_at: string } = { 
+            is_available_in_cycle: isAvailable,
+            updated_at: new Date().toISOString()
+        };
+        if (priceInCycle !== undefined) {
+            updatePayload.price_in_cycle = priceInCycle;
+        }
+
         const { error: updateError } = await supabase
-            .from('cycle_products') // Corrected table name
-            .update({ is_available_in_cycle: isAvailable })
+            .from('cycle_products') 
+            .update(updatePayload)
             .eq('cycle_product_id', existingCycleProduct.cycle_product_id);
         if (updateError) {
-            console.error(`Error updating availability for cycle product ${existingCycleProduct.cycle_product_id}:`, updateError.message);
+            console.error(`Error updating availability/price for cycle product ${existingCycleProduct.cycle_product_id}:`, updateError.message);
             if (updateError && typeof updateError.message === 'string' && (updateError.message.includes('fetch failed'))) {
-               throw new Error('Network error: Unable to update availability for cycle product ' + existingCycleProduct.cycle_product_id + '.');
+               throw new Error('Network error: Unable to update availability/price for cycle product ' + existingCycleProduct.cycle_product_id + '.');
             }
             throw updateError;
         }
-    } else if (isAvailable) {
+    } else if (isAvailable) { // Only insert if we are trying to make it available
         const { data: masterProduct, error: masterProductError } = await supabase
             .from('products')
             .select('name, image_url')
@@ -1131,12 +1251,12 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
         }
 
         const { error: insertError } = await supabase
-            .from('cycle_products') // Corrected table name
+            .from('cycle_products') 
             .insert({
                 cycle_id: activeCycle.cycle_id,
                 product_id: productId,
                 product_name_snapshot: masterProduct.name,
-                price_in_cycle: 0, // Default price, consider making this configurable
+                price_in_cycle: priceInCycle !== undefined ? priceInCycle : 0, // Use provided price or default to 0
                 is_available_in_cycle: true,
                 display_image_url: masterProduct.image_url || 'https://placehold.co/400x300.png?text=Produto',
             });
@@ -1320,3 +1440,4 @@ export async function checkAdminRole(): Promise<boolean> {
 }
 
     
+
