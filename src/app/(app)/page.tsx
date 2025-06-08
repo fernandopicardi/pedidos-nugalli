@@ -146,30 +146,57 @@ export default function HomePage() {
         p.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
+
+    // Category filter (OR logic)
     if (selectedCategories.length > 0) {
-      products = products.filter(p =>
-        p.attributes?.[CATEGORY_ATTRIBUTE_KEY] && Array.isArray(p.attributes[CATEGORY_ATTRIBUTE_KEY]) &&
-        selectedCategories.some(cat => (p.attributes[CATEGORY_ATTRIBUTE_KEY] as string[]).includes(cat))
-      );
+      products = products.filter(p => {
+        const productAttr = p.attributes?.[CATEGORY_ATTRIBUTE_KEY];
+        if (!productAttr) return false;
+        if (Array.isArray(productAttr)) {
+          return selectedCategories.some(sel => productAttr.includes(String(sel)));
+        }
+        return selectedCategories.includes(String(productAttr));
+      });
     }
+
+    // Cacao filter (OR logic)
     if (selectedCacao.length > 0) {
-      products = products.filter(p =>
-         p.attributes?.[CACAO_ATTRIBUTE_KEY] && Array.isArray(p.attributes[CACAO_ATTRIBUTE_KEY]) &&
-        selectedCacao.some(c => (p.attributes[CACAO_ATTRIBUTE_KEY] as string[]).includes(c))
-      );
+      products = products.filter(p => {
+        const productAttr = p.attributes?.[CACAO_ATTRIBUTE_KEY];
+        if (!productAttr) return false;
+        if (Array.isArray(productAttr)) {
+          return selectedCacao.some(sel => productAttr.includes(String(sel)));
+        }
+        return selectedCacao.includes(String(productAttr));
+      });
     }
+
+    // Dietary filter (AND logic)
     if (selectedDietary.length > 0) {
-      products = products.filter(p =>
-        p.attributes?.[DIETARY_ATTRIBUTE_KEY] && Array.isArray(p.attributes[DIETARY_ATTRIBUTE_KEY]) &&
-        selectedDietary.every(diet => (p.attributes[DIETARY_ATTRIBUTE_KEY] as string[]).includes(diet))
-      );
+      products = products.filter(p => {
+        const productAttr = p.attributes?.[DIETARY_ATTRIBUTE_KEY];
+        if (!productAttr) return false; // Product has no dietary attributes, so it cannot match if filters are selected.
+        
+        if (Array.isArray(productAttr)) {
+          return selectedDietary.every(sel => productAttr.includes(String(sel)));
+        }
+        // If productAttr is a single string, it can only satisfy .every if selectedDietary has one item and it matches that string.
+        return selectedDietary.length === 1 && String(productAttr) === selectedDietary[0];
+      });
     }
+
+    // Weight filter (OR logic)
      if (selectedWeights.length > 0) {
-      products = products.filter(p =>
-        p.attributes?.[WEIGHT_ATTRIBUTE_KEY] && Array.isArray(p.attributes[WEIGHT_ATTRIBUTE_KEY]) &&
-        selectedWeights.some(w => (p.attributes[WEIGHT_ATTRIBUTE_KEY] as string[]).includes(w))
-      );
+      products = products.filter(p => {
+        const productAttr = p.attributes?.[WEIGHT_ATTRIBUTE_KEY];
+        if (!productAttr) return false;
+        if (Array.isArray(productAttr)) {
+          return selectedWeights.some(sel => productAttr.includes(String(sel)));
+        }
+        return selectedWeights.includes(String(productAttr));
+      });
     }
+
     const numMinPrice = parseFloat(minPrice);
     if (!isNaN(numMinPrice)) {
       products = products.filter(p => p.price >= numMinPrice);
@@ -249,7 +276,7 @@ export default function HomePage() {
           {cycleTitle}
         </h1>
         {cycleDescription && (
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-4">
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-4">
             {cycleDescription}
           </p>
         )}
@@ -376,3 +403,5 @@ export default function HomePage() {
   );
 }
 
+
+    
