@@ -25,7 +25,7 @@ export default function HomePage() {
   const [allProducts, setAllProducts] = useState<DisplayableProduct[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<DisplayableProduct[]>([]);
   const [cycleTitle, setCycleTitle] = useState<string>('');
-  const [cycleDescription, setCycleDescription] = useState<string | null>(null); 
+  const [cycleDescription, setCycleDescription] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -43,7 +43,7 @@ export default function HomePage() {
       try {
         const { data: cycleData, error: cycleError } = await supabase
           .from('purchase_cycles')
-          .select('cycle_id, name, description') 
+          .select('cycle_id, name, description')
           .eq('is_active', true)
           .maybeSingle();
 
@@ -67,18 +67,18 @@ export default function HomePage() {
         }
 
         setCycleTitle(cycleData.name);
-        setCycleDescription(cycleData.description || null); 
+        setCycleDescription(cycleData.description || null);
 
         const { data: productsData, error: productsError } = await supabase
           .from('cycle_products')
           .select(`
-            cycle_product_id, 
-            cycle_id, 
-            product_id, 
-            product_name_snapshot, 
-            price_in_cycle, 
-            is_available_in_cycle, 
-            display_image_url, 
+            cycle_product_id,
+            cycle_id,
+            product_id,
+            product_name_snapshot,
+            price_in_cycle,
+            is_available_in_cycle,
+            display_image_url,
             products ( product_id, name, description, image_url, attributes )
           `)
           .eq('cycle_id', cycleData.cycle_id)
@@ -207,7 +207,7 @@ export default function HomePage() {
     setMaxPrice('');
     setSortOrder('name-asc');
   };
-  
+
   const hasActiveFilters = searchTerm || selectedCategories.length > 0 || selectedCacao.length > 0 || selectedDietary.length > 0 || selectedWeights.length > 0 || minPrice || maxPrice;
 
   if (isLoading) {
@@ -218,7 +218,7 @@ export default function HomePage() {
       </PageContainer>
     );
   }
-  
+
   const FilterCheckboxGroup = ({ title, options, selectedValues, onChange }: { title: string, options: string[], selectedValues: string[], onChange: (value: string) => void }) => (
     options.length > 0 ? (
       <div className="mb-4">
@@ -253,9 +253,6 @@ export default function HomePage() {
             {cycleDescription}
           </p>
         )}
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Descubra nossa seleção exclusiva de chocolates artesanais, preparados com os melhores ingredientes para este ciclo de compra.
-        </p>
       </section>
 
       <div className="mb-8">
@@ -352,8 +349,8 @@ export default function HomePage() {
           </AccordionItem>
         </Accordion>
       </div>
-      
-      {allProducts.length === 0 && !isLoading && ( 
+
+      {allProducts.length === 0 && !isLoading && (
         <Card className="shadow-lg">
             <CardContent className="p-10 text-center flex flex-col items-center">
                 <PackageSearch size={48} className="mx-auto text-muted-foreground mb-4" />
@@ -363,7 +360,7 @@ export default function HomePage() {
         </Card>
       )}
 
-      {allProducts.length > 0 && filteredProducts.length === 0 && !isLoading && ( 
+      {allProducts.length > 0 && filteredProducts.length === 0 && !isLoading && (
         <Card className="shadow-lg">
             <CardContent className="p-10 text-center flex flex-col items-center">
                 <ListFilter size={48} className="mx-auto text-muted-foreground mb-4" />
