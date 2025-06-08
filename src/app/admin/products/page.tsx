@@ -74,27 +74,28 @@ export default function ProductManagementPage() {
         const dbUpdatePayload: Record<string, any> = {
           name: updateData.name,
           description: updateData.description,
-          attributes: updateData.attributes,
+          attributes: updateData.attributes || {}, // Ensure attributes is at least an empty object
           image_url: updateData.imageUrl,
-          updated_at: new Date().toISOString(), // Explicitly set updated_at
+          updated_at: new Date().toISOString(),
         };
 
-        const { error: updateOpError } = await supabase
+        const { data: updatedDbProductArray, error: updateAndSelectError } = await supabase
           .from('products')
           .update(dbUpdatePayload)
-          .eq('product_id', productId);
-
-        if (updateOpError) throw updateOpError;
-
-        const { data: updatedDbProduct, error: selectError } = await supabase
-          .from('products')
-          .select()
           .eq('product_id', productId)
-          .single();
+          .select();
 
-        if (selectError) throw selectError;
-        if (!updatedDbProduct) throw new Error("Produto não encontrado após a atualização.");
+        if (updateAndSelectError) throw updateAndSelectError;
 
+        if (!updatedDbProductArray || updatedDbProductArray.length === 0) {
+          throw new Error("Produto não encontrado após a atualização ou nenhuma linha retornada.");
+        }
+        // This should not happen if product_id is a unique primary key and the update was specific
+        if (updatedDbProductArray.length > 1) {
+            console.error("CRITICAL: Multiple products found with the same ID after update:", productId);
+            throw new Error("Múltiplos produtos encontrados com o mesmo ID após a atualização.");
+        }
+        const updatedDbProduct = updatedDbProductArray[0];
 
         const updatedProduct: Product = {
           productId: updatedDbProduct.product_id,
@@ -115,19 +116,18 @@ export default function ProductManagementPage() {
           name: productFormData.name,
           description: productFormData.description,
           image_url: productFormData.imageUrl,
-          attributes: productFormData.attributes,
-          // created_at and updated_at will be set by default or triggers if defined in DB
+          attributes: productFormData.attributes || {}, // Ensure attributes is at least an empty object
         };
-        const { data: insertedData, error: insertOpError } = await supabase
+        const { data: insertedDataArray, error: insertOpError } = await supabase
           .from('products')
           .insert([dbPayload])
-          .select(); // Select the inserted row(s)
+          .select(); 
 
         if (insertOpError) throw insertOpError;
-        if (!insertedData || insertedData.length === 0) {
+        if (!insertedDataArray || insertedDataArray.length === 0) {
           throw new Error("Falha ao criar o produto ou nenhum dado retornado.");
         }
-        const insertedDbProduct = insertedData[0];
+        const insertedDbProduct = insertedDataArray[0];
 
 
         const newProduct: Product = {
@@ -145,10 +145,8 @@ export default function ProductManagementPage() {
       }
     } catch (error: any) {
       console.error("Error in handleFormSubmit (products page):", error);
-      // A mensagem de erro original já é "JSON object requested..." que é específica do Supabase
-      // por isso não precisamos adicionar mais detalhes, apenas repassamos.
       toast({ title: "Erro ao Salvar Produto", description: error.message || "Não foi possível salvar o produto.", variant: "destructive" });
-      throw error;
+      throw error; // Re-throw to be caught by ProductForm if needed
     }
   };
 
