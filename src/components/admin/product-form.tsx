@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { Loader2 } from 'lucide-react';
@@ -20,14 +21,18 @@ interface ProductFormProps {
   onClose: (product?: Product) => void;
 }
 
-const CATEGORIA_OPTIONS = ["Barra", "Tablete", "Pastilhas", "Granel", "Gotas", "Recheado"];
-const DIETARY_OPTIONS = ["vegano", "sem glúten", "sem lactose", "KOSHER", "ZERO AÇÚCAR"];
+const CATEGORIA_OPTIONS = ["Barra", "Tablete", "Pastilhas", "Granel", "Gotas", "Recheado", "Drageado", "Bombom", "Ovo de Páscoa", "Especial"];
+const DIETARY_OPTIONS = ["vegano", "sem glúten", "sem lactose", "KOSHER", "ZERO AÇÚCAR", "Orgânico"];
+
+const PESO_OPTIONS = ["N/A","10g", "20g", "25g", "30g", "40g", "50g", "70g", "80g", "90g", "100g", "120g", "130g", "150g", "170g", "180g", "200g", "250g", "300g","400g", "500g", "1kg"];
+const CACAU_OPTIONS = ["N/A", "Branco", "Ao Leite", "30%", "35%", "40%", "45%", "50%", "55%", "60%", "65%", "70%", "75%", "80%", "85%", "90%", "99%", "100%"];
+const UNIDADE_OPTIONS = ["unidade", "caixa", "pacote", "display", "kg", "kit"];
 
 
 export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [imageUrl, setImageUrl] = useState(''); // For display and holds existing URL or blob preview
+  const [imageUrl, setImageUrl] = useState('');
   const [selectedCategorias, setSelectedCategorias] = useState<string[]>([]);
   const [selectedDietary, setSelectedDietary] = useState<string[]>([]);
   const [productPeso, setProductPeso] = useState('');
@@ -45,8 +50,8 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
     if (initialData) {
       setName(initialData.name);
       setDescription(initialData.description);
-      setImageUrl(initialData.imageUrl || ''); // Initialize with existing image URL
-      setSelectedImageFile(null); // Reset file on data change
+      setImageUrl(initialData.imageUrl || '');
+      setSelectedImageFile(null);
 
       setSelectedCategorias(initialData.attributes?.categoria || []);
       setSelectedDietary(initialData.attributes?.dietary || []);
@@ -71,7 +76,6 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         setIsLoadingAvailability(false);
       }
     } else {
-      // Reset form for new product
       setName('');
       setDescription('');
       setImageUrl('');
@@ -97,9 +101,9 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
     const file = event.target.files?.[0] || null;
     setSelectedImageFile(file);
     if (file) {
-        setImageUrl(URL.createObjectURL(file)); // Set blob URL for preview
+        setImageUrl(URL.createObjectURL(file));
     } else {
-        setImageUrl(initialData?.imageUrl || ''); // Revert to existing or empty
+        setImageUrl(initialData?.imageUrl || '');
     }
   };
 
@@ -118,18 +122,17 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
        return;
     }
 
-    // For new products, an image upload is mandatory
     if (!initialData && !selectedImageFile) {
         toast({ title: "Imagem Obrigatória", description: "Por favor, selecione uma imagem para o novo produto.", variant: "destructive" });
         setIsSubmitting(false);
         return;
     }
 
-    let finalImageUrlToSave: string = initialData?.imageUrl || ''; // Default to existing or empty
+    let finalImageUrlToSave: string = initialData?.imageUrl || '';
 
     if (selectedImageFile) {
       setIsUploadingImage(true);
-      const filePath = `products/${Date.now()}_${selectedImageFile.name}`;
+      const filePath = `products/${Date.now()}_${selectedImageFile.name.replace(/\s+/g, '_')}`;
       const bucketName = 'produtos-nugalli';
 
       try {
@@ -152,7 +155,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         }
 
         const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(uploadData.path);
-        finalImageUrlToSave = publicUrlData.publicUrl; // This is a string
+        finalImageUrlToSave = publicUrlData.publicUrl;
         toast({ title: "Upload de Imagem Sucesso", description: "Nova imagem carregada." });
       } catch (error: any) {
         console.error("Error uploading image during submit:", error);
@@ -164,24 +167,22 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       setIsUploadingImage(false);
     }
     
-    // Fallback if no image was ever set (should be caught by mandatory upload for new products)
     if (!finalImageUrlToSave) {
       finalImageUrlToSave = 'https://placehold.co/400x300.png?text=Produto';
     }
 
-
     const productAttributes: Record<string, string[]> = {};
     if (selectedCategorias.length > 0) productAttributes.categoria = selectedCategorias;
     if (selectedDietary.length > 0) productAttributes.dietary = selectedDietary;
-    if (productPeso.trim()) productAttributes.peso = [productPeso.trim()];
-    if (productCacau.trim()) productAttributes.cacau = [productCacau.trim()];
-    if (productUnidade.trim()) productAttributes.unidade = [productUnidade.trim()];
+    if (productPeso.trim() && productPeso.trim() !== "N/A") productAttributes.peso = [productPeso.trim()];
+    if (productCacau.trim() && productCacau.trim() !== "N/A") productAttributes.cacau = [productCacau.trim()];
+    if (productUnidade.trim() && productUnidade.trim() !== "N/A") productAttributes.unidade = [productUnidade.trim()];
     if (productSabor.trim()) productAttributes.sabor = [productSabor.trim()];
 
     const productDataPayload = {
       name,
       description,
-      imageUrl: finalImageUrlToSave, // This 'imageUrl' (string) will be mapped to 'image_url' for the DB
+      imageUrl: finalImageUrlToSave,
       attributes: productAttributes
     };
 
@@ -229,11 +230,11 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
          </div>
          {selectedImageFile && <p className="text-xs text-muted-foreground mt-1">Nova imagem selecionada: {selectedImageFile.name}. Será carregada ao salvar.</p>}
          {!selectedImageFile && initialData?.imageUrl && <p className="text-xs text-muted-foreground mt-1">Imagem atual será mantida. Carregue uma nova para substituir.</p>}
-         {!selectedImageFile && !initialData && <p className="text-xs text-destructive mt-1">Upload de imagem é obrigatório para novo produto.</p>}
+         {!initialData && !selectedImageFile && <p className="text-xs text-destructive mt-1">Upload de imagem é obrigatório para novo produto.</p>}
          {isUploadingImage && <div className="flex items-center mt-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin mr-2" />Carregando imagem...</div>}
       </div>
 
-      {imageUrl && ( // Show preview if imageUrl is set (could be blob or existing URL)
+      {imageUrl && (
           <div className="mt-2 w-32 h-32 relative border rounded-md overflow-hidden">
             <img 
                 src={imageUrl} 
@@ -245,7 +246,6 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
           </div>
       )}
 
-
       <Separator />
       <p className="font-semibold text-lg">Atributos do Produto</p>
 
@@ -253,7 +253,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         <Label className="font-semibold">Categorias</Label>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1">
           {CATEGORIA_OPTIONS.map(option => (
-            <div key={option} className="flex items-center space-x-2">
+            <div key={`cat-${option}`} className="flex items-center space-x-2">
               <Checkbox
                 id={`cat-${option}`}
                 checked={selectedCategorias.includes(option)}
@@ -269,7 +269,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         <Label className="font-semibold">Dietas e Restrições</Label>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1">
           {DIETARY_OPTIONS.map(option => (
-            <div key={option} className="flex items-center space-x-2">
+            <div key={`diet-${option}`} className="flex items-center space-x-2">
               <Checkbox
                 id={`diet-${option}`}
                 checked={selectedDietary.includes(option)}
@@ -284,53 +284,80 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="product-peso" className="font-semibold">Peso do Produto</Label>
-          <Input id="product-peso" value={productPeso} onChange={(e) => setProductPeso(e.target.value)} className="mt-1" placeholder="Ex: 100g, 1kg"/>
+          <Select value={productPeso} onValueChange={setProductPeso}>
+            <SelectTrigger id="product-peso" className="mt-1">
+              <SelectValue placeholder="Selecione o peso" />
+            </SelectTrigger>
+            <SelectContent>
+              {PESO_OPTIONS.map(option => (
+                <SelectItem key={`peso-${option}`} value={option}>{option}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div>
           <Label htmlFor="product-cacau" className="font-semibold">Teor de Cacau (se aplicável)</Label>
-          <Input id="product-cacau" value={productCacau} onChange={(e) => setProductCacau(e.target.value)} className="mt-1" placeholder="Ex: 70%, 50%"/>
+           <Select value={productCacau} onValueChange={setProductCacau}>
+            <SelectTrigger id="product-cacau" className="mt-1">
+              <SelectValue placeholder="Selecione o teor de cacau" />
+            </SelectTrigger>
+            <SelectContent>
+              {CACAU_OPTIONS.map(option => (
+                <SelectItem key={`cacau-${option}`} value={option}>{option}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="product-sabor" className="font-semibold">Sabor Principal (se houver)</Label>
-            <Input id="product-sabor" value={productSabor} onChange={(e) => setProductSabor(e.target.value)} className="mt-1" placeholder="Ex: Açaí, Cupuaçu, Caramelo"/>
-          </div>
-           <div>
-            <Label htmlFor="product-unidade" className="font-semibold">Unidade de Venda</Label>
-            <Input id="product-unidade" value={productUnidade} onChange={(e) => setProductUnidade(e.target.value)} className="mt-1" placeholder="Ex: unidade, kg, caixa"/>
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="product-sabor" className="font-semibold">Sabor Principal (se houver)</Label>
+          <Input id="product-sabor" value={productSabor} onChange={(e) => setProductSabor(e.target.value)} className="mt-1" placeholder="Ex: Açaí, Cupuaçu, Caramelo"/>
         </div>
-
-        <Separator />
-        <p className="font-semibold text-lg">Disponibilidade para Venda</p>
-
-        <div className="flex items-center space-x-2 pt-2">
-          <Checkbox
-            id="is-available-in-active-cycle"
-            checked={isAvailableInActiveCycle}
-            onCheckedChange={(checked) => setIsAvailableInActiveCycle(Boolean(checked))}
-            disabled={isLoadingAvailability || isSubmitting || !initialData?.productId}
-          />
-          <Label htmlFor="is-available-in-active-cycle" className="font-semibold">Disponível no ciclo de compra ativo?</Label>
-          {isLoadingAvailability && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
+         <div>
+          <Label htmlFor="product-unidade" className="font-semibold">Unidade de Venda</Label>
+          <Select value={productUnidade} onValueChange={setProductUnidade}>
+            <SelectTrigger id="product-unidade" className="mt-1">
+              <SelectValue placeholder="Selecione a unidade" />
+            </SelectTrigger>
+            <SelectContent>
+              {UNIDADE_OPTIONS.map(option => (
+                <SelectItem key={`unidade-${option}`} value={option}>{option}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Controla se este produto aparece para os clientes no ciclo de vendas ativo no site. 
-          {!initialData?.productId && " (Para novos produtos, esta opção é aplicada após a criação bem-sucedida do produto.)"}
-        </p>
-
-        <div className="flex justify-end space-x-3 pt-4 border-t sticky bottom-0 bg-card py-3">
-        <Button type="button" variant="outline" onClick={() => onClose()} disabled={isSubmitting || isUploadingImage}>
-          Cancelar
-        </Button>
-        <Button type="submit" disabled={isSubmitting || isLoadingAvailability || isUploadingImage}>
-          {(isSubmitting || isUploadingImage) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isSubmitting ? (initialData ? 'Salvando...' : 'Criando...') : (initialData ? 'Salvar Alterações' : 'Criar Produto')}
-        </Button>
       </div>
-    </form>
+
+      <Separator />
+      <p className="font-semibold text-lg">Disponibilidade para Venda</p>
+
+      <div className="flex items-center space-x-2 pt-2">
+        <Checkbox
+          id="is-available-in-active-cycle"
+          checked={isAvailableInActiveCycle}
+          onCheckedChange={(checked) => setIsAvailableInActiveCycle(Boolean(checked))}
+          disabled={isLoadingAvailability || isSubmitting || !initialData?.productId}
+        />
+        <Label htmlFor="is-available-in-active-cycle" className="font-semibold">Disponível no ciclo de compra ativo?</Label>
+        {isLoadingAvailability && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Controla se este produto aparece para os clientes no ciclo de vendas ativo no site. 
+        {!initialData?.productId && " (Para novos produtos, esta opção é aplicada após a criação bem-sucedida do produto.)"}
+      </p>
+
+      <div className="flex justify-end space-x-3 pt-4 border-t sticky bottom-0 bg-card py-3">
+      <Button type="button" variant="outline" onClick={() => onClose()} disabled={isSubmitting || isUploadingImage}>
+        Cancelar
+      </Button>
+      <Button type="submit" disabled={isSubmitting || isLoadingAvailability || isUploadingImage}>
+        {(isSubmitting || isUploadingImage) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        {isSubmitting ? (initialData ? 'Salvando...' : 'Criando...') : (initialData ? 'Salvar Alterações' : 'Criar Produto')}
+      </Button>
+    </div>
+  </form>
   );
 }
 
