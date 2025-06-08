@@ -31,7 +31,7 @@ export async function getCurrentUser(): Promise<User | null> {
     try {
       const parsedUser = JSON.parse(userFromStorage) as User;
       if (parsedUser.isAdmin === undefined && (parsedUser as any).role !== undefined) {
-         parsedUser.isAdmin = (parsedUser as any).role === true; 
+         parsedUser.isAdmin = (parsedUser as any).role === true;
          delete (parsedUser as any).role;
       }
       return parsedUser;
@@ -87,11 +87,11 @@ export async function updateUserDetails(
    }
 
    const updatedUser: User = {
-       userId: updatedData.id, 
-       email: updatedData.email, 
+       userId: updatedData.id,
+       email: updatedData.email,
        displayName: updatedData.display_name,
        whatsapp: updatedData.whatsapp,
-       isAdmin: updatedData.is_admin, 
+       isAdmin: updatedData.is_admin,
        createdAt: updatedData.created_at,
        addressStreet: updatedData.address_street,
        addressNumber: updatedData.address_number,
@@ -102,7 +102,7 @@ export async function updateUserDetails(
        addressZip: updatedData.address_zip,
    };
 
-   const currentUserFromStorage = await getCurrentUser(); 
+   const currentUserFromStorage = await getCurrentUser();
    if (currentUserFromStorage && currentUserFromStorage.userId === userId && typeof localStorage !== 'undefined') {
       localStorage.setItem('currentUser', JSON.stringify(updatedUser));
    }
@@ -127,10 +127,10 @@ export async function fetchProductsForAdmin(): Promise<Product[]> {
     productId: p.product_id,
     name: p.name,
     description: p.description,
-    imageUrl: p.image_url,   
+    imageUrl: p.image_url,
     attributes: p.attributes,
-    createdAt: p.created_at, 
-    updatedAt: p.updated_at  
+    createdAt: p.created_at,
+    updatedAt: p.updated_at
   })) as Product[];
 }
 
@@ -138,7 +138,7 @@ export async function createProduct(productData: Omit<Product, 'productId' | 'cr
   const { data, error } = await supabase
     .from('products')
     .insert([
-      { 
+      {
         name: productData.name,
         description: productData.description,
         image_url: productData.imageUrl,
@@ -155,7 +155,7 @@ export async function createProduct(productData: Omit<Product, 'productId' | 'cr
     }
     throw error;
   }
-  return { 
+  return {
     productId: data.product_id,
     name: data.name,
     description: data.description,
@@ -167,7 +167,7 @@ export async function createProduct(productData: Omit<Product, 'productId' | 'cr
 }
 
 export async function updateProduct(productId: string, productData: Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>>): Promise<Product> {
-  const updatePayload: Record<string, any> = {}; 
+  const updatePayload: Record<string, any> = {};
   if (productData.name !== undefined) updatePayload.name = productData.name;
   if (productData.description !== undefined) updatePayload.description = productData.description;
   if (productData.imageUrl !== undefined) updatePayload.image_url = productData.imageUrl;
@@ -190,7 +190,7 @@ export async function updateProduct(productId: string, productData: Partial<Omit
   if (!data) {
      throw new Error("Product not found after update");
   }
-  return { 
+  return {
     productId: data.product_id,
     name: data.name,
     description: data.description,
@@ -205,7 +205,7 @@ export async function deleteProduct(productId: string): Promise<void> {
   const { error } = await supabase
     .from('products')
     .delete()
-    .eq('product_id', productId); 
+    .eq('product_id', productId);
 
   if (error) {
     console.error("deleteProduct error:", error.message);
@@ -218,9 +218,9 @@ export async function deleteProduct(productId: string): Promise<void> {
 
 export async function fetchPurchaseCycles(): Promise<PurchaseCycle[]> {
   const { data, error } = await supabase
-    .from('purchase_cycles') 
-    .select('*')
-    .order('start_date', { ascending: false }); 
+    .from('purchase_cycles')
+    .select('cycle_id, name, start_date, end_date, is_active, created_at, description')
+    .order('start_date', { ascending: false });
 
   if (error) {
     console.error("fetchPurchaseCycles error:", error.message);
@@ -229,13 +229,14 @@ export async function fetchPurchaseCycles(): Promise<PurchaseCycle[]> {
     }
     throw error;
   }
-  return data.map(pc => ({ 
-    cycleId: pc.cycle_id,    
+  return data.map(pc => ({
+    cycleId: pc.cycle_id,
     name: pc.name,
-    startDate: pc.start_date, 
-    endDate: pc.end_date,    
-    isActive: pc.is_active,  
-    createdAt: pc.created_at 
+    startDate: pc.start_date,
+    endDate: pc.end_date,
+    isActive: pc.is_active,
+    description: pc.description,
+    createdAt: pc.created_at
   })) as PurchaseCycle[];
 }
 
@@ -243,8 +244,8 @@ export async function createPurchaseCycle(cycleData: Omit<PurchaseCycle, 'cycleI
   if (cycleData.isActive) {
       const { error: updateError } = await supabase
           .from('purchase_cycles')
-          .update({ is_active: false }) 
-          .eq('is_active', true);    
+          .update({ is_active: false })
+          .eq('is_active', true);
       if (updateError) {
            console.warn('Error deactivating other cycles during create (non-critical):', updateError.message);
       }
@@ -253,11 +254,12 @@ export async function createPurchaseCycle(cycleData: Omit<PurchaseCycle, 'cycleI
   const { data, error } = await supabase
     .from('purchase_cycles')
     .insert([
-      { 
+      {
         name: cycleData.name,
         start_date: cycleData.startDate,
         end_date: cycleData.endDate,
         is_active: cycleData.isActive,
+        description: cycleData.description,
       },
     ])
     .select()
@@ -270,12 +272,13 @@ export async function createPurchaseCycle(cycleData: Omit<PurchaseCycle, 'cycleI
     }
     throw error;
   }
-  return { 
+  return {
     cycleId: data.cycle_id,
     name: data.name,
     startDate: data.start_date,
     endDate: data.end_date,
     isActive: data.is_active,
+    description: data.description,
     createdAt: data.created_at
   } as PurchaseCycle;
 }
@@ -284,24 +287,26 @@ export async function updatePurchaseCycle(cycleId: string, cycleData: Partial<Om
   if (cycleData.isActive === true) {
       const { error: updateError } = await supabase
           .from('purchase_cycles')
-          .update({ is_active: false }) 
-          .eq('is_active', true)    
-          .neq('cycle_id', cycleId); 
+          .update({ is_active: false })
+          .eq('is_active', true)
+          .neq('cycle_id', cycleId);
       if (updateError) {
           console.warn('Error deactivating other cycles during update (non-critical):', updateError.message);
       }
   }
 
-  const updatePayload: Record<string, any> = {}; 
+  const updatePayload: Record<string, any> = {};
   if (cycleData.name !== undefined) updatePayload.name = cycleData.name;
   if (cycleData.startDate !== undefined) updatePayload.start_date = cycleData.startDate;
   if (cycleData.endDate !== undefined) updatePayload.end_date = cycleData.endDate;
   if (cycleData.isActive !== undefined) updatePayload.is_active = cycleData.isActive;
+  if (cycleData.description !== undefined) updatePayload.description = cycleData.description;
+
 
   const { data, error } = await supabase
     .from('purchase_cycles')
     .update(updatePayload)
-    .eq('cycle_id', cycleId) 
+    .eq('cycle_id', cycleId)
     .select()
     .single();
 
@@ -315,12 +320,13 @@ export async function updatePurchaseCycle(cycleId: string, cycleData: Partial<Om
   if (!data) {
      throw new Error("PurchaseCycle not found after update");
   }
-  return { 
+  return {
     cycleId: data.cycle_id,
     name: data.name,
     startDate: data.start_date,
     endDate: data.end_date,
     isActive: data.is_active,
+    description: data.description,
     createdAt: data.created_at
   } as PurchaseCycle;
 }
@@ -329,7 +335,7 @@ export async function deletePurchaseCycle(cycleId: string): Promise<void> {
   const { error } = await supabase
     .from('purchase_cycles')
     .delete()
-    .eq('cycle_id', cycleId); 
+    .eq('cycle_id', cycleId);
 
   if (error) {
     console.error("deletePurchaseCycle error:", error.message);
@@ -342,9 +348,9 @@ export async function deletePurchaseCycle(cycleId: string): Promise<void> {
 
 export async function fetchCycleProducts(cycleId: string): Promise<CycleProduct[]> {
   const { data, error } = await supabase
-    .from('cycle_products') 
-    .select('*, products(product_id, name, description, image_url, attributes)') 
-    .eq('cycle_id', cycleId); 
+    .from('cycle_products')
+    .select('*, products(product_id, name, description, image_url, attributes)')
+    .eq('cycle_id', cycleId);
 
   if (error) {
     console.error(`fetchCycleProducts for cycle ${cycleId} error:`, error.message);
@@ -353,16 +359,16 @@ export async function fetchCycleProducts(cycleId: string): Promise<CycleProduct[
     }
     throw error;
   }
-  return data.map(cp => ({ 
-      cycleProductId: cp.cycle_product_id,         
-      cycleId: cp.cycle_id,                        
-      productId: cp.product_id,                    
-      productNameSnapshot: cp.product_name_snapshot || cp.products?.name || 'N/A', 
-      priceInCycle: cp.price_in_cycle,             
-      isAvailableInCycle: cp.is_available_in_cycle, 
-      displayImageUrl: cp.display_image_url || cp.products?.image_url || 'https://placehold.co/400x300.png?text=Produto', 
-      createdAt: cp.created_at,                    
-      updatedAt: cp.updated_at                     
+  return data.map(cp => ({
+      cycleProductId: cp.cycle_product_id,
+      cycleId: cp.cycle_id,
+      productId: cp.product_id,
+      productNameSnapshot: cp.product_name_snapshot || cp.products?.name || 'N/A',
+      priceInCycle: cp.price_in_cycle,
+      isAvailableInCycle: cp.is_available_in_cycle,
+      displayImageUrl: cp.display_image_url || cp.products?.image_url || 'https://placehold.co/400x300.png?text=Produto',
+      createdAt: cp.created_at,
+      updatedAt: cp.updated_at
   })) as CycleProduct[];
 }
 
@@ -370,7 +376,7 @@ export async function createCycleProduct(cycleProductData: Omit<CycleProduct, 'c
   const { data, error } = await supabase
     .from('cycle_products')
     .insert([
-      { 
+      {
         cycle_id: cycleProductData.cycleId,
         product_id: cycleProductData.productId,
         product_name_snapshot: cycleProductData.productNameSnapshot,
@@ -389,7 +395,7 @@ export async function createCycleProduct(cycleProductData: Omit<CycleProduct, 'c
     }
     throw error;
   }
-  return { 
+  return {
       cycleProductId: data.cycle_product_id,
       cycleId: data.cycle_id,
       productId: data.product_id,
@@ -403,7 +409,7 @@ export async function createCycleProduct(cycleProductData: Omit<CycleProduct, 'c
 }
 
 export async function updateCycleProduct(cycleProductId: string, cycleProductData: Partial<Omit<CycleProduct, 'cycleProductId' | 'createdAt' | 'updatedAt'>>): Promise<CycleProduct> {
-  const updatePayload: Record<string, any> = {}; 
+  const updatePayload: Record<string, any> = {};
   if (cycleProductData.cycleId !== undefined) updatePayload.cycle_id = cycleProductData.cycleId;
   if (cycleProductData.productId !== undefined) updatePayload.product_id = cycleProductData.productId;
   if (cycleProductData.productNameSnapshot !== undefined) updatePayload.product_name_snapshot = cycleProductData.productNameSnapshot;
@@ -414,7 +420,7 @@ export async function updateCycleProduct(cycleProductId: string, cycleProductDat
   const { data, error } = await supabase
     .from('cycle_products')
     .update(updatePayload)
-    .eq('cycle_product_id', cycleProductId) 
+    .eq('cycle_product_id', cycleProductId)
     .select()
     .single();
 
@@ -428,7 +434,7 @@ export async function updateCycleProduct(cycleProductId: string, cycleProductDat
    if (!data) {
      throw new Error("Cycle product not found after update");
   }
-  return { 
+  return {
       cycleProductId: data.cycle_product_id,
       cycleId: data.cycle_id,
       productId: data.product_id,
@@ -445,7 +451,7 @@ export async function deleteCycleProduct(cycleProductId: string): Promise<void> 
   const { error } = await supabase
     .from('cycle_products')
     .delete()
-    .eq('cycle_product_id', cycleProductId); 
+    .eq('cycle_product_id', cycleProductId);
 
   if (error) {
     console.error("deleteCycleProduct error:", error.message);
@@ -458,7 +464,7 @@ export async function deleteCycleProduct(cycleProductId: string): Promise<void> 
 
 export async function fetchDisplayableProducts(): Promise<DisplayableProduct[]> {
   const { data, error } = await supabase
-    .from('cycle_products') 
+    .from('cycle_products')
     .select(`
       cycle_product_id,
       cycle_id,
@@ -469,8 +475,8 @@ export async function fetchDisplayableProducts(): Promise<DisplayableProduct[]> 
       display_image_url,
       products ( product_id, name, description, attributes, image_url )
     `)
-    .eq('is_available_in_cycle', true) 
-    .filter('cycle_id', 'in', '(select cycle_id from purchase_cycles where is_active = true)'); 
+    .eq('is_available_in_cycle', true)
+    .filter('cycle_id', 'in', '(select cycle_id from purchase_cycles where is_active = true)');
 
   if (error) {
     console.error("fetchDisplayableProducts error:", error.message);
@@ -480,7 +486,7 @@ export async function fetchDisplayableProducts(): Promise<DisplayableProduct[]> 
     throw error;
   }
 
-  const displayableProducts: DisplayableProduct[] = data.map((item: any) => ({ 
+  const displayableProducts: DisplayableProduct[] = data.map((item: any) => ({
     cycleProductId: item.cycle_product_id,
     cycleId: item.cycle_id,
     productId: item.product_id,
@@ -496,7 +502,7 @@ export async function fetchDisplayableProducts(): Promise<DisplayableProduct[]> 
 
 export async function fetchDisplayableProductById(cycleProductId: string): Promise<DisplayableProduct | null> {
   const { data, error } = await supabase
-    .from('cycle_products') 
+    .from('cycle_products')
     .select(`
       cycle_product_id,
       cycle_id,
@@ -507,12 +513,12 @@ export async function fetchDisplayableProductById(cycleProductId: string): Promi
       display_image_url,
       products ( product_id, name, description, attributes, image_url )
     `)
-    .eq('cycle_product_id', cycleProductId) 
-    .eq('is_available_in_cycle', true)  
-    .filter('cycle_id', 'in', '(select cycle_id from purchase_cycles where is_active = true)') 
+    .eq('cycle_product_id', cycleProductId)
+    .eq('is_available_in_cycle', true)
+    .filter('cycle_id', 'in', '(select cycle_id from purchase_cycles where is_active = true)')
     .single(); // Changed to single to expect one or zero
 
-  if (error && error.code !== 'PGRST116') { 
+  if (error && error.code !== 'PGRST116') {
     console.error(`fetchDisplayableProductById for ${cycleProductId} error:`, error.message);
      if (error && typeof error.message === 'string' && (error.message === 'Failed to fetch' || error.message.includes('fetch failed'))) {
       throw new Error('Network error: Unable to fetch displayable product ' + cycleProductId + '. Please check connection and Supabase config.');
@@ -523,7 +529,7 @@ export async function fetchDisplayableProductById(cycleProductId: string): Promi
     return null;
   }
 
-  const displayableProduct: DisplayableProduct = { 
+  const displayableProduct: DisplayableProduct = {
     cycleProductId: data.cycle_product_id,
     cycleId: data.cycle_id,
     productId: data.product_id,
@@ -544,7 +550,7 @@ export async function fetchCartItems(): Promise<CartItem[]> {
   }
 
   const { data, error } = await supabase
-    .from('cart_items') 
+    .from('cart_items')
     .select(`
       cart_item_id,
       cycle_product_id,
@@ -554,10 +560,10 @@ export async function fetchCartItems(): Promise<CartItem[]> {
         product_name_snapshot,
         price_in_cycle,
         display_image_url,
-        products ( description ) 
+        products ( description )
       )
     `)
-    .eq('user_id', user.userId); 
+    .eq('user_id', user.userId);
 
   if (error) {
     console.error("fetchCartItems error:", error.message);
@@ -567,7 +573,7 @@ export async function fetchCartItems(): Promise<CartItem[]> {
     throw error;
   }
 
-  const cartItems: CartItem[] = data.map((item: any) => ({ 
+  const cartItems: CartItem[] = data.map((item: any) => ({
     cartItemId: item.cart_item_id,
     cycleProductId: item.cycle_product_id,
     productId: item.cycle_products?.product_id || '',
@@ -587,10 +593,10 @@ export async function addToCart(displayableProduct: DisplayableProduct, quantity
   }
 
   const { data: existingItems, error: fetchError } = await supabase
-    .from('cart_items') 
+    .from('cart_items')
     .select('cart_item_id, quantity')
-    .eq('user_id', user.userId)                        
-    .eq('cycle_product_id', displayableProduct.cycleProductId); 
+    .eq('user_id', user.userId)
+    .eq('cycle_product_id', displayableProduct.cycleProductId);
 
   if (fetchError) {
     console.error("addToCart (fetch existing) error:", fetchError.message);
@@ -604,9 +610,9 @@ export async function addToCart(displayableProduct: DisplayableProduct, quantity
     const existingItem = existingItems[0];
     const newQuantity = existingItem.quantity + quantity;
     const { error: updateError } = await supabase
-      .from('cart_items') 
+      .from('cart_items')
       .update({ quantity: newQuantity })
-      .eq('cart_item_id', existingItem.cart_item_id); 
+      .eq('cart_item_id', existingItem.cart_item_id);
 
     if (updateError) {
       console.error("addToCart (update) error:", updateError.message);
@@ -617,8 +623,8 @@ export async function addToCart(displayableProduct: DisplayableProduct, quantity
     }
   } else {
     const { error: insertError } = await supabase
-      .from('cart_items') 
-      .insert({ 
+      .from('cart_items')
+      .insert({
         user_id: user.userId,
         cycle_product_id: displayableProduct.cycleProductId,
         quantity: quantity,
@@ -647,10 +653,10 @@ export async function updateCartItemQuantity(cartItemId: string, newQuantity: nu
   }
 
   const { error } = await supabase
-    .from('cart_items') 
+    .from('cart_items')
     .update({ quantity: newQuantity })
-    .eq('cart_item_id', cartItemId) 
-    .eq('user_id', user.userId);  
+    .eq('cart_item_id', cartItemId)
+    .eq('user_id', user.userId);
 
   if (error) {
     console.error("updateCartItemQuantity error:", error.message);
@@ -670,10 +676,10 @@ export async function removeFromCart(cartItemId: string): Promise<void> {
   }
 
   const { error } = await supabase
-    .from('cart_items') 
+    .from('cart_items')
     .delete()
-    .eq('cart_item_id', cartItemId) 
-    .eq('user_id', user.userId);  
+    .eq('cart_item_id', cartItemId)
+    .eq('user_id', user.userId);
 
   if (error) {
     console.error("removeFromCart error:", error.message);
@@ -696,11 +702,11 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
   }
 
   const { data: activeCycleData, error: cycleError } = await supabase
-    .from('purchase_cycles') 
-    .select('cycle_id')      
-    .eq('is_active', true)   
-    .limit(1) 
-    .maybeSingle(); 
+    .from('purchase_cycles')
+    .select('cycle_id')
+    .eq('is_active', true)
+    .limit(1)
+    .maybeSingle();
 
   if (cycleError || !activeCycleData) {
     console.error("processCheckout (fetch active cycle) error:", cycleError?.message);
@@ -711,7 +717,7 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
   }
   const activeCycleId = activeCycleData.cycle_id;
 
-  const orderItems: OrderItem[] = cartItems.map(cartItem => ({ 
+  const orderItems: OrderItem[] = cartItems.map(cartItem => ({
     productId: cartItem.productId,
     cycleProductId: cartItem.cycleProductId,
     productName: cartItem.name,
@@ -722,13 +728,13 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
   const orderTotalAmount = orderItems.reduce((sum, item) => sum + item.lineItemTotal, 0);
 
   const { data: lastOrder, error: lastOrderError } = await supabase
-    .from('orders') 
-    .select('order_number') 
-    .order('created_at', { ascending: false }) 
+    .from('orders')
+    .select('order_number')
+    .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (lastOrderError) { 
+  if (lastOrderError) {
     console.error("Error fetching last order number:", lastOrderError.message);
      if (lastOrderError.message.includes('fetch failed')) {
       throw new Error("Network error: Unable to generate order number. Cannot process checkout.");
@@ -748,7 +754,7 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
     }
   }
 
-  const newOrderPayload = { 
+  const newOrderPayload = {
     order_number: newOrderNumber,
     user_id: currentUser.userId,
     customer_name_snapshot: currentUser.displayName,
@@ -761,9 +767,9 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
   };
 
   const { data: createdOrderData, error: createOrderError } = await supabase
-    .from('orders') 
+    .from('orders')
     .insert(newOrderPayload)
-    .select() 
+    .select()
     .single();
 
   if (createOrderError || !createdOrderData) {
@@ -774,8 +780,8 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
       throw new Error(`Failed to create order in database. ${createOrderError?.message || ''}`);
   }
 
-  const orderItemsPayload = orderItems.map(item => ({ 
-      order_id: createdOrderData.order_id, 
+  const orderItemsPayload = orderItems.map(item => ({
+      order_id: createdOrderData.order_id,
       product_id: item.productId,
       cycle_product_id: item.cycleProductId,
       product_name: item.productName,
@@ -785,7 +791,7 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
   }));
 
   const { error: createOrderItemsError } = await supabase
-    .from('order_items') 
+    .from('order_items')
     .insert(orderItemsPayload);
 
   if (createOrderItemsError) {
@@ -798,9 +804,9 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
   }
 
   const { error: clearCartError } = await supabase
-    .from('cart_items') 
+    .from('cart_items')
     .delete()
-    .eq('user_id', currentUser.userId); 
+    .eq('user_id', currentUser.userId);
 
   if (clearCartError) {
       console.warn("Failed to clear user cart after checkout (non-critical):", clearCartError.message);
@@ -808,9 +814,9 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
          console.warn("Network error: Failed to clear user cart after checkout. Manual cleanup may be needed.");
       }
   }
-  await notifyCartUpdateListeners(); 
+  await notifyCartUpdateListeners();
 
-  return { 
+  return {
       orderId: createdOrderData.order_id,
       orderNumber: createdOrderData.order_number,
       userId: createdOrderData.user_id,
@@ -828,9 +834,9 @@ export async function processCheckout(cartItems: CartItem[]): Promise<Order> {
 
 export async function fetchAdminOrders(): Promise<Order[]> {
   const { data: ordersData, error: ordersError } = await supabase
-    .from('orders') 
-    .select('*, profiles(display_name)') 
-    .order('order_date', { ascending: false }); 
+    .from('orders')
+    .select('*, profiles(display_name)')
+    .order('order_date', { ascending: false });
 
   if (ordersError) {
     console.error("fetchAdminOrders error:", ordersError.message);
@@ -842,9 +848,9 @@ export async function fetchAdminOrders(): Promise<Order[]> {
 
   const orders: Order[] = await Promise.all(ordersData.map(async (orderDto: any) => {
     const { data: itemsData, error: itemsError } = await supabase
-      .from('order_items') 
+      .from('order_items')
       .select('*')
-      .eq('order_id', orderDto.order_id); 
+      .eq('order_id', orderDto.order_id);
 
     if (itemsError) {
       console.warn(`Error fetching items for order ${orderDto.order_id}:`, itemsError.message);
@@ -853,7 +859,7 @@ export async function fetchAdminOrders(): Promise<Order[]> {
       }
     }
 
-    return { 
+    return {
       orderId: orderDto.order_id,
       orderNumber: orderDto.order_number,
       userId: orderDto.user_id,
@@ -880,10 +886,10 @@ export async function fetchAdminOrders(): Promise<Order[]> {
 
 export async function fetchUserOrders(userId: string): Promise<Order[]> {
   const { data: ordersData, error: ordersError } = await supabase
-    .from('orders') 
-    .select('*') 
-    .eq('user_id', userId) 
-    .order('order_date', { ascending: false }); 
+    .from('orders')
+    .select('*')
+    .eq('user_id', userId)
+    .order('order_date', { ascending: false });
 
   if (ordersError) {
     console.error(`fetchUserOrders for user ${userId} error:`, ordersError.message);
@@ -895,9 +901,9 @@ export async function fetchUserOrders(userId: string): Promise<Order[]> {
 
   const orders: Order[] = await Promise.all(ordersData.map(async (orderDto: any) => {
     const { data: itemsData, error: itemsError } = await supabase
-      .from('order_items') 
+      .from('order_items')
       .select('*')
-      .eq('order_id', orderDto.order_id); 
+      .eq('order_id', orderDto.order_id);
 
     if (itemsError) {
       console.warn(`Error fetching items for order ${orderDto.order_id} (user ${userId}):`, itemsError.message);
@@ -906,11 +912,11 @@ export async function fetchUserOrders(userId: string): Promise<Order[]> {
       }
     }
 
-    return { 
+    return {
       orderId: orderDto.order_id,
       orderNumber: orderDto.order_number,
       userId: orderDto.user_id,
-      customerNameSnapshot: orderDto.customer_name_snapshot, 
+      customerNameSnapshot: orderDto.customer_name_snapshot,
       customerWhatsappSnapshot: orderDto.customer_whatsapp_snapshot,
       cycleId: orderDto.cycle_id,
       items: itemsData?.map(itemDto => ({
@@ -936,7 +942,7 @@ export async function updateOrderStatus(
   newOrderStatus: Order['orderStatus'],
   newPaymentStatus?: Order['paymentStatus']
 ): Promise<Order> {
-  const updatePayload: { order_status: string; payment_status?: string } = { 
+  const updatePayload: { order_status: string; payment_status?: string } = {
     order_status: newOrderStatus,
   };
 
@@ -945,11 +951,11 @@ export async function updateOrderStatus(
   } else {
     if (newOrderStatus === "Payment Confirmed" || newOrderStatus === "Completed") {
       const { data: currentOrder, error: fetchError } = await supabase
-        .from('orders') 
-        .select('payment_status') 
-        .eq('order_id', orderId) 
+        .from('orders')
+        .select('payment_status')
+        .eq('order_id', orderId)
         .single();
-      
+
       if (fetchError) {
          console.warn(`Error fetching current order status for ${orderId} during auto-payment update:`, fetchError.message);
          if (fetchError.message.includes('fetch failed')) {
@@ -962,10 +968,10 @@ export async function updateOrderStatus(
   }
 
   const { data: updatedOrderData, error } = await supabase
-    .from('orders') 
+    .from('orders')
     .update(updatePayload)
-    .eq('order_id', orderId) 
-    .select() 
+    .eq('order_id', orderId)
+    .select()
     .single();
 
   if (error || !updatedOrderData) {
@@ -977,9 +983,9 @@ export async function updateOrderStatus(
   }
 
   const { data: itemsData, error: itemsError } = await supabase
-      .from('order_items') 
+      .from('order_items')
       .select('*')
-      .eq('order_id', updatedOrderData.order_id); 
+      .eq('order_id', updatedOrderData.order_id);
 
   if (itemsError) {
       console.warn(`Error fetching items for updated order ${updatedOrderData.order_id}:`, itemsError.message);
@@ -988,7 +994,7 @@ export async function updateOrderStatus(
       }
   }
 
-  return { 
+  return {
       orderId: updatedOrderData.order_id,
       orderNumber: updatedOrderData.order_number,
       userId: updatedOrderData.user_id,
@@ -1013,20 +1019,20 @@ export async function updateOrderStatus(
 
 export async function fetchActivePurchaseCycleTitle(): Promise<string> {
     const { data, error } = await supabase
-        .from('purchase_cycles') 
-        .select('name')          
-        .eq('is_active', true)   
+        .from('purchase_cycles')
+        .select('name')
+        .eq('is_active', true)
         .limit(1)
-        .maybeSingle(); 
+        .maybeSingle();
 
     if (error) {
         console.warn('fetchActivePurchaseCycleTitle error:', error.message);
         if(error && typeof error.message === 'string' && (error.message.includes('fetch failed'))) {
           console.warn('Network error fetching active cycle title. Using default.');
         }
-        return "Temporada Atual"; 
+        return "Temporada Atual";
     }
-    return data?.name || "Temporada Atual"; 
+    return data?.name || "Temporada Atual";
 }
 
 export async function fetchActivePurchaseCycleProducts(): Promise<DisplayableProduct[]> {
@@ -1035,9 +1041,9 @@ export async function fetchActivePurchaseCycleProducts(): Promise<DisplayablePro
 
 export async function fetchProductAvailabilityInActiveCycle(productId: string): Promise<boolean> {
     const { data: activeCycle, error: cycleError } = await supabase
-        .from('purchase_cycles') 
-        .select('cycle_id')      
-        .eq('is_active', true)   
+        .from('purchase_cycles')
+        .select('cycle_id')
+        .eq('is_active', true)
         .limit(1)
         .maybeSingle();
 
@@ -1046,31 +1052,31 @@ export async function fetchProductAvailabilityInActiveCycle(productId: string): 
         if (cycleError && typeof cycleError.message === 'string' && (cycleError.message.includes('fetch failed'))) {
           console.warn('Network error fetching active cycle for availability check.');
         }
-        return false; 
+        return false;
     }
 
     const { data: cycleProduct, error: cpError } = await supabase
-        .from('cycle_products') 
-        .select('is_available_in_cycle') 
-        .eq('cycle_id', activeCycle.cycle_id) 
-        .eq('product_id', productId)          
-        .maybeSingle(); 
+        .from('"Cycle Products"') // Corrected based on error
+        .select('is_available_in_cycle')
+        .eq('cycle_id', activeCycle.cycle_id)
+        .eq('product_id', productId)
+        .maybeSingle();
 
-    if (cpError) { 
+    if (cpError) {
         console.warn(`Error fetching cycle product ${productId} in active cycle ${activeCycle.cycle_id}:`, cpError.message);
         if (cpError && typeof cpError.message === 'string' && (cpError.message.includes('fetch failed'))) {
            console.warn('Network error fetching cycle product for ' + productId + ' in active cycle.');
         }
-        return false; 
+        return false;
     }
     return cycleProduct ? cycleProduct.is_available_in_cycle : false;
 }
 
 export async function setProductAvailabilityInActiveCycle(productId: string, isAvailable: boolean): Promise<void> {
     const { data: activeCycle, error: cycleError } = await supabase
-        .from('purchase_cycles') 
-        .select('cycle_id')      
-        .eq('is_active', true)   
+        .from('purchase_cycles')
+        .select('cycle_id')
+        .eq('is_active', true)
         .limit(1)
         .maybeSingle();
 
@@ -1083,10 +1089,10 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
     }
 
     const { data: existingCycleProduct, error: fetchCpError } = await supabase
-        .from('cycle_products') 
-        .select('cycle_product_id, product_name_snapshot, price_in_cycle, display_image_url') 
-        .eq('cycle_id', activeCycle.cycle_id) 
-        .eq('product_id', productId)          
+        .from('"Cycle Products"') // Corrected based on error
+        .select('cycle_product_id, product_name_snapshot, price_in_cycle, display_image_url')
+        .eq('cycle_id', activeCycle.cycle_id)
+        .eq('product_id', productId)
         .maybeSingle();
 
     if (fetchCpError) {
@@ -1099,9 +1105,9 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
 
     if (existingCycleProduct) {
         const { error: updateError } = await supabase
-            .from('cycle_products') 
-            .update({ is_available_in_cycle: isAvailable }) 
-            .eq('cycle_product_id', existingCycleProduct.cycle_product_id); 
+            .from('"Cycle Products"') // Corrected based on error
+            .update({ is_available_in_cycle: isAvailable })
+            .eq('cycle_product_id', existingCycleProduct.cycle_product_id);
         if (updateError) {
             console.error(`Error updating availability for cycle product ${existingCycleProduct.cycle_product_id}:`, updateError.message);
             if (updateError && typeof updateError.message === 'string' && (updateError.message.includes('fetch failed'))) {
@@ -1109,11 +1115,11 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
             }
             throw updateError;
         }
-    } else if (isAvailable) { 
+    } else if (isAvailable) {
         const { data: masterProduct, error: masterProductError } = await supabase
-            .from('products') 
-            .select('name, image_url') 
-            .eq('product_id', productId) 
+            .from('products')
+            .select('name, image_url')
+            .eq('product_id', productId)
             .single();
 
         if (masterProductError || !masterProduct) {
@@ -1125,12 +1131,12 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
         }
 
         const { error: insertError } = await supabase
-            .from('cycle_products') 
-            .insert({ 
+            .from('"Cycle Products"') // Corrected based on error
+            .insert({
                 cycle_id: activeCycle.cycle_id,
                 product_id: productId,
                 product_name_snapshot: masterProduct.name,
-                price_in_cycle: 0, 
+                price_in_cycle: 0,
                 is_available_in_cycle: true,
                 display_image_url: masterProduct.image_url || 'https://placehold.co/400x300.png?text=Produto',
             });
@@ -1152,23 +1158,24 @@ interface AdminDashboardMetrics {
 
 export async function fetchActiveCycleMetrics(): Promise<AdminDashboardMetrics> {
   const { data: activeCycleData, error: cycleError } = await supabase
-    .from('purchase_cycles') 
-    .select('cycle_id, name, start_date, end_date, is_active, created_at') // Select specific columns
-    .eq('is_active', true) 
+    .from('purchase_cycles')
+    .select('cycle_id, name, start_date, end_date, is_active, created_at, description') // Added description
+    .eq('is_active', true)
     .limit(1)
     .maybeSingle();
 
   let activeCycle: PurchaseCycle | null = null;
   if (!cycleError && activeCycleData) {
-    activeCycle = { 
+    activeCycle = {
         cycleId: activeCycleData.cycle_id,
         name: activeCycleData.name,
         startDate: activeCycleData.start_date,
         endDate: activeCycleData.end_date,
         isActive: activeCycleData.is_active,
+        description: activeCycleData.description, // Map description
         createdAt: activeCycleData.created_at,
     };
-  } else if (cycleError) { 
+  } else if (cycleError) {
     console.warn('fetchActiveCycleMetrics (fetch active cycle) error:', cycleError.message);
     if (cycleError && typeof cycleError.message === 'string' && (cycleError.message.includes('fetch failed'))) {
     }
@@ -1179,9 +1186,9 @@ export async function fetchActiveCycleMetrics(): Promise<AdminDashboardMetrics> 
 
   if (activeCycle) {
     const { data: ordersData, error: ordersError } = await supabase
-      .from('orders') 
-      .select('order_status, payment_status, order_total_amount') 
-      .eq('cycle_id', activeCycle.cycleId); 
+      .from('orders')
+      .select('order_status, payment_status, order_total_amount')
+      .eq('cycle_id', activeCycle.cycleId);
 
     if (ordersError) {
       console.warn('fetchActiveCycleMetrics (fetch orders) error:', ordersError.message);
@@ -1206,9 +1213,9 @@ export async function fetchActiveCycleMetrics(): Promise<AdminDashboardMetrics> 
 
 export async function fetchAdminUsers(): Promise<User[]> {
   const { data, error } = await supabase
-    .from('profiles') 
+    .from('profiles')
     .select('*')
-    .order('created_at', { ascending: false }); 
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.error("fetchAdminUsers error:", error.message);
@@ -1218,12 +1225,12 @@ export async function fetchAdminUsers(): Promise<User[]> {
     throw error;
   }
 
-  return data.map(profile => ({ 
-      userId: profile.id, 
+  return data.map(profile => ({
+      userId: profile.id,
       email: profile.email,
       displayName: profile.display_name,
       whatsapp: profile.whatsapp,
-      isAdmin: profile.is_admin, 
+      isAdmin: profile.is_admin,
       createdAt: profile.created_at,
       addressStreet: profile.address_street,
       addressNumber: profile.address_number,
@@ -1260,21 +1267,21 @@ export async function signInWithEmail(email: string, password: string): Promise<
     .eq('id', authData.user.id)
     .single();
 
-  if (profileError && profileError.code !== 'PGRST116') { 
-    const basicUser: User = { 
+  if (profileError && profileError.code !== 'PGRST116') {
+    const basicUser: User = {
       userId: authData.user.id, email: authData.user.email || '', displayName: authData.user.email?.split('@')[0] || 'User', whatsapp: '', isAdmin: false, createdAt: new Date().toISOString()
     };
     return { user: basicUser, error: { message: profileError.message + " (profile fetch failed)" } };
   }
-  if (!profile) { 
-    const basicUser: User = {  
+  if (!profile) {
+    const basicUser: User = {
         userId: authData.user.id, email: authData.user.email || '', displayName: authData.user.email?.split('@')[0] || 'User', whatsapp: '', isAdmin: false, createdAt: new Date().toISOString()
     };
     return { user: basicUser, error: { message: "Profile not found for user." } };
   }
 
   const fullUser: User = {
-    userId: profile.id, email: profile.email, displayName: profile.display_name, whatsapp: profile.whatsapp, isAdmin: profile.is_admin, createdAt: profile.created_at, 
+    userId: profile.id, email: profile.email, displayName: profile.display_name, whatsapp: profile.whatsapp, isAdmin: profile.is_admin, createdAt: profile.created_at,
     addressStreet: profile.address_street, addressNumber: profile.address_number, addressComplement: profile.address_complement, addressNeighborhood: profile.address_neighborhood, addressCity: profile.address_city, addressState: profile.address_state, addressZip: profile.address_zip
   };
   if (typeof localStorage !== 'undefined') localStorage.setItem('currentUser', JSON.stringify(fullUser));
@@ -1284,7 +1291,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
 export async function signUpWithEmail(
   email: string,
   password: string,
-  profileData?: { 
+  profileData?: {
  }
 ): Promise<{ user: any | null; session: any | null; error: { message: string } | null }> {
   console.warn("signUpWithEmail from supabasePlaceholders.ts is a placeholder. Use from '@/lib/auth'.");
@@ -1311,3 +1318,5 @@ export async function checkAdminRole(): Promise<boolean> {
   const user = await getCurrentUser();
   return user?.isAdmin === true;
 }
+
+    
