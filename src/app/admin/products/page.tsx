@@ -46,7 +46,7 @@ export default function ProductManagementPage() {
         productId: p.product_id,
         name: p.name,
         description: p.description,
-        imageUrl: p.image_url, 
+        imageUrl: p.image_url,
         attributes: p.attributes,
         createdAt: p.created_at,
         updatedAt: p.updated_at,
@@ -54,7 +54,7 @@ export default function ProductManagementPage() {
       setProducts(mappedProducts);
     } catch (error: any) {
       toast({ title: "Erro ao Carregar Produtos", description: error.message || "Não foi possível carregar a lista de produtos.", variant: "destructive" });
-      setProducts([]); // Ensure products is an empty array on error
+      setProducts([]);
     } finally {
       setIsLoading(false);
     }
@@ -69,21 +69,32 @@ export default function ProductManagementPage() {
   ): Promise<Product> => {
     try {
       if ('productId' in productFormData && productFormData.productId) {
+        // UPDATE
         const { productId, ...updateData } = productFormData;
         const dbUpdatePayload: Record<string, any> = {
           name: updateData.name,
           description: updateData.description,
           attributes: updateData.attributes,
-          image_url: updateData.imageUrl, 
+          image_url: updateData.imageUrl,
+          updated_at: new Date().toISOString(), // Explicitly set updated_at
         };
 
-        const { data: updatedDbProduct, error } = await supabase
+        const { error: updateOpError } = await supabase
           .from('products')
           .update(dbUpdatePayload)
-          .eq('product_id', productId)
+          .eq('product_id', productId);
+
+        if (updateOpError) throw updateOpError;
+
+        const { data: updatedDbProduct, error: selectError } = await supabase
+          .from('products')
           .select()
+          .eq('product_id', productId)
           .single();
-        if (error) throw error;
+
+        if (selectError) throw selectError;
+        if (!updatedDbProduct) throw new Error("Produto não encontrado após a atualização.");
+
 
         const updatedProduct: Product = {
           productId: updatedDbProduct.product_id,
@@ -95,22 +106,29 @@ export default function ProductManagementPage() {
           updatedAt: updatedDbProduct.updated_at,
         };
         toast({ title: "Produto Atualizado", description: `O produto "${updatedProduct.name}" foi atualizado.` });
-        await loadProducts(); 
+        await loadProducts();
         return updatedProduct;
 
       } else {
+        // CREATE
         const dbPayload: Record<string, any> = {
           name: productFormData.name,
           description: productFormData.description,
-          image_url: productFormData.imageUrl, 
+          image_url: productFormData.imageUrl,
           attributes: productFormData.attributes,
+          // created_at and updated_at will be set by default or triggers if defined in DB
         };
-        const { data: insertedDbProduct, error } = await supabase
+        const { data: insertedData, error: insertOpError } = await supabase
           .from('products')
           .insert([dbPayload])
-          .select()
-          .single();
-        if (error) throw error;
+          .select(); // Select the inserted row(s)
+
+        if (insertOpError) throw insertOpError;
+        if (!insertedData || insertedData.length === 0) {
+          throw new Error("Falha ao criar o produto ou nenhum dado retornado.");
+        }
+        const insertedDbProduct = insertedData[0];
+
 
         const newProduct: Product = {
           productId: insertedDbProduct.product_id,
@@ -122,13 +140,15 @@ export default function ProductManagementPage() {
           updatedAt: insertedDbProduct.updated_at,
         };
         toast({ title: "Produto Criado", description: `O produto "${newProduct.name}" foi criado.` });
-        await loadProducts(); 
+        await loadProducts();
         return newProduct;
       }
     } catch (error: any) {
       console.error("Error in handleFormSubmit (products page):", error);
+      // A mensagem de erro original já é "JSON object requested..." que é específica do Supabase
+      // por isso não precisamos adicionar mais detalhes, apenas repassamos.
       toast({ title: "Erro ao Salvar Produto", description: error.message || "Não foi possível salvar o produto.", variant: "destructive" });
-      throw error; 
+      throw error;
     }
   };
 
@@ -169,7 +189,7 @@ export default function ProductManagementPage() {
       />
 
       <Dialog open={isModalOpen} onOpenChange={(isOpen) => { setIsModalOpen(isOpen); if (!isOpen) setEditingProduct(null); }}>
-        <DialogContent 
+        <DialogContent
           key={editingProduct ? `modal-product-${editingProduct.productId}` : 'modal-product-new'}
           className="sm:max-w-[600px] bg-card shadow-lg"
         >
@@ -232,7 +252,7 @@ export default function ProductManagementPage() {
                     />
                   </TableCell>
                   <TableCell className="font-medium">{product.name}</TableCell>
-                  <TableCell className="truncate max-w-xs">{product.description.substring(0, 50)}...</TableCell>
+                  <TableCell className="truncate max-w-xs">{product.description ? product.description.substring(0, 50) + (product.description.length > 50 ? '...' : '') : ''}</TableCell>
                   <TableCell className="text-right space-x-2">
                     <Button variant="outline" size="sm" onClick={() => openEditProductModal(product)}>
                       <Edit3 size={16} className="mr-1" /> Editar
