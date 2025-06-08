@@ -50,7 +50,7 @@ export default function HomePage() {
 
         if (cycleError) {
           console.error("Error fetching active purchase cycle:", cycleError);
- setCycleTitle("Erro ao carregar ciclo de compra");
+ setCycleTitle("Erro ao carregar ciclos de compra"); // Updated error message
  setAllProducts([]);
           return;
         }
