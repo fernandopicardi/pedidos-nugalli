@@ -71,7 +71,7 @@ export default function CustomerManagementPage() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*') // Select all columns
+        .select('*') 
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -88,7 +88,7 @@ export default function CustomerManagementPage() {
         userId: item.id,
         email: item.email,
         displayName: item.display_name || 'N/A',
-        whatsapp: item.whatsapp || 'N/A', // Assuming whatsapp can be null from DB or default if empty
+        whatsapp: item.whatsapp || 'N/A', 
         isAdmin: item.is_admin,
         createdAt: item.created_at,
         addressStreet: item.address_street || undefined,
@@ -150,7 +150,7 @@ export default function CustomerManagementPage() {
       setCustomerOrders(orders);
     } catch (error: any) {
       toast({
-        title: \`Erro ao Carregar Pedidos de \${customer.displayName}\`,
+        title: `Erro ao Carregar Pedidos de ${customer.displayName}`,
         description: error.message || "Não foi possível buscar os pedidos do cliente.",
         variant: "destructive",
       });
