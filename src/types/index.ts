@@ -15,7 +15,7 @@ export interface User {
   addressZip?: string;   // CEP
 }
 
-export interface Product { // Represents Master Product List
+export interface Product { // Represents Product List
   productId: string; // auto-ID
   name: string;
   description: string;
@@ -31,13 +31,14 @@ export interface PurchaseCycle {
   startDate: string; // ISO date string (timestamp)
   endDate: string; // ISO date string (timestamp)
   isActive: boolean;
+  description?: string; // Optional description for the homepage
   createdAt: string; // ISO date string (timestamp)
 }
 
 export interface CycleProduct { // Product offering within a specific cycle
   cycleProductId: string; // auto-ID
   cycleId: string; // ref to PurchaseCycles
-  productId: string; // ref to Products (Master)
+  productId: string; // ref to Products
   productNameSnapshot: string; // for historical display
   priceInCycle: number; // specific price for this product in this cycle
   isAvailableInCycle: boolean;

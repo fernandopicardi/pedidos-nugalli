@@ -39,18 +39,19 @@ export default function PurchaseCycleManagementPage() {
     try {
       const { data, error } = await supabase
         .from('purchase_cycles')
-        .select('*')
+        .select('cycle_id, name, start_date, end_date, is_active, created_at, description') // Added description
         .order('start_date', { ascending: false });
       
       if (error) throw error;
 
       if (data) {
         const mappedData = data.map(dbCycle => ({
-          cycleId: dbCycle.cycle_id, // Use 'cycle_id' from DB
+          cycleId: dbCycle.cycle_id,
           name: dbCycle.name,
           startDate: dbCycle.start_date,
           endDate: dbCycle.end_date,
           isActive: dbCycle.is_active,
+          description: dbCycle.description, // Map description
           createdAt: dbCycle.created_at
         } as PurchaseCycle));
         setPurchaseCycles(mappedData);
@@ -74,16 +75,22 @@ export default function PurchaseCycleManagementPage() {
     let successMessage = "";
     
     const typedFormData = formData as Partial<PurchaseCycle> & { cycleId?: string };
-    // Check if we are editing based on the presence and validity of cycleId in the formData
     const isEditing = typedFormData.cycleId && typeof typedFormData.cycleId === 'string' && typedFormData.cycleId.length > 0;
     const cycleIdToUpdate = isEditing ? typedFormData.cycleId : undefined;
     
     try {
-      const dbPayload = {
-        name: formData.name,
-        start_date: formData.startDate,
-        end_date: formData.endDate,
-        is_active: formData.isActive,
+      const dbPayload: {
+        name: string;
+        start_date: string;
+        end_date: string;
+        is_active: boolean;
+        description?: string | null; // Add description to payload type
+      } = {
+        name: formData.name!, // Asserting name is present as it's validated
+        start_date: formData.startDate!,
+        end_date: formData.endDate!,
+        is_active: formData.isActive!,
+        description: formData.description || null, // Ensure description is included, or null
       };
 
       if (isEditing && cycleIdToUpdate) {
@@ -100,13 +107,12 @@ export default function PurchaseCycleManagementPage() {
         const { data: updatedDbCycle, error: updateError } = await supabase
           .from('purchase_cycles')
           .update(dbPayload)
-          .eq('cycle_id', cycleIdToUpdate) // PK column is 'cycle_id'
-          .select() // Fetch the updated row
-          .single(); // Ensure we get one record back
+          .eq('cycle_id', cycleIdToUpdate)
+          .select()
+          .single();
 
         if (updateError) throw updateError;
         if (!updatedDbCycle) {
-          console.error("Update successful but no data returned. RLS issue or cycleId not found for update?");
           throw new Error("Falha ao obter dados atualizados do ciclo após a atualização.");
         }
         
@@ -116,6 +122,7 @@ export default function PurchaseCycleManagementPage() {
           startDate: updatedDbCycle.start_date,
           endDate: updatedDbCycle.end_date,
           isActive: updatedDbCycle.is_active,
+          description: updatedDbCycle.description, // Include description
           createdAt: updatedDbCycle.created_at,
         };
 
@@ -136,19 +143,22 @@ export default function PurchaseCycleManagementPage() {
                 console.warn("Error deactivating other cycles:", deactivateError.message);
             }
         }
-        const { error: insertError } = await supabase
+        const { data: insertedDbCycle, error: insertError } = await supabase // Store returned data
           .from('purchase_cycles')
           .insert(dbPayload)
-          .select() // Fetch the newly created row
+          .select() 
           .single(); 
         if (insertError) throw insertError;
-        successMessage = `Ciclo "${formData.name}" criado com sucesso.`;
+        if (!insertedDbCycle) {
+          throw new Error("Falha ao obter dados do ciclo após a criação.");
+        }
+        successMessage = `Ciclo "${insertedDbCycle.name}" criado com sucesso.`;
       }
       
       toast({ title: "Sucesso!", description: successMessage });
       setIsModalOpen(false);
       setEditingCycle(null);
-      await loadPurchaseCycles(); // Still call this to refresh the entire list for overall consistency
+      await loadPurchaseCycles();
     } catch (error: any) {
       console.error("Failed to save purchase cycle:", error);
       toast({ title: "Erro ao Salvar", description: error.message || "Não foi possível salvar o ciclo de compra.", variant: "destructive" });
@@ -168,7 +178,7 @@ export default function PurchaseCycleManagementPage() {
   };
 
   const handleDeleteCycle = async (cycleIdToDelete: string, cycleName: string) => {
-    if (!cycleIdToDelete || typeof cycleIdToDelete !== 'string' || cycleIdToDelete.trim() === '') {
+     if (!cycleIdToDelete || typeof cycleIdToDelete !== 'string' || cycleIdToDelete.trim() === '') {
       toast({
         title: "Erro Interno",
         description: "ID do ciclo inválido ou ausente. Não é possível deletar.",
@@ -177,13 +187,12 @@ export default function PurchaseCycleManagementPage() {
       console.error("[PurchaseCyclePage] handleDeleteCycle - Aborted: cycleIdToDelete is invalid.", cycleIdToDelete);
       return; 
     }
-
     setIsLoading(true); 
     try {
       const { error } = await supabase
         .from('purchase_cycles')
         .delete()
-        .eq('cycle_id', cycleIdToDelete); // PK column is 'cycle_id'
+        .eq('cycle_id', cycleIdToDelete); 
       
       if (error) throw error;
 
@@ -217,7 +226,7 @@ export default function PurchaseCycleManagementPage() {
           }
         }}>
         <DialogContent 
-          key={editingCycle ? `modal-content-${editingCycle.cycleId}` : 'modal-content-new-cycle'} 
+          key={editingCycle ? `form-instance-${editingCycle.cycleId}` : 'form-instance-new'} 
           className="sm:max-w-[600px] bg-card shadow-lg"
         >
           <DialogHeader>
@@ -226,7 +235,7 @@ export default function PurchaseCycleManagementPage() {
             </DialogTitle>
           </DialogHeader>
           <PurchaseCycleForm
-            key={editingCycle ? `form-instance-${editingCycle.cycleId}` : 'form-instance-new'}
+            key={editingCycle ? `form-instance-${editingCycle.cycleId}` : 'form-instance-new-cycle-form'} // Ensure form also re-keys
             initialData={editingCycle}
             onSubmit={handleFormSubmit}
             onClose={() => { 
@@ -258,6 +267,7 @@ export default function PurchaseCycleManagementPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
+                <TableHead className="w-[250px]">Descrição Curta</TableHead>
                 <TableHead>Data de Início</TableHead>
                 <TableHead>Data de Fim</TableHead>
                 <TableHead>Status</TableHead>
@@ -268,6 +278,9 @@ export default function PurchaseCycleManagementPage() {
               {purchaseCycles.map((cycle) => (
                 <TableRow key={cycle.cycleId}> 
                   <TableCell className="font-medium">{cycle.name}</TableCell>
+                  <TableCell className="text-xs max-w-xs truncate" title={cycle.description}>
+                    {cycle.description ? `${cycle.description.substring(0, 50)}...` : 'N/A'}
+                  </TableCell>
                   <TableCell>{formatDate(cycle.startDate)}</TableCell>
                   <TableCell>{formatDate(cycle.endDate)}</TableCell>
                   <TableCell>
@@ -310,4 +323,3 @@ export default function PurchaseCycleManagementPage() {
     </PageContainer>
   );
 }
-    

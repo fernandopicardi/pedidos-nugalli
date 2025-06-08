@@ -25,6 +25,7 @@ export default function HomePage() {
   const [allProducts, setAllProducts] = useState<DisplayableProduct[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<DisplayableProduct[]>([]);
   const [cycleTitle, setCycleTitle] = useState<string>('');
+  const [cycleDescription, setCycleDescription] = useState<string | null>(null); // State for cycle description
   const [isLoading, setIsLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,16 +41,16 @@ export default function HomePage() {
     async function loadData() {
       setIsLoading(true);
       try {
-        // Fetch active purchase cycle
         const { data: cycleData, error: cycleError } = await supabase
-          .from('purchase_cycles') // Corrigido para snake_case
-          .select('cycle_id, name')
+          .from('purchase_cycles')
+          .select('cycle_id, name, description') // Fetch description
           .eq('is_active', true)
-          .maybeSingle(); // Alterado para maybeSingle para mais robustez
+          .maybeSingle();
 
         if (cycleError) {
           console.error("Error fetching active purchase cycle:", cycleError);
           setCycleTitle("Erro ao carregar ciclos de compra");
+          setCycleDescription(null);
           setAllProducts([]);
           setFilteredProducts([]);
           setIsLoading(false);
@@ -58,6 +59,7 @@ export default function HomePage() {
 
         if (!cycleData) {
           setCycleTitle("Nenhum Ciclo de Compra Ativo");
+          setCycleDescription(null);
           setAllProducts([]);
           setFilteredProducts([]);
           setIsLoading(false);
@@ -65,11 +67,10 @@ export default function HomePage() {
         }
 
         setCycleTitle(cycleData.name);
+        setCycleDescription(cycleData.description || null); // Set description, fallback to null
 
-        // Fetch products for the active cycle
-        // A tabela relacionada 'Products' será referenciada como 'products' (minúsculo) no resultado do Supabase
         const { data: productsData, error: productsError } = await supabase
-          .from('cycle_products') // Corrigido para snake_case
+          .from('cycle_products')
           .select(`
             cycle_product_id, 
             cycle_id, 
@@ -85,18 +86,16 @@ export default function HomePage() {
 
         if (productsError) {
           console.error("Error fetching cycle products:", productsError);
-          // cycleTitle já está definido, não sobrescrever com erro de produto
           setAllProducts([]);
           setFilteredProducts([]);
           setIsLoading(false);
           return;
         }
 
-        // Map fetched data to DisplayableProduct type
         const displayableProducts: DisplayableProduct[] = productsData ? productsData.map(cp => ({
           cycleProductId: cp.cycle_product_id,
           cycleId: cp.cycle_id,
-          productId: cp.products?.product_id || cp.product_id, // Acessa a tabela relacionada como 'products'
+          productId: cp.products?.product_id || cp.product_id,
           name: cp.product_name_snapshot || cp.products?.name || 'Unknown Product',
           description: cp.products?.description || '',
           imageUrl: cp.display_image_url || cp.products?.image_url || 'https://placehold.co/400x300.png?text=Produto',
@@ -108,11 +107,12 @@ export default function HomePage() {
         setAllProducts(displayableProducts);
       } catch (error) {
         console.error("Failed to load homepage data:", error);
-        setCycleTitle("Erro ao carregar dados da página"); // Mensagem de erro mais genérica
+        setCycleTitle("Erro ao carregar dados da página");
+        setCycleDescription(null);
         setAllProducts([]);
         setFilteredProducts([]);
       } finally {
-        setIsLoading(false); // Garante que o loading é desativado
+        setIsLoading(false);
       }
     }
     loadData();
@@ -245,9 +245,14 @@ export default function HomePage() {
   return (
     <PageContainer>
       <section className="text-center my-8 md:my-12">
-        <h1 className="text-4xl md:text-5xl font-headline font-bold text-primary mb-4">
+        <h1 className="text-4xl md:text-5xl font-headline font-bold text-primary mb-2">
           {cycleTitle}
         </h1>
+        {cycleDescription && (
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-4">
+            {cycleDescription}
+          </p>
+        )}
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
           Descubra nossa seleção exclusiva de chocolates artesanais, preparados com os melhores ingredientes para este ciclo de compra.
         </p>
@@ -360,5 +365,3 @@ export default function HomePage() {
     </PageContainer>
   );
 }
-
-    

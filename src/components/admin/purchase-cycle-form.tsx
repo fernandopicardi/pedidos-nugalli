@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea'; // Import Textarea
 import { useToast } from '@/hooks/use-toast';
-// import { supabase } from '@/lib/supabaseClient'; // Not directly used here anymore for DB ops
 import { Loader2 } from 'lucide-react';
 
 interface PurchaseCycleFormProps {
@@ -23,20 +23,18 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose, isSubmitting
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isActive, setIsActive] = useState(false);
+  const [description, setDescription] = useState(''); // State for description
   const { toast } = useToast();
 
   useEffect(() => {
     if (initialData) {
       setName(initialData.name);
-      // Ensure dates are correctly formatted for datetime-local input
-      // It expects YYYY-MM-DDTHH:mm
-      setStartDate(initialData.startDate ? new Date(initialData.startDate).toISOString().substring(0, 16) : ''); 
+      setStartDate(initialData.startDate ? new Date(initialData.startDate).toISOString().substring(0, 16) : '');
       setEndDate(initialData.endDate ? new Date(initialData.endDate).toISOString().substring(0, 16) : '');
       setIsActive(initialData.isActive);
+      setDescription(initialData.description || ''); // Populate description
     } else {
-      // Default for new cycle: start today, end in one month
       const now = new Date();
-      // Adjust for local timezone to ensure correct default for datetime-local
       const localNow = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
       const today = localNow.toISOString().substring(0, 16);
       
@@ -48,6 +46,7 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose, isSubmitting
       setStartDate(today);
       setEndDate(nextMonth);
       setIsActive(false);
+      setDescription(''); // Reset description for new cycle
     }
   }, [initialData]);
 
@@ -66,21 +65,19 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose, isSubmitting
       return;
     }
 
-    const cycleDataPayload = { 
-      name, 
-      // Convert local datetime-local string back to full ISO string for Supabase
-      startDate: new Date(startDate).toISOString(), 
-      endDate: new Date(endDate).toISOString(),   
-      isActive 
+    const cycleDataPayload = {
+      name,
+      startDate: new Date(startDate).toISOString(),
+      endDate: new Date(endDate).toISOString(),
+      isActive,
+      description: description.trim() || undefined, // Send undefined if empty, Supabase handles null
     };
     
     const isEditingForm = initialData?.cycleId && typeof initialData.cycleId === 'string' && initialData.cycleId.length > 0;
 
     if (isEditingForm) {
-      // Pass cycleId along with other data for an update
-      await onSubmit({ ...cycleDataPayload, cycleId: initialData.cycleId as string }); 
+      await onSubmit({ ...cycleDataPayload, cycleId: initialData.cycleId as string });
     } else {
-      // No cycleId for a new cycle
       await onSubmit(cycleDataPayload as Omit<PurchaseCycle, 'cycleId' | 'createdAt'>);
     }
   };
@@ -99,6 +96,21 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose, isSubmitting
           disabled={isSubmitting}
         />
       </div>
+
+      <div>
+        <Label htmlFor="cycle-description" className="font-semibold">Descrição do Ciclo (para Homepage)</Label>
+        <Textarea
+          id="cycle-description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className="mt-1"
+          placeholder="Uma breve descrição que aparecerá na página inicial sob o título do ciclo."
+          disabled={isSubmitting}
+          rows={3}
+        />
+        <p className="text-xs text-muted-foreground mt-1">Opcional. Este texto será exibido na página inicial.</p>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="start-date" className="font-semibold">Data e Hora de Início</Label>
@@ -134,7 +146,7 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose, isSubmitting
         />
         <Label htmlFor="is-active" className="font-semibold">Ativar este ciclo?</Label>
       </div>
-      <p className="text-xs text-muted-foreground">Somente um ciclo pode estar ativo por vez. Ativar este ciclo desativará outros automaticamente (lógica implementada na função de criar/atualizar ciclo na página).</p>
+      <p className="text-xs text-muted-foreground">Somente um ciclo pode estar ativo por vez. Ativar este ciclo desativará outros automaticamente.</p>
       
       <div className="flex justify-end space-x-3 pt-4 border-t sticky bottom-0 bg-card py-3">
         <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
@@ -148,4 +160,3 @@ export function PurchaseCycleForm({ initialData, onSubmit, onClose, isSubmitting
     </form>
   );
 }
-    
