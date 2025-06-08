@@ -8,7 +8,7 @@ import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { PageContainer } from '@/components/shared/page-container';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, UserCircle, Users } from 'lucide-react';
+import { Loader2, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardTitle } from '@/components/ui/card';
 
@@ -22,28 +22,39 @@ export default function CustomerManagementPage() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, email, display_name, whatsapp, is_admin, created_at, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_zip') // Select is_admin
-        .eq('is_admin', false); // Filter for customers (is_admin = false)
+        .select('*') // Changed to select('*') as per user's instruction
+        .order('created_at', { ascending: false });
 
       if (error) {
         throw error;
+      }
+
+      if (!data || !Array.isArray(data)) {
+        setCustomers([]);
+        return;
       }
 
       const usersData: User[] = data.map(item => ({
         userId: item.id, 
         email: item.email,
         displayName: item.display_name || 'N/A',
-        whatsapp: item.whatsapp,
-        isAdmin: item.is_admin, // Map is_admin
+        whatsapp: item.whatsapp || 'N/A', // Assuming whatsapp is NOT NULL from previous context
+        isAdmin: item.is_admin,
         createdAt: item.created_at,
-        ...item 
-      })) as User[]; 
+        addressStreet: item.address_street || undefined,
+        addressNumber: item.address_number || undefined,
+        addressComplement: item.address_complement || undefined,
+        addressNeighborhood: item.address_neighborhood || undefined,
+        addressCity: item.address_city || undefined,
+        addressState: item.address_state || undefined,
+        addressZip: item.address_zip || undefined,
+      })); 
 
-      usersData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setCustomers(usersData);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to fetch customers:", error);
-      toast({ title: "Erro ao Carregar Clientes", description: "Não foi possível carregar a lista de clientes.", variant: "destructive" });
+      toast({ title: "Erro ao Carregar Clientes", description: error?.message || "Não foi possível carregar a lista de clientes.", variant: "destructive" });
+      setCustomers([]);
     } finally {
       setIsLoading(false);
     } 
@@ -106,7 +117,7 @@ export default function CustomerManagementPage() {
                 <TableRow key={customer.userId}>
                   <TableCell className="font-medium">{customer.displayName}</TableCell>
                   <TableCell>{customer.email}</TableCell>
-                  <TableCell>{customer.whatsapp || 'N/A'}</TableCell>
+                  <TableCell>{customer.whatsapp}</TableCell>
                   <TableCell className="text-xs max-w-xs truncate">{formatAddress(customer)}</TableCell>
                   <TableCell>{formatDate(customer.createdAt)}</TableCell>
                   <TableCell>
