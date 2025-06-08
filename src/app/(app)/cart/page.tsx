@@ -12,12 +12,12 @@ import { useToast } from "@/hooks/use-toast";
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getCurrentUser, processCheckout } from '@/lib/supabasePlaceholders';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ShoppingCart } from 'lucide-react'; // Added ShoppingCart icon
 
 export default function CartPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // General loading for page/checkout
+  const [isLoading, setIsLoading] = useState(true); 
   const { toast } = useToast();
   const router = useRouter();
 
@@ -36,7 +36,7 @@ export default function CartPage() {
       try {
         const { data: items, error } = await supabase
           .from('Cart Items')
-          .select(`
+          .select(\`
             cart_item_id, 
             quantity,
             cycle_product_id, 
@@ -47,7 +47,7 @@ export default function CartPage() {
               display_image_url,
               Products ( description )
             )
-          `)
+          \`)
           .eq('user_id', user.userId);
 
         if (error) {
@@ -77,16 +77,16 @@ export default function CartPage() {
       }
     }
     loadUserDataAndCart();
-  }, [toast]); // Removed setCurrentUser, setCartItems, setIsLoading as they are stable updaters
+  }, [toast]); 
 
   const handleQuantityChange = async (cartItemId: string, newQuantity: number) => {
     const itemIndex = cartItems.findIndex(item => item.cartItemId === cartItemId);
     if (itemIndex === -1) return;
 
-    const originalCartItems = [...cartItems]; // Keep a snapshot for revert
+    const originalCartItems = [...cartItems]; 
     const updatedCartItems = [...cartItems];
     updatedCartItems[itemIndex] = { ...updatedCartItems[itemIndex], quantity: newQuantity };
-    setCartItems(updatedCartItems); // Optimistic UI update
+    setCartItems(updatedCartItems); 
 
     try {
       const { error } = await supabase
@@ -96,11 +96,11 @@ export default function CartPage() {
 
       if (error) {
         toast({ title: "Erro ao atualizar quantidade", description: error.message, variant: "destructive" });
-        setCartItems(originalCartItems); // Revert local change if Supabase update fails
+        setCartItems(originalCartItems); 
       }
     } catch (error: any) {
         toast({ title: "Erro ao atualizar quantidade", description: error?.message || "Erro desconhecido", variant: "destructive" });
-        setCartItems(originalCartItems); // Revert on exception
+        setCartItems(originalCartItems); 
     }
   };
 
@@ -114,16 +114,14 @@ export default function CartPage() {
 
       if (supabaseError) {
         toast({ title: "Erro ao remover item", description: supabaseError.message, variant: "destructive" });
-        // Do not update UI if Supabase reports an error
       } else {
-        // Success from Supabase, update UI
         setCartItems(prevItems => prevItems.filter(item => item.cartItemId !== cartItemId));
       }
     } catch (error: any) {
       toast({ title: "Erro ao remover item", description: error?.message || "Não foi possível remover o item.", variant: "destructive" });
-      setCartItems(originalCartItems); // Revert UI on exception
+      setCartItems(originalCartItems); 
     }
-  }, [cartItems, toast, setCartItems]); // Added setCartItems to dependency array
+  }, [cartItems, toast, setCartItems]); 
 
   const totalValue = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
@@ -145,10 +143,10 @@ export default function CartPage() {
       const order = await processCheckout(cartItems);
       toast({
         title: "Pedido Realizado!",
-        description: `Seu pedido #${order.orderNumber} foi confirmado.`,
+        description: \`Seu pedido #${order.orderNumber} foi confirmado.\`,
       });
       setCartItems([]);
-      // router.push(`/order-confirmation/${order.orderId}`); // TODO: Implement order confirmation page
+      // router.push(\`/order-confirmation/\${order.orderId}\`); 
     } catch (error: any) {
       toast({ title: "Erro no Checkout", description: error?.message || "Não foi possível finalizar seu pedido. Tente novamente.", variant: "destructive" });
     } finally {
@@ -156,7 +154,7 @@ export default function CartPage() {
     }
   };
 
-  if (isLoading && !cartItems.length && !currentUser) { // Show full page loader only on initial load and if user data also not yet loaded
+  if (isLoading && !cartItems.length && !currentUser) { 
     return (
       <PageContainer className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -169,15 +167,17 @@ export default function CartPage() {
     <PageContainer>
       <div className="my-8">
         <h1 className="text-4xl font-headline text-center mb-10">Resumo do Pedido</h1>
-        {isLoading && cartItems.length === 0 && currentUser ? ( // Loading state for cart items specifically, if user is known
+        {isLoading && cartItems.length === 0 && currentUser ? ( 
             <div className="flex flex-col items-center justify-center py-10">
                 <Loader2 className="h-10 w-10 animate-spin text-primary mb-3" />
                 <p className="text-muted-foreground">Buscando itens do carrinho...</p>
             </div>
         ) : cartItems.length === 0 ? (
           <Card className="shadow-lg">
-            <CardContent className="p-10 text-center">
-              <p className="text-xl text-muted-foreground mb-6">Seu carrinho está vazio.</p>
+            <CardContent className="p-10 text-center flex flex-col items-center">
+              <ShoppingCart size={48} className="mx-auto text-muted-foreground mb-4" />
+              <CardTitle className="text-xl font-semibold mb-2">Seu Carrinho está Vazio</CardTitle>
+              <p className="text-muted-foreground mb-6">Adicione alguns chocolates deliciosos para continuar.</p>
               <Button asChild>
                 <Link href="/">Continuar Comprando</Link>
               </Button>

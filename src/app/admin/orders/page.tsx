@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react'; // Added useCallback
 import type { Order, Profile } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -10,7 +10,8 @@ import { PageContainer } from '@/components/shared/page-container';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { HelpCircle } from 'lucide-react';
+import { HelpCircle, Loader2, ListOrdered } from 'lucide-react';
+import { Card, CardContent, CardTitle } from '@/components/ui/card';
 
 const orderStatusMapping: Record<Order['orderStatus'], string> = {
   "Pending Payment": "Pagamento Pendente",
@@ -21,16 +22,11 @@ const orderStatusMapping: Record<Order['orderStatus'], string> = {
   "Cancelled": "Cancelado"
 };
 
-// Removed orderStatusColors as badges are no longer directly used for display in this manner.
-// Select component itself will display the status.
-
 const paymentStatusMapping: Record<Order['paymentStatus'], string> = {
   "Unpaid": "Não Pago",
   "Paid": "Pago",
   "Refunded": "Reembolsado",
 };
-
-// Removed paymentStatusColors for the same reason.
 
 
 export default function OrderVisualizationPage() {
@@ -38,48 +34,63 @@ export default function OrderVisualizationPage() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  async function loadOrders() {
+  const loadOrders = useCallback(async () => { // Wrapped in useCallback
     setIsLoading(true);
-    try { // Removed unused 'error' variable from the catch block
+    try { 
       const { data, error: fetchError } = await supabase
-        .from('Orders')
-        .select('*, profiles ( display_name )') // Select all from orders, join with profiles to get display_name
-        .order('created_at', { ascending: false }); // Order by creation date descending
+        .from('orders') // Changed from 'Orders' to 'orders'
+        .select('*, profiles ( display_name )') 
+        .order('created_at', { ascending: false }); 
 
       if (fetchError) {
         throw fetchError;
       }
 
-      // Map the data to the Order type, including the customer name from the join
       setOrders(data.map(order => ({
         ...order, customerNameSnapshot: (order.profiles as Profile | null)?.display_name || 'N/A' })));
-    } catch (error: any) { // Removed unused 'error' variable from the catch block
-      toast({ title: "Erro ao Carregar Pedidos", description: "Não foi possível carregar os pedidos.", variant: "destructive" });
+    } catch (error: any) { 
+      toast({ title: "Erro ao Carregar Pedidos", description: error?.message || "Não foi possível carregar os pedidos.", variant: "destructive" });
+      setOrders([]); // Ensure orders is an empty array on error
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [toast]); // Added toast to dependency array
 
   useEffect(() => {
     loadOrders();
-  }, [loadOrders]); // Added loadOrders to the dependency array
+  }, [loadOrders]);
 
   const handleStatusChange = async (orderId: string, newOrderStatus: Order['orderStatus'], newPaymentStatus?: Order['paymentStatus']) => {
-    setIsLoading(true); // Show loading state while updating
+    // Show loading state while updating - consider a more granular loading state if needed
+    const originalOrders = [...orders];
+    const orderIndex = orders.findIndex(o => o.orderId === orderId);
+    if (orderIndex === -1) return;
+
+    const updatedOrders = [...orders];
+    updatedOrders[orderIndex] = {
+      ...updatedOrders[orderIndex],
+      orderStatus: newOrderStatus,
+      paymentStatus: newPaymentStatus !== undefined ? newPaymentStatus : updatedOrders[orderIndex].paymentStatus
+    };
+    setOrders(updatedOrders); // Optimistic update
+
     try {
       const updateData: { order_status: Order['orderStatus']; payment_status?: Order['paymentStatus'] } = { order_status: newOrderStatus };
       if (newPaymentStatus !== undefined) {
         updateData.payment_status = newPaymentStatus;
       }
       const { error: updateError } = await supabase
-        .from('Orders')
+        .from('orders') // Changed from 'Orders' to 'orders'
         .update(updateData)
         .eq('order_id', orderId);
 
       if (updateError) throw updateError;
-      await loadOrders(); 
-    } catch (error) {
-      toast({ title: "Erro ao Atualizar", description: "Não foi possível atualizar o status do pedido.", variant: "destructive" }); // Removed unused 'error' variable from the catch block
+      // No need to call loadOrders() again due to optimistic update, unless you want to re-verify
+      // await loadOrders(); 
+      toast({ title: "Status Atualizado", description: "O status do pedido foi alterado." });
+    } catch (error: any) {
+      setOrders(originalOrders); // Revert on error
+      toast({ title: "Erro ao Atualizar", description: error?.message || "Não foi possível atualizar o status do pedido.", variant: "destructive" });
     }
   };
   
@@ -91,11 +102,18 @@ export default function OrderVisualizationPage() {
     <PageContainer className="py-8">
       <AdminPageHeader title="Visualização de Pedidos" />
       {isLoading ? (
-        <p>Carregando pedidos...</p>
+         <div className="flex flex-col items-center justify-center py-10">
+            <Loader2 className="h-10 w-10 animate-spin text-primary mb-3" />
+            <p className="text-muted-foreground">Carregando pedidos...</p>
+        </div>
       ) : orders.length === 0 ? (
-         <div className="text-center py-12 bg-card rounded-lg shadow">
-            <p className="text-xl text-muted-foreground">Nenhum pedido encontrado.</p>
-          </div>
+         <Card className="shadow-lg">
+            <CardContent className="p-10 text-center flex flex-col items-center">
+                <ListOrdered size={48} className="mx-auto text-muted-foreground mb-4" />
+                <CardTitle className="text-xl font-semibold mb-2">Nenhum Pedido Encontrado</CardTitle>
+                <p className="text-muted-foreground">Ainda não há pedidos registrados no sistema.</p>
+            </CardContent>
+        </Card>
       ) : (
         <TooltipProvider>
           <div className="bg-card p-4 md:p-6 rounded-lg shadow">

@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { User as AppUser, Order } from '@/types';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link'; // Import Link for internal navigation
-import { Loader2, LogOut, ShoppingBag, CalendarDays, Home, UserCircle } from 'lucide-react'; // Removed unused icons
+import { Loader2, LogOut, ShoppingBag, CalendarDays, Home, UserCircle, ListOrdered } from 'lucide-react';
 import { signOut } from '@/lib/auth'; // Added import
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -278,13 +278,11 @@ export default function AccountPage() {
           </div>
         ) : orders.length === 0 ? (
           <Card className="shadow-lg">
-            <CardContent className="p-10 text-center">
-              <ShoppingBag size={48} className="mx-auto text-muted-foreground mb-4" />
+            <CardContent className="p-10 text-center flex flex-col items-center">
+              <ListOrdered size={48} className="mx-auto text-muted-foreground mb-4" />
               <p className="text-xl text-muted-foreground">Você ainda não fez nenhum pedido.</p>
               <Button asChild className="mt-6">
-                {/* Replaced <a> with <Link> for internal navigation */}
                 <Link href="/">Ver Produtos</Link>
-
               </Button>
             </CardContent>
           </Card>

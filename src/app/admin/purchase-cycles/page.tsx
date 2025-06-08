@@ -6,11 +6,11 @@ from 'react';
 import type { PurchaseCycle } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle as FormDialogTitle } from '@/components/ui/dialog'; // Renamed DialogTitle to avoid conflict
 import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { PageContainer } from '@/components/shared/page-container';
 import { PurchaseCycleForm } from '@/components/admin/purchase-cycle-form';
-import { PlusCircle, Edit3, Trash2, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit3, Trash2, Loader2, CalendarOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabaseClient';
+import { Card, CardContent, CardTitle } from '@/components/ui/card'; // Added Card imports
 
 export default function PurchaseCycleManagementPage() {
   const [purchaseCycles, setPurchaseCycles] = useState<PurchaseCycle[]>([]);
@@ -39,7 +40,7 @@ export default function PurchaseCycleManagementPage() {
     try {
       const { data, error } = await supabase
         .from('purchase_cycles')
-        .select('cycle_id, name, start_date, end_date, is_active, created_at, description') // Added description
+        .select('cycle_id, name, start_date, end_date, is_active, created_at, description') 
         .order('start_date', { ascending: false });
       
       if (error) throw error;
@@ -51,7 +52,7 @@ export default function PurchaseCycleManagementPage() {
           startDate: dbCycle.start_date,
           endDate: dbCycle.end_date,
           isActive: dbCycle.is_active,
-          description: dbCycle.description, // Map description
+          description: dbCycle.description, 
           createdAt: dbCycle.created_at
         } as PurchaseCycle));
         setPurchaseCycles(mappedData);
@@ -84,13 +85,13 @@ export default function PurchaseCycleManagementPage() {
         start_date: string;
         end_date: string;
         is_active: boolean;
-        description?: string | null; // Add description to payload type
+        description?: string | null; 
       } = {
-        name: formData.name!, // Asserting name is present as it's validated
+        name: formData.name!, 
         start_date: formData.startDate!,
         end_date: formData.endDate!,
         is_active: formData.isActive!,
-        description: formData.description || null, // Ensure description is included, or null
+        description: formData.description || null, 
       };
 
       if (isEditing && cycleIdToUpdate) {
@@ -115,9 +116,6 @@ export default function PurchaseCycleManagementPage() {
         if (!updatedDataArray || updatedDataArray.length === 0) {
           throw new Error("Falha ao obter dados atualizados do ciclo após a atualização, ou o ciclo não foi encontrado.");
         }
-        // if (updatedDataArray.length > 1) {
-        //   console.warn(`Múltiplos ciclos (${updatedDataArray.length}) encontrados após atualização para cycle_id: ${cycleIdToUpdate}. Usando o primeiro.`);
-        // }
         const updatedDbCycle = updatedDataArray[0];
         
         const updatedFrontendCycle: PurchaseCycle = {
@@ -126,7 +124,7 @@ export default function PurchaseCycleManagementPage() {
           startDate: updatedDbCycle.start_date,
           endDate: updatedDbCycle.end_date,
           isActive: updatedDbCycle.is_active,
-          description: updatedDbCycle.description, // Include description
+          description: updatedDbCycle.description, 
           createdAt: updatedDbCycle.created_at,
         };
 
@@ -234,12 +232,12 @@ export default function PurchaseCycleManagementPage() {
           className="sm:max-w-[600px] bg-card shadow-lg"
         >
           <DialogHeader>
-            <DialogTitle className="font-headline text-2xl">
+            <FormDialogTitle className="font-headline text-2xl">
               {editingCycle ? 'Editar Ciclo de Compra' : 'Novo Ciclo de Compra'}
-            </DialogTitle>
+            </FormDialogTitle>
           </DialogHeader>
           <PurchaseCycleForm
-            key={editingCycle ? `form-instance-${editingCycle.cycleId}` : 'form-instance-new-cycle-form'} // Ensure form also re-keys
+            key={editingCycle ? `form-instance-${editingCycle.cycleId}` : 'form-instance-new-cycle-form'} 
             initialData={editingCycle}
             onSubmit={handleFormSubmit}
             onClose={() => { 
@@ -252,18 +250,22 @@ export default function PurchaseCycleManagementPage() {
       </Dialog>
 
       {isLoading && purchaseCycles.length === 0 ? (
-        <div className="flex items-center justify-center py-10">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mr-3" />
-          <p>Carregando ciclos de compra...</p>
+        <div className="flex flex-col items-center justify-center py-10">
+          <Loader2 className="h-10 w-10 animate-spin text-primary mb-3" />
+          <p className="text-muted-foreground">Carregando ciclos de compra...</p>
         </div>
       ) : !isLoading && purchaseCycles.length === 0 ? (
-        <div className="text-center py-12 bg-card rounded-lg shadow">
-          <p className="text-xl text-muted-foreground mb-4">Nenhum ciclo de compra cadastrado.</p>
-          <Button onClick={openNewCycleModal}>
-            <PlusCircle size={18} className="mr-2" />
-            Criar Primeiro Ciclo
-          </Button>
-        </div>
+        <Card className="shadow-lg">
+            <CardContent className="p-10 text-center flex flex-col items-center">
+                <CalendarOff size={48} className="mx-auto text-muted-foreground mb-4" />
+                <CardTitle className="text-xl font-semibold mb-2">Nenhum Ciclo de Compra Cadastrado</CardTitle>
+                <p className="text-muted-foreground mb-6">Você ainda não criou nenhum ciclo de compra.</p>
+                <Button onClick={openNewCycleModal}>
+                    <PlusCircle size={18} className="mr-2" />
+                    Criar Primeiro Ciclo
+                </Button>
+            </CardContent>
+        </Card>
       ) : (
         <div className="bg-card p-6 rounded-lg shadow relative">
           {isLoading && <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
@@ -327,4 +329,3 @@ export default function PurchaseCycleManagementPage() {
     </PageContainer>
   );
 }
-

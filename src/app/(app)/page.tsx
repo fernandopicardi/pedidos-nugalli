@@ -11,9 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Loader2, ListFilter, X, Filter } from 'lucide-react';
+import { Loader2, ListFilter, X, Filter, PackageSearch } from 'lucide-react'; // Added PackageSearch
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 const DIETARY_ATTRIBUTE_KEY = "dietary";
@@ -25,7 +25,7 @@ export default function HomePage() {
   const [allProducts, setAllProducts] = useState<DisplayableProduct[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<DisplayableProduct[]>([]);
   const [cycleTitle, setCycleTitle] = useState<string>('');
-  const [cycleDescription, setCycleDescription] = useState<string | null>(null); // State for cycle description
+  const [cycleDescription, setCycleDescription] = useState<string | null>(null); 
   const [isLoading, setIsLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -43,13 +43,13 @@ export default function HomePage() {
       try {
         const { data: cycleData, error: cycleError } = await supabase
           .from('purchase_cycles')
-          .select('cycle_id, name, description') // Fetch description
+          .select('cycle_id, name, description') 
           .eq('is_active', true)
           .maybeSingle();
 
         if (cycleError) {
           console.error("Error fetching active purchase cycle:", cycleError);
-          setCycleTitle("Erro ao carregar ciclos de compra");
+          setCycleTitle("Erro ao carregar ciclo de compra");
           setCycleDescription(null);
           setAllProducts([]);
           setFilteredProducts([]);
@@ -67,7 +67,7 @@ export default function HomePage() {
         }
 
         setCycleTitle(cycleData.name);
-        setCycleDescription(cycleData.description || null); // Set description, fallback to null
+        setCycleDescription(cycleData.description || null); 
 
         const { data: productsData, error: productsError } = await supabase
           .from('cycle_products')
@@ -353,15 +353,29 @@ export default function HomePage() {
         </Accordion>
       </div>
       
-      {filteredProducts.length === 0 && !isLoading && (
-        <div className="text-center py-12">
-          <ListFilter size={48} className="mx-auto text-muted-foreground mb-4" />
-          <p className="text-xl text-muted-foreground">Nenhum produto encontrado com os filtros selecionados.</p>
-          <Button onClick={clearFilters} variant="link" className="mt-2">Limpar filtros</Button>
-        </div>
+      {allProducts.length === 0 && !isLoading && ( 
+        <Card className="shadow-lg">
+            <CardContent className="p-10 text-center flex flex-col items-center">
+                <PackageSearch size={48} className="mx-auto text-muted-foreground mb-4" />
+                <CardTitle className="text-xl font-semibold mb-2">Nenhum Produto Disponível</CardTitle>
+                <p className="text-muted-foreground">Não há produtos cadastrados para este ciclo de compra no momento.</p>
+            </CardContent>
+        </Card>
+      )}
+
+      {allProducts.length > 0 && filteredProducts.length === 0 && !isLoading && ( 
+        <Card className="shadow-lg">
+            <CardContent className="p-10 text-center flex flex-col items-center">
+                <ListFilter size={48} className="mx-auto text-muted-foreground mb-4" />
+                <CardTitle className="text-xl font-semibold mb-2">Nenhum Produto Encontrado</CardTitle>
+                <p className="text-muted-foreground">Não encontramos produtos com os filtros selecionados.</p>
+                <Button onClick={clearFilters} variant="link" className="mt-2">Limpar filtros</Button>
+            </CardContent>
+        </Card>
       )}
 
       <ProductGrid products={filteredProducts} />
     </PageContainer>
   );
 }
+

@@ -8,8 +8,9 @@ import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { PageContainer } from '@/components/shared/page-container';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, UserCircle } from 'lucide-react';
+import { Loader2, UserCircle, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardTitle } from '@/components/ui/card';
 
 export default function CustomerManagementPage() {
   const [customers, setCustomers] = useState<User[]>([]);
@@ -51,7 +52,7 @@ export default function CustomerManagementPage() {
   useEffect(() => { 
     loadCustomers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Removed loadCustomers from dependency array as it's stable
+  }, []);
 
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('pt-BR', {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC'
@@ -75,15 +76,18 @@ export default function CustomerManagementPage() {
       <AdminPageHeader title="Visualização de Clientes" />
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-10">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mr-3" />
-          <p>Carregando clientes...</p>
+        <div className="flex flex-col items-center justify-center py-10">
+          <Loader2 className="h-10 w-10 animate-spin text-primary mb-3" />
+          <p className="text-muted-foreground">Carregando clientes...</p>
         </div>
       ) : customers.length === 0 ? (
-        <div className="text-center py-12 bg-card rounded-lg shadow">
-          <UserCircle size={48} className="mx-auto text-muted-foreground mb-4" />
-          <p className="text-xl text-muted-foreground">Nenhum cliente cadastrado.</p>
-        </div>
+        <Card className="shadow-lg">
+          <CardContent className="p-10 text-center flex flex-col items-center">
+            <Users size={48} className="mx-auto text-muted-foreground mb-4" />
+            <CardTitle className="text-xl font-semibold mb-2">Nenhum Cliente Encontrado</CardTitle>
+            <p className="text-muted-foreground">Ainda não há clientes cadastrados no sistema.</p>
+          </CardContent>
+        </Card>
       ) : (
         <div className="bg-card p-4 md:p-6 rounded-lg shadow">
           <Table>

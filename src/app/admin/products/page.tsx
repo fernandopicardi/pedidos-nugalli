@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { PageContainer } from '@/components/shared/page-container';
 import { ProductForm } from '@/components/admin/product-form';
-import { PlusCircle, Edit3, Trash2, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit3, Trash2, Loader2, Archive } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -24,6 +24,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { supabase } from '@/lib/supabaseClient';
+import { Card, CardContent } from '@/components/ui/card'; // Added Card imports
 
 export default function ProductManagementPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -45,7 +46,7 @@ export default function ProductManagementPage() {
         productId: p.product_id,
         name: p.name,
         description: p.description,
-        imageUrl: p.image_url, // Ensure this matches your DB column name
+        imageUrl: p.image_url, 
         attributes: p.attributes,
         createdAt: p.created_at,
         updatedAt: p.updated_at,
@@ -53,6 +54,7 @@ export default function ProductManagementPage() {
       setProducts(mappedProducts);
     } catch (error: any) {
       toast({ title: "Erro ao Carregar Produtos", description: error.message || "Não foi possível carregar a lista de produtos.", variant: "destructive" });
+      setProducts([]); // Ensure products is an empty array on error
     } finally {
       setIsLoading(false);
     }
@@ -67,15 +69,12 @@ export default function ProductManagementPage() {
   ): Promise<Product> => {
     try {
       if ('productId' in productFormData && productFormData.productId) {
-        // Editing existing product
         const { productId, ...updateData } = productFormData;
-
         const dbUpdatePayload: Record<string, any> = {
           name: updateData.name,
           description: updateData.description,
           attributes: updateData.attributes,
-          // image_url is critical for Supabase. Ensure frontend sends `imageUrl` and it's mapped here.
-          image_url: updateData.imageUrl, // Ensure this name matches your DB column
+          image_url: updateData.imageUrl, 
         };
 
         const { data: updatedDbProduct, error } = await supabase
@@ -86,7 +85,6 @@ export default function ProductManagementPage() {
           .single();
         if (error) throw error;
 
-        // Map snake_case from DB to camelCase for frontend Product type
         const updatedProduct: Product = {
           productId: updatedDbProduct.product_id,
           name: updatedDbProduct.name,
@@ -97,15 +95,14 @@ export default function ProductManagementPage() {
           updatedAt: updatedDbProduct.updated_at,
         };
         toast({ title: "Produto Atualizado", description: `O produto "${updatedProduct.name}" foi atualizado.` });
-        await loadProducts(); // Refresh the list
+        await loadProducts(); 
         return updatedProduct;
 
       } else {
-        // Creating new product
         const dbPayload: Record<string, any> = {
           name: productFormData.name,
           description: productFormData.description,
-          image_url: productFormData.imageUrl, // Ensure this name matches your DB column
+          image_url: productFormData.imageUrl, 
           attributes: productFormData.attributes,
         };
         const { data: insertedDbProduct, error } = await supabase
@@ -115,7 +112,6 @@ export default function ProductManagementPage() {
           .single();
         if (error) throw error;
 
-        // Map snake_case from DB to camelCase for frontend Product type
         const newProduct: Product = {
           productId: insertedDbProduct.product_id,
           name: insertedDbProduct.name,
@@ -126,13 +122,13 @@ export default function ProductManagementPage() {
           updatedAt: insertedDbProduct.updated_at,
         };
         toast({ title: "Produto Criado", description: `O produto "${newProduct.name}" foi criado.` });
-        await loadProducts(); // Refresh the list
+        await loadProducts(); 
         return newProduct;
       }
     } catch (error: any) {
       console.error("Error in handleFormSubmit (products page):", error);
       toast({ title: "Erro ao Salvar Produto", description: error.message || "Não foi possível salvar o produto.", variant: "destructive" });
-      throw error; // Re-throw to be caught by ProductForm if necessary or to stop further execution
+      throw error; 
     }
   };
 
@@ -148,17 +144,6 @@ export default function ProductManagementPage() {
 
   const handleDeleteProduct = async (productId: string, productName: string) => {
     try {
-      // First, delete related cycle_products entries if your RLS/schema requires it
-      // This step depends on your database schema and RLS policies.
-      // If cascade delete is set up, this might not be needed.
-      // For now, assuming direct delete or cascade.
-      // const { error: cycleProductError } = await supabase
-      //   .from('cycle_products')
-      //   .delete()
-      //   .eq('product_id', productId);
-      // if (cycleProductError) throw cycleProductError;
-
-
       const { error } = await supabase
         .from('products')
         .delete()
@@ -200,25 +185,28 @@ export default function ProductManagementPage() {
             onClose={(savedProduct) => {
               setIsModalOpen(false);
               setEditingProduct(null);
-              // loadProducts is called within handleFormSubmit on success
             }}
           />
         </DialogContent>
       </Dialog>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-10">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mr-3" />
-          <p>Carregando produtos...</p>
+        <div className="flex flex-col items-center justify-center py-10">
+          <Loader2 className="h-10 w-10 animate-spin text-primary mb-3" />
+          <p className="text-muted-foreground">Carregando produtos...</p>
         </div>
       ) : products.length === 0 ? (
-        <div className="text-center py-12 bg-card rounded-lg shadow">
-            <p className="text-xl text-muted-foreground mb-4">Nenhum produto cadastrado.</p>
+        <Card className="shadow-lg">
+          <CardContent className="p-10 text-center flex flex-col items-center">
+            <Archive size={48} className="mx-auto text-muted-foreground mb-4" />
+            <DialogTitle className="text-xl font-semibold mb-2">Nenhum Produto Cadastrado</DialogTitle>
+            <p className="text-muted-foreground mb-6">Você ainda não adicionou nenhum produto ao catálogo.</p>
             <Button onClick={openNewProductModal}>
               <PlusCircle size={18} className="mr-2" />
               Criar Primeiro Produto
             </Button>
-        </div>
+          </CardContent>
+        </Card>
       ) : (
         <div className="bg-card p-6 rounded-lg shadow">
           <Table>
