@@ -103,6 +103,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
     if (file) {
         setImageUrl(URL.createObjectURL(file));
     } else {
+        // If file is deselected, revert to initial image if editing, or clear if new
         setImageUrl(initialData?.imageUrl || '');
     }
   };
@@ -120,12 +121,6 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
        toast({ title: "Erro de Validação", description: "Descrição do produto é obrigatória.", variant: "destructive" });
        setIsSubmitting(false);
        return;
-    }
-
-    if (!initialData && !selectedImageFile) {
-        toast({ title: "Imagem Obrigatória", description: "Por favor, selecione uma imagem para o novo produto.", variant: "destructive" });
-        setIsSubmitting(false);
-        return;
     }
 
     let finalImageUrlToSave: string = initialData?.imageUrl || '';
@@ -167,7 +162,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       setIsUploadingImage(false);
     }
     
-    if (!finalImageUrlToSave) {
+    if (!finalImageUrlToSave) { // If no initial image and no new file uploaded, or upload failed
       finalImageUrlToSave = 'https://placehold.co/400x300.png?text=Produto';
     }
 
@@ -230,7 +225,6 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
          </div>
          {selectedImageFile && <p className="text-xs text-muted-foreground mt-1">Nova imagem selecionada: {selectedImageFile.name}. Será carregada ao salvar.</p>}
          {!selectedImageFile && initialData?.imageUrl && <p className="text-xs text-muted-foreground mt-1">Imagem atual será mantida. Carregue uma nova para substituir.</p>}
-         {!initialData && !selectedImageFile && <p className="text-xs text-destructive mt-1">Upload de imagem é obrigatório para novo produto.</p>}
          {isUploadingImage && <div className="flex items-center mt-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin mr-2" />Carregando imagem...</div>}
       </div>
 
