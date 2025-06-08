@@ -22,7 +22,7 @@ export default function CustomerManagementPage() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*') // Changed to select('*') as per user's instruction
+        .select('*') // Fetches all columns, does not filter by is_admin
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -31,6 +31,7 @@ export default function CustomerManagementPage() {
 
       if (!data || !Array.isArray(data)) {
         setCustomers([]);
+        setIsLoading(false);
         return;
       }
 
@@ -38,7 +39,7 @@ export default function CustomerManagementPage() {
         userId: item.id, 
         email: item.email,
         displayName: item.display_name || 'N/A',
-        whatsapp: item.whatsapp || 'N/A', // Assuming whatsapp is NOT NULL from previous context
+        whatsapp: item.whatsapp || 'N/A', 
         isAdmin: item.is_admin,
         createdAt: item.created_at,
         addressStreet: item.address_street || undefined,
