@@ -5,12 +5,12 @@ import { useState, useEffect, useMemo } from 'react';
 import type { DisplayableProduct } from '@/types';
 import { ProductGrid } from '@/components/products/product-grid';
 import { PageContainer } from '@/components/shared/page-container';
-import { supabase } from '@/lib/supabaseClient'; // Alterado aqui
+import { supabase } from '@/lib/supabaseClient';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Button, buttonVariants } from '@/components/ui/button'; // Import buttonVariants
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Loader2, ListFilter, X, Filter } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent } from '@/components/ui/card';
@@ -39,19 +39,20 @@ export default function HomePage() {
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
-      // const supabase = createClient(); // Linha removida - supabase já é o cliente importado
- try {
+      try {
         // Fetch active purchase cycle
         const { data: cycleData, error: cycleError } = await supabase
-          .from('Purchase Cycles')
+          .from('purchase_cycles') // Corrigido para snake_case
           .select('cycle_id, name')
           .eq('is_active', true)
-          .single();
+          .maybeSingle(); // Alterado para maybeSingle para mais robustez
 
         if (cycleError) {
           console.error("Error fetching active purchase cycle:", cycleError);
- setCycleTitle("Erro ao carregar ciclos de compra"); // Updated error message
- setAllProducts([]);
+          setCycleTitle("Erro ao carregar ciclos de compra");
+          setAllProducts([]);
+          setFilteredProducts([]);
+          setIsLoading(false);
           return;
         }
 
@@ -66,42 +67,55 @@ export default function HomePage() {
         setCycleTitle(cycleData.name);
 
         // Fetch products for the active cycle
+        // A tabela relacionada 'Products' será referenciada como 'products' (minúsculo) no resultado do Supabase
         const { data: productsData, error: productsError } = await supabase
-          .from('Cycle Products')
-          .select('cycle_product_id, cycle_id, product_id, product_name_snapshot, price_in_cycle, is_available_in_cycle, display_image_url, Products (product_id, name, description, image_url, attributes)') // Join with Products table and select image_url
+          .from('cycle_products') // Corrigido para snake_case
+          .select(`
+            cycle_product_id, 
+            cycle_id, 
+            product_id, 
+            product_name_snapshot, 
+            price_in_cycle, 
+            is_available_in_cycle, 
+            display_image_url, 
+            products ( product_id, name, description, image_url, attributes )
+          `)
           .eq('cycle_id', cycleData.cycle_id)
           .eq('is_available_in_cycle', true);
 
         if (productsError) {
           console.error("Error fetching cycle products:", productsError);
- setAllProducts([]);
- setFilteredProducts([]);
- return;
+          // cycleTitle já está definido, não sobrescrever com erro de produto
+          setAllProducts([]);
+          setFilteredProducts([]);
+          setIsLoading(false);
+          return;
         }
 
         // Map fetched data to DisplayableProduct type
         const displayableProducts: DisplayableProduct[] = productsData ? productsData.map(cp => ({
           cycleProductId: cp.cycle_product_id,
           cycleId: cp.cycle_id,
-          productId: cp.Products?.product_id || cp.product_id,
- name: cp.product_name_snapshot || cp.Products?.name || 'Unknown Product', // Using snapshot as primary, fallback to Products.name
-          description: cp.Products?.description || '',
- imageUrl: cp.display_image_url || cp.Products?.image_url || 'https://placehold.co/400x300.png?text=Produto', // Use display_image_url first, fallback to Products.image_url
-          attributes: cp.Products?.attributes || {},
- price: cp.price_in_cycle,
- isAvailableInCycle: cp.is_available_in_cycle, // Use is_available_in_cycle for front-end display
+          productId: cp.products?.product_id || cp.product_id, // Acessa a tabela relacionada como 'products'
+          name: cp.product_name_snapshot || cp.products?.name || 'Unknown Product',
+          description: cp.products?.description || '',
+          imageUrl: cp.display_image_url || cp.products?.image_url || 'https://placehold.co/400x300.png?text=Produto',
+          attributes: cp.products?.attributes || {},
+          price: cp.price_in_cycle,
+          isAvailableInCycle: cp.is_available_in_cycle,
         })) : [];
 
         setAllProducts(displayableProducts);
       } catch (error) {
         console.error("Failed to load homepage data:", error);
- setCycleTitle("Erro ao carregar produtos");
- setAllProducts([]);
+        setCycleTitle("Erro ao carregar dados da página"); // Mensagem de erro mais genérica
+        setAllProducts([]);
+        setFilteredProducts([]);
       } finally {
- setIsLoading(false);
+        setIsLoading(false); // Garante que o loading é desativado
       }
     }
- loadData();
+    loadData();
   }, []);
 
   const extractAttributeValues = useMemo(() => (attributeKey: string) => {
@@ -119,7 +133,6 @@ export default function HomePage() {
     return Array.from(values).sort();
   }, [allProducts]);
 
-  // Only depend on extractAttributeValues as it already depends on allProducts
   const categoryOptions = useMemo(() => extractAttributeValues(CATEGORY_ATTRIBUTE_KEY), [extractAttributeValues]);
   const cacaoOptions = useMemo(() => extractAttributeValues(CACAO_ATTRIBUTE_KEY), [extractAttributeValues]);
   const dietaryOptions = useMemo(() => extractAttributeValues(DIETARY_ATTRIBUTE_KEY), [extractAttributeValues]);
@@ -136,25 +149,25 @@ export default function HomePage() {
     if (selectedCategories.length > 0) {
       products = products.filter(p =>
         p.attributes?.[CATEGORY_ATTRIBUTE_KEY] && Array.isArray(p.attributes[CATEGORY_ATTRIBUTE_KEY]) &&
-        selectedCategories.some(cat => p.attributes[CATEGORY_ATTRIBUTE_KEY].includes(cat))
+        selectedCategories.some(cat => (p.attributes[CATEGORY_ATTRIBUTE_KEY] as string[]).includes(cat))
       );
     }
     if (selectedCacao.length > 0) {
       products = products.filter(p =>
          p.attributes?.[CACAO_ATTRIBUTE_KEY] && Array.isArray(p.attributes[CACAO_ATTRIBUTE_KEY]) &&
-        selectedCacao.some(c => p.attributes[CACAO_ATTRIBUTE_KEY].includes(c))
+        selectedCacao.some(c => (p.attributes[CACAO_ATTRIBUTE_KEY] as string[]).includes(c))
       );
     }
     if (selectedDietary.length > 0) {
       products = products.filter(p =>
         p.attributes?.[DIETARY_ATTRIBUTE_KEY] && Array.isArray(p.attributes[DIETARY_ATTRIBUTE_KEY]) &&
-        selectedDietary.every(diet => p.attributes[DIETARY_ATTRIBUTE_KEY].includes(diet))
+        selectedDietary.every(diet => (p.attributes[DIETARY_ATTRIBUTE_KEY] as string[]).includes(diet))
       );
     }
      if (selectedWeights.length > 0) {
       products = products.filter(p =>
         p.attributes?.[WEIGHT_ATTRIBUTE_KEY] && Array.isArray(p.attributes[WEIGHT_ATTRIBUTE_KEY]) &&
-        selectedWeights.some(w => p.attributes[WEIGHT_ATTRIBUTE_KEY].includes(w))
+        selectedWeights.some(w => (p.attributes[WEIGHT_ATTRIBUTE_KEY] as string[]).includes(w))
       );
     }
     const numMinPrice = parseFloat(minPrice);
@@ -247,7 +260,7 @@ export default function HomePage() {
               className={cn(
                 buttonVariants({ variant: 'outline', size: 'default' }),
                 'w-full md:w-auto',
-                'flex justify-between' // Ensure content is on left, chevron on right
+                'flex justify-between'
               )}
             >
               <span className="flex items-center">
@@ -255,7 +268,6 @@ export default function HomePage() {
                 Filtros e Ordenação
                 {hasActiveFilters && <span className="ml-2 h-2 w-2 rounded-full bg-primary" />}
               </span>
-              {/* AccordionTrigger automatically adds its own ChevronDown icon */}
             </AccordionTrigger>
             <AccordionContent>
               <Card>
