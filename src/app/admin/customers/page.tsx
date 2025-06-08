@@ -71,7 +71,7 @@ export default function CustomerManagementPage() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*') 
+        .select('*') // Select all columns
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -88,7 +88,7 @@ export default function CustomerManagementPage() {
         userId: item.id,
         email: item.email,
         displayName: item.display_name || 'N/A',
-        whatsapp: item.whatsapp || 'N/A', 
+        whatsapp: item.whatsapp || 'N/A', // Assuming whatsapp can be null from DB or default if empty
         isAdmin: item.is_admin,
         createdAt: item.created_at,
         addressStreet: item.address_street || undefined,
@@ -150,7 +150,7 @@ export default function CustomerManagementPage() {
       setCustomerOrders(orders);
     } catch (error: any) {
       toast({
-        title: `Erro ao Carregar Pedidos de ${customer.displayName}`,
+        title: \`Erro ao Carregar Pedidos de \${customer.displayName}\`,
         description: error.message || "Não foi possível buscar os pedidos do cliente.",
         variant: "destructive",
       });
@@ -274,7 +274,7 @@ export default function CustomerManagementPage() {
                                     <p className="text-xs font-medium pt-1">Itens do Pedido:</p>
                                     <ul className="list-disc list-inside text-xs text-muted-foreground space-y-0.5 pl-1">
                                         {order.items.map((item, index) =>(
-                                            <li key={`${order.orderId}-item-${index}`}>
+                                            <li key={item.orderId + '-item-' + index}>
                                                 {item.quantity}x {item.productName} - R$ {item.priceAtPurchase.toFixed(2).replace('.',',')} (cada)
                                             </li>
                                         ))}
@@ -297,3 +297,4 @@ export default function CustomerManagementPage() {
   );
 }
 
+    
