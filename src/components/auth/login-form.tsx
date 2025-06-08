@@ -9,8 +9,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { User } from '@/types';
-import { signInWithEmail, getCurrentUser } from '@/lib/supabasePlaceholders'; // Added import
+// import type { User } from '@/types'; // User type is implicitly handled by signInWithEmail return
+import { signInWithEmail } from '@/lib/auth'; // signInWithEmail from auth.ts should handle profile fetching
+import { Loader2 } from 'lucide-react'; // Import Loader2
 
 export function LoginForm() {
   const [email, setEmail] = useState('');
@@ -27,29 +28,40 @@ export function LoginForm() {
     } else {
       router.push(fallbackPath);
     }
+    // Ensure router.replace or router.refresh if needed for full state update on redirect
   };
 
   const handleLogin = async (event: FormEvent) => {
     event.preventDefault();
     setIsSubmitting(true);
 
-    // Usar a função signInWithEmail de supabasePlaceholders
-    const { user, error } = await signInWithEmail(email, password);
+    try {
+      // signInWithEmail from lib/auth.ts should handle fetching the user profile data.
+      const { user, error } = await signInWithEmail(email, password);
 
-    if (error || !user) {
+      if (error || !user) {
+        toast({
+          title: "Erro no Login",
+          description: error?.message || "Ocorreu um erro desconhecido durante o login.",
+          variant: "destructive"
+        });
+      } else {
+        toast({ title: "Login Bem-Sucedido", description: "Bem-vindo de volta!" });
+        // The user object from signInWithEmail should be the full profile.
+        // The Header component should react to auth state changes to update its display.
+        redirectToStoredPathOrFallback(user.isAdmin ? '/admin' : '/'); // Redirect to admin if admin
+      }
+    } catch (e: any) {
+      // Catch any unexpected errors from signInWithEmail or redirectToStoredPathOrFallback
+      console.error("Unexpected error in handleLogin:", e);
       toast({
-        title: "Erro no Login",
-        description: error?.message || "Ocorreu um erro desconhecido.",
+        title: "Erro Inesperado",
+        description: e.message || "Ocorreu um erro inesperado. Tente novamente.",
         variant: "destructive"
       });
-    } else {
-      toast({ title: "Login Bem-Sucedido", description: "Bem-vindo de volta!" });
-      // getCurrentUser() aqui pode ser redundante se signInWithEmail já atualiza o localStorage
-      // e o Header reage ao onAuthStateChange. Mas não prejudica.
-      await getCurrentUser(); 
-      redirectToStoredPathOrFallback('/');
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   return (
@@ -71,6 +83,7 @@ export function LoginForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 className="bg-input"
+                disabled={isSubmitting}
               />
             </div>
             <div className="space-y-2">
@@ -83,12 +96,20 @@ export function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="bg-input"
+                disabled={isSubmitting}
               />
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'Entrando...' : 'Entrar'}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Entrando...
+                </>
+              ) : (
+                'Entrar'
+              )}
             </Button>
             <p className="text-sm text-muted-foreground">
               Não tem uma conta?{' '}
