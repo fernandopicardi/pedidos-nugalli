@@ -38,10 +38,9 @@ export default function ProductManagementPage() {
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .order('name', { ascending: true }); // Order by name for consistency
+        .order('name', { ascending: true }); 
       if (error) throw error;
 
-      // Map from snake_case (DB) to camelCase (Product type)
       const mappedProducts: Product[] = data.map(p => ({
         productId: p.product_id,
         name: p.name,
@@ -67,7 +66,7 @@ export default function ProductManagementPage() {
     productFormData: Omit<Product, 'productId' | 'createdAt' | 'updatedAt'> | (Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>> & { productId: string })
   ): Promise<Product> => {
     try {
-      if ('productId' in productFormData && productFormData.productId) { // Editing
+      if ('productId' in productFormData && productFormData.productId) { 
         const { productId, ...updateData } = productFormData;
         
         const dbUpdatePayload: Record<string, any> = {
@@ -75,7 +74,6 @@ export default function ProductManagementPage() {
           description: updateData.description,
           attributes: updateData.attributes,
         };
-        // Only include imageUrl if it's explicitly provided in updateData
         if (updateData.imageUrl !== undefined) {
           dbUpdatePayload.image_url = updateData.imageUrl;
         }
@@ -100,8 +98,8 @@ export default function ProductManagementPage() {
         };
         return updatedProduct;
 
-      } else { // Creating
-        const dbPayload = {
+      } else { 
+        const dbPayload: Record<string, any> = {
           name: productFormData.name,
           description: productFormData.description,
           image_url: productFormData.imageUrl,
@@ -127,7 +125,6 @@ export default function ProductManagementPage() {
         return newProduct;
       }
     } catch (error: any) {
-      // This error will be caught by ProductForm's handler, which will show a toast
       console.error("Error in handleFormSubmit (products page):", error);
       throw error; 
     }

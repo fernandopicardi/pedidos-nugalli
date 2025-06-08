@@ -33,13 +33,13 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
   const [selectedDietary, setSelectedDietary] = useState<string[]>([]);
   const [productPeso, setProductPeso] = useState('');
   const [productCacau, setProductCacau] = useState('');
-  const [productUnidade, setProductUnidade] = useState(''); // Not currently used but kept for potential future use
+  const [productUnidade, setProductUnidade] = useState('');
   const [productSabor, setProductSabor] = useState('');
 
   const [isAvailableInActiveCycle, setIsAvailableInActiveCycle] = useState(true);
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
 
-  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null); // For new image uploads
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -48,8 +48,8 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
     if (initialData) {
       setName(initialData.name);
       setDescription(initialData.description);
-      setImageUrl(initialData.imageUrl || ''); // imageUrl comes from DB
-      setSelectedImageFile(null); // Clear any selected file if editing existing product
+      setImageUrl(initialData.imageUrl || '');
+      setSelectedImageFile(null);
 
       setSelectedCategorias(initialData.attributes?.categoria || []);
       setSelectedDietary(initialData.attributes?.dietary || []);
@@ -69,7 +69,6 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         })
         .finally(() => setIsLoadingAvailability(false));
     } else {
-      // Defaults for new product
       setName('');
       setDescription('');
       setImageUrl('');
@@ -94,9 +93,9 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
     const file = event.target.files?.[0] || null;
     setSelectedImageFile(file);
     if (file) {
-        setImageUrl(URL.createObjectURL(file)); // Show preview immediately
+        setImageUrl(URL.createObjectURL(file)); 
     } else if (initialData) {
-        setImageUrl(initialData.imageUrl || ''); // Revert to original if file cleared
+        setImageUrl(initialData.imageUrl || ''); 
     } else {
         setImageUrl('');
     }
@@ -106,15 +105,17 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
     event.preventDefault();
     setIsSubmitting(true);
 
+    console.log(`[ProductForm] handleSubmit - name: '${name}', name.trim(): '${name.trim()}', description: '${description}', description.trim(): '${description.trim()}'`);
+
     if (!name.trim() || !description.trim()) {
-       toast({ title: "Erro", description: "Nome e descrição do produto são obrigatórios.", variant: "destructive" });
+       toast({ title: "Erro de Validação", description: "Nome e descrição do produto são obrigatórios.", variant: "destructive" });
        setIsSubmitting(false);
        return;
     }
 
-    let finalImageUrl = imageUrl; // Current imageUrl (could be existing, preview of new, or placeholder if empty)
+    let finalImageUrl = imageUrl; 
 
-    if (selectedImageFile) { // If a new file was selected, upload it
+    if (selectedImageFile) { 
       setIsUploadingImage(true);
       const filePath = `products/${Date.now()}_${selectedImageFile.name}`;
       const bucketName = 'product-images';
@@ -127,7 +128,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         if (uploadError) throw uploadError;
 
         const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(uploadData.path);
-        finalImageUrl = publicUrlData.publicUrl; // This is the URL for the newly uploaded image
+        finalImageUrl = publicUrlData.publicUrl; 
         toast({ title: "Upload Sucesso", description: "Nova imagem carregada." });
       } catch (error: any) {
         console.error("Error uploading image during submit:", error);
@@ -139,8 +140,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       setIsUploadingImage(false);
     }
     
-    // Ensure finalImageUrl has a value, even if it's just a placeholder
-    if (!finalImageUrl && !initialData?.imageUrl) { // If no image was ever set or uploaded
+    if (!finalImageUrl && !initialData?.imageUrl) { 
         finalImageUrl = 'https://placehold.co/400x300.png?text=Produto';
     }
 
@@ -170,8 +170,6 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         toast({ title: "Produto Criado", description: `O produto "${savedProduct.name}" foi criado.` });
       }
 
-      // After product is saved (created or updated), then handle availability
-      // This ensures currentProductId is valid from savedProduct.productId
       await setProductAvailabilityInActiveCycle(savedProduct.productId, isAvailableInActiveCycle);
       toast({ title: "Disponibilidade Atualizada", description: `Disponibilidade de "${savedProduct.name}" no ciclo ativo foi salva.` });
       
@@ -200,15 +198,15 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         <Label htmlFor="product-image-url-display" className="font-semibold">URL da Imagem Atual</Label>
         <Input 
           id="product-image-url-display" 
-          type="text" // Changed to text as it's primarily for display or manual entry if no upload
-          value={imageUrl} // Reflects current imageUrl (from DB, preview, or manual)
+          type="text" 
+          value={imageUrl} 
           onChange={(e) => {
             setImageUrl(e.target.value);
-            setSelectedImageFile(null); // Clear file if URL is manually changed
+            setSelectedImageFile(null); 
           }}
           placeholder="https://exemplo.com/imagem.png ou será preenchida pelo upload"
         />
-        {(imageUrl) && ( // Display image if URL exists (either from DB or just set by file preview)
+        {(imageUrl) && ( 
           <div className="mt-2 w-32 h-32 relative border rounded-md overflow-hidden">
             <img src={imageUrl} alt="Preview do Produto" className="object-cover w-full h-full" data-ai-hint="chocolate item"/>
           </div>
@@ -219,7 +217,6 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
          <Label htmlFor="imageUpload" className="font-semibold">Carregar Nova Imagem (substitui URL acima)</Label>
          <div className="flex items-center space-x-2 mt-1">
            <Input id="imageUpload" type="file" accept="image/*" onChange={handleImageFileChange} disabled={isUploadingImage || isSubmitting} className="flex-grow"/>
-           {/* Upload button removed from here, upload happens on main submit if file is selected */}
          </div>
          {selectedImageFile && <p className="text-xs text-muted-foreground mt-1">Nova imagem selecionada: {selectedImageFile.name}. Será carregada ao salvar.</p>}
       </div>
