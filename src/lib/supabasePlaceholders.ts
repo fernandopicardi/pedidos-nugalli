@@ -1056,7 +1056,7 @@ export async function fetchProductAvailabilityInActiveCycle(productId: string): 
     }
 
     const { data: cycleProduct, error: cpError } = await supabase
-        .from('"Cycle Products"') // Corrected based on error
+        .from('cycle_products') // Corrected table name
         .select('is_available_in_cycle')
         .eq('cycle_id', activeCycle.cycle_id)
         .eq('product_id', productId)
@@ -1089,7 +1089,7 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
     }
 
     const { data: existingCycleProduct, error: fetchCpError } = await supabase
-        .from('"Cycle Products"') // Corrected based on error
+        .from('cycle_products') // Corrected table name
         .select('cycle_product_id, product_name_snapshot, price_in_cycle, display_image_url')
         .eq('cycle_id', activeCycle.cycle_id)
         .eq('product_id', productId)
@@ -1105,7 +1105,7 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
 
     if (existingCycleProduct) {
         const { error: updateError } = await supabase
-            .from('"Cycle Products"') // Corrected based on error
+            .from('cycle_products') // Corrected table name
             .update({ is_available_in_cycle: isAvailable })
             .eq('cycle_product_id', existingCycleProduct.cycle_product_id);
         if (updateError) {
@@ -1131,12 +1131,12 @@ export async function setProductAvailabilityInActiveCycle(productId: string, isA
         }
 
         const { error: insertError } = await supabase
-            .from('"Cycle Products"') // Corrected based on error
+            .from('cycle_products') // Corrected table name
             .insert({
                 cycle_id: activeCycle.cycle_id,
                 product_id: productId,
                 product_name_snapshot: masterProduct.name,
-                price_in_cycle: 0,
+                price_in_cycle: 0, // Default price, consider making this configurable
                 is_available_in_cycle: true,
                 display_image_url: masterProduct.image_url || 'https://placehold.co/400x300.png?text=Produto',
             });

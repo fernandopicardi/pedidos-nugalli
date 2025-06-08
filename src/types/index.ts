@@ -43,11 +43,13 @@ export interface CycleProduct { // Product offering within a specific cycle
   priceInCycle: number; // specific price for this product in this cycle
   isAvailableInCycle: boolean;
   displayImageUrl?: string; // Typically the first from Product.imageUrls or a specific one for the cycle
+  createdAt: string; // ISO date string (timestamp)
+  updatedAt: string; // ISO date string (timestamp)
 }
 
 
 // New type for product data displayed in the ProductCard and ProductGrid
-export interface DisplayableProduct extends Omit<CycleProduct, 'productNameSnapshot' | 'priceInCycle' | 'displayImageUrl'> {
+export interface DisplayableProduct extends Omit<CycleProduct, 'productNameSnapshot' | 'priceInCycle' | 'displayImageUrl' | 'createdAt' | 'updatedAt'> {
   name: string; // From CycleProduct.productNameSnapshot
   description: string; // From master Product.description
   price: number; // From CycleProduct.priceInCycle
@@ -90,3 +92,4 @@ export interface Order {
   orderDate: string; // ISO date string (timestamp)
   adminNotes?: string;
 }
+
