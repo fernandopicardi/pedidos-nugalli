@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { PageContainer } from '@/components/shared/page-container';
 import { ProductForm } from '@/components/admin/product-form';
-import { PlusCircle, Edit3, Trash2 } from 'lucide-react';
+import { PlusCircle, Edit3, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -38,14 +38,14 @@ export default function ProductManagementPage() {
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .order('name', { ascending: true }); 
+        .order('name', { ascending: true });
       if (error) throw error;
 
       const mappedProducts: Product[] = data.map(p => ({
         productId: p.product_id,
         name: p.name,
         description: p.description,
-        imageUrl: p.image_url,
+        imageUrl: p.image_url, // Ensure this matches your DB column name
         attributes: p.attributes,
         createdAt: p.created_at,
         updatedAt: p.updated_at,
@@ -66,17 +66,17 @@ export default function ProductManagementPage() {
     productFormData: Omit<Product, 'productId' | 'createdAt' | 'updatedAt'> | (Partial<Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>> & { productId: string })
   ): Promise<Product> => {
     try {
-      if ('productId' in productFormData && productFormData.productId) { 
+      if ('productId' in productFormData && productFormData.productId) {
+        // Editing existing product
         const { productId, ...updateData } = productFormData;
-        
+
         const dbUpdatePayload: Record<string, any> = {
           name: updateData.name,
           description: updateData.description,
           attributes: updateData.attributes,
+          // image_url is critical for Supabase. Ensure frontend sends `imageUrl` and it's mapped here.
+          image_url: updateData.imageUrl, // Ensure this name matches your DB column
         };
-        if (updateData.imageUrl !== undefined) {
-          dbUpdatePayload.image_url = updateData.imageUrl;
-        }
 
         const { data: updatedDbProduct, error } = await supabase
           .from('products')
@@ -85,8 +85,8 @@ export default function ProductManagementPage() {
           .select()
           .single();
         if (error) throw error;
-        await loadProducts();
-        
+
+        // Map snake_case from DB to camelCase for frontend Product type
         const updatedProduct: Product = {
           productId: updatedDbProduct.product_id,
           name: updatedDbProduct.name,
@@ -96,13 +96,16 @@ export default function ProductManagementPage() {
           createdAt: updatedDbProduct.created_at,
           updatedAt: updatedDbProduct.updated_at,
         };
+        toast({ title: "Produto Atualizado", description: `O produto "${updatedProduct.name}" foi atualizado.` });
+        await loadProducts(); // Refresh the list
         return updatedProduct;
 
-      } else { 
+      } else {
+        // Creating new product
         const dbPayload: Record<string, any> = {
           name: productFormData.name,
           description: productFormData.description,
-          image_url: productFormData.imageUrl,
+          image_url: productFormData.imageUrl, // Ensure this name matches your DB column
           attributes: productFormData.attributes,
         };
         const { data: insertedDbProduct, error } = await supabase
@@ -111,8 +114,8 @@ export default function ProductManagementPage() {
           .select()
           .single();
         if (error) throw error;
-        await loadProducts();
 
+        // Map snake_case from DB to camelCase for frontend Product type
         const newProduct: Product = {
           productId: insertedDbProduct.product_id,
           name: insertedDbProduct.name,
@@ -122,11 +125,14 @@ export default function ProductManagementPage() {
           createdAt: insertedDbProduct.created_at,
           updatedAt: insertedDbProduct.updated_at,
         };
+        toast({ title: "Produto Criado", description: `O produto "${newProduct.name}" foi criado.` });
+        await loadProducts(); // Refresh the list
         return newProduct;
       }
     } catch (error: any) {
       console.error("Error in handleFormSubmit (products page):", error);
-      throw error; 
+      toast({ title: "Erro ao Salvar Produto", description: error.message || "Não foi possível salvar o produto.", variant: "destructive" });
+      throw error; // Re-throw to be caught by ProductForm if necessary or to stop further execution
     }
   };
 
@@ -142,6 +148,17 @@ export default function ProductManagementPage() {
 
   const handleDeleteProduct = async (productId: string, productName: string) => {
     try {
+      // First, delete related cycle_products entries if your RLS/schema requires it
+      // This step depends on your database schema and RLS policies.
+      // If cascade delete is set up, this might not be needed.
+      // For now, assuming direct delete or cascade.
+      // const { error: cycleProductError } = await supabase
+      //   .from('cycle_products')
+      //   .delete()
+      //   .eq('product_id', productId);
+      // if (cycleProductError) throw cycleProductError;
+
+
       const { error } = await supabase
         .from('products')
         .delete()
@@ -150,7 +167,7 @@ export default function ProductManagementPage() {
       toast({ title: "Produto Deletado", description: `O produto "${productName}" foi deletado.` });
       await loadProducts();
     } catch (error: any) {
-      toast({ title: "Erro ao Deletar", description: error.message || "Não foi possível deletar o produto.", variant: "destructive" });
+      toast({ title: "Erro ao Deletar", description: error.message || "Não foi possível deletar o produto. Verifique se ele está associado a algum ciclo de compra.", variant: "destructive" });
     }
   };
 
@@ -167,22 +184,33 @@ export default function ProductManagementPage() {
       />
 
       <Dialog open={isModalOpen} onOpenChange={(isOpen) => { setIsModalOpen(isOpen); if (!isOpen) setEditingProduct(null); }}>
-        <DialogContent className="sm:max-w-[600px] bg-card shadow-lg">
+        <DialogContent 
+          key={editingProduct ? `modal-product-${editingProduct.productId}` : 'modal-product-new'}
+          className="sm:max-w-[600px] bg-card shadow-lg"
+        >
           <DialogHeader>
             <DialogTitle className="font-headline text-2xl">
               {editingProduct ? 'Editar Produto' : 'Novo Produto'}
             </DialogTitle>
           </DialogHeader>
           <ProductForm
+            key={editingProduct ? `form-product-${editingProduct.productId}` : 'form-product-new'}
             initialData={editingProduct}
             onSubmit={handleFormSubmit}
-            onClose={() => { setIsModalOpen(false); setEditingProduct(null); }}
+            onClose={(savedProduct) => {
+              setIsModalOpen(false);
+              setEditingProduct(null);
+              // loadProducts is called within handleFormSubmit on success
+            }}
           />
         </DialogContent>
       </Dialog>
 
       {isLoading ? (
-        <p>Carregando produtos...</p>
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mr-3" />
+          <p>Carregando produtos...</p>
+        </div>
       ) : products.length === 0 ? (
         <div className="text-center py-12 bg-card rounded-lg shadow">
             <p className="text-xl text-muted-foreground mb-4">Nenhum produto cadastrado.</p>
@@ -231,7 +259,7 @@ export default function ProductManagementPage() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Confirmar Deleção</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Tem certeza que deseja deletar o produto &quot;{product.name}&quot;? Esta ação não pode ser desfeita e removerá o produto de futuros ciclos.
+                            Tem certeza que deseja deletar o produto &quot;{product.name}&quot;? Esta ação não pode ser desfeita. Produtos associados a ciclos de compra ativos ou pedidos podem não ser deletados.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

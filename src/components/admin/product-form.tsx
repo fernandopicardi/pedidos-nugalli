@@ -27,7 +27,7 @@ const DIETARY_OPTIONS = ["vegano", "sem glúten", "sem lactose", "KOSHER", "ZERO
 export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [imageUrl, setImageUrl] = useState(''); // Stores the current/final image URL
+  const [imageUrl, setImageUrl] = useState(''); // Stores the URL for display and potential direct input
 
   const [selectedCategorias, setSelectedCategorias] = useState<string[]>([]);
   const [selectedDietary, setSelectedDietary] = useState<string[]>([]);
@@ -49,7 +49,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       setName(initialData.name);
       setDescription(initialData.description);
       setImageUrl(initialData.imageUrl || '');
-      setSelectedImageFile(null);
+      setSelectedImageFile(null); // Reset file input when initialData changes
 
       setSelectedCategorias(initialData.attributes?.categoria || []);
       setSelectedDietary(initialData.attributes?.dietary || []);
@@ -58,17 +58,23 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       setProductUnidade(initialData.attributes?.unidade?.[0] || '');
       setProductSabor(initialData.attributes?.sabor?.[0] || '');
 
-      setIsLoadingAvailability(true);
-      fetchProductAvailabilityInActiveCycle(initialData.productId)
-        .then(isAvailable => {
-          setIsAvailableInActiveCycle(isAvailable);
-        })
-        .catch(err => {
-          console.error("Error fetching product availability:", err);
-          toast({ title: "Erro", description: "Não foi possível carregar a disponibilidade no ciclo ativo.", variant: "destructive" });
-        })
-        .finally(() => setIsLoadingAvailability(false));
+      if (initialData.productId) {
+        setIsLoadingAvailability(true);
+        fetchProductAvailabilityInActiveCycle(initialData.productId)
+          .then(isAvailable => {
+            setIsAvailableInActiveCycle(isAvailable);
+          })
+          .catch(err => {
+            console.error("Error fetching product availability:", err);
+            toast({ title: "Erro de Disponibilidade", description: "Não foi possível carregar a disponibilidade do produto no ciclo ativo.", variant: "destructive" });
+          })
+          .finally(() => setIsLoadingAvailability(false));
+      } else {
+        setIsAvailableInActiveCycle(true); // Default for new products (UI might be disabled)
+        setIsLoadingAvailability(false);
+      }
     } else {
+      // Reset for new product form
       setName('');
       setDescription('');
       setImageUrl('');
@@ -79,25 +85,30 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       setProductCacau('');
       setProductUnidade('');
       setProductSabor('');
-      setIsAvailableInActiveCycle(true);
+      setIsAvailableInActiveCycle(true); // Default to available (UI might be disabled)
+      setIsLoadingAvailability(false);
     }
   }, [initialData, toast]);
 
   const handleCheckboxChange = (setter: React.Dispatch<React.SetStateAction<string[]>>, option: string) => {
-    setter(prev => 
+    setter(prev =>
       prev.includes(option) ? prev.filter(item => item !== option) : [...prev, option]
     );
+  };
+
+  const handleDirectImageUrlChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setImageUrl(event.target.value);
+    setSelectedImageFile(null); // User is providing a URL, so clear any selected file
   };
 
   const handleImageFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] || null;
     setSelectedImageFile(file);
     if (file) {
-        setImageUrl(URL.createObjectURL(file)); 
-    } else if (initialData) {
-        setImageUrl(initialData.imageUrl || ''); 
+        setImageUrl(URL.createObjectURL(file)); // Show preview of the selected file
     } else {
-        setImageUrl('');
+        // File deselected or no file chosen, revert to initial URL or empty
+        setImageUrl(initialData?.imageUrl || '');
     }
   };
 
@@ -105,17 +116,20 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
     event.preventDefault();
     setIsSubmitting(true);
 
-    console.log(`[ProductForm] handleSubmit - name: '${name}', name.trim(): '${name.trim()}', description: '${description}', description.trim(): '${description.trim()}'`);
-
-    if (!name.trim() || !description.trim()) {
-       toast({ title: "Erro de Validação", description: "Nome e descrição do produto são obrigatórios.", variant: "destructive" });
+    if (!name.trim()) {
+       toast({ title: "Erro de Validação", description: "Nome do produto é obrigatório.", variant: "destructive" });
+       setIsSubmitting(false);
+       return;
+    }
+    if (!description.trim()) {
+       toast({ title: "Erro de Validação", description: "Descrição do produto é obrigatória.", variant: "destructive" });
        setIsSubmitting(false);
        return;
     }
 
-    let finalImageUrl = imageUrl; 
+    let finalImageUrlToSave = '';
 
-    if (selectedImageFile) { 
+    if (selectedImageFile) {
       setIsUploadingImage(true);
       const filePath = `products/${Date.now()}_${selectedImageFile.name}`;
       const bucketName = 'product-images';
@@ -128,7 +142,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         if (uploadError) throw uploadError;
 
         const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(uploadData.path);
-        finalImageUrl = publicUrlData.publicUrl; 
+        finalImageUrlToSave = publicUrlData.publicUrl;
         toast({ title: "Upload Sucesso", description: "Nova imagem carregada." });
       } catch (error: any) {
         console.error("Error uploading image during submit:", error);
@@ -138,12 +152,16 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         return;
       }
       setIsUploadingImage(false);
-    }
-    
-    if (!finalImageUrl && !initialData?.imageUrl) { 
-        finalImageUrl = 'https://placehold.co/400x300.png?text=Produto';
+    } else {
+      // No new file uploaded. Use the current imageUrl state.
+      // If it was a blob that got reverted in handleImageFileChange, it would be initialData.imageUrl or ''.
+      finalImageUrlToSave = imageUrl;
     }
 
+    // Ensure a placeholder if it's still empty (e.g. new product, no URL typed, no file selected)
+    if (!finalImageUrlToSave) {
+      finalImageUrlToSave = 'https://placehold.co/400x300.png?text=Produto';
+    }
 
     const productAttributes: Record<string, string[]> = {};
     if (selectedCategorias.length > 0) productAttributes.categoria = selectedCategorias;
@@ -153,10 +171,10 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
     if (productUnidade.trim()) productAttributes.unidade = [productUnidade.trim()];
     if (productSabor.trim()) productAttributes.sabor = [productSabor.trim()];
 
-    const productDataPayload = { 
-      name, 
+    const productDataPayload = {
+      name,
       description,
-      imageUrl: finalImageUrl,
+      imageUrl: finalImageUrlToSave,
       attributes: productAttributes
     };
 
@@ -164,19 +182,27 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
       let savedProduct: Product;
       if (initialData?.productId) {
         savedProduct = await onSubmit({ ...productDataPayload, productId: initialData.productId });
-        toast({ title: "Produto Atualizado", description: `O produto "${savedProduct.name}" foi atualizado.` });
+        // Toast for product update success is handled by the parent page
       } else {
         savedProduct = await onSubmit(productDataPayload as Omit<Product, 'productId' | 'createdAt' | 'updatedAt'>);
-        toast({ title: "Produto Criado", description: `O produto "${savedProduct.name}" foi criado.` });
+        // Toast for product creation success is handled by the parent page
       }
 
-      await setProductAvailabilityInActiveCycle(savedProduct.productId, isAvailableInActiveCycle);
-      toast({ title: "Disponibilidade Atualizada", description: `Disponibilidade de "${savedProduct.name}" no ciclo ativo foi salva.` });
-      
+      if (savedProduct && savedProduct.productId) {
+        await setProductAvailabilityInActiveCycle(savedProduct.productId, isAvailableInActiveCycle);
+        toast({ title: "Disponibilidade Atualizada", description: `Disponibilidade de "${savedProduct.name}" no ciclo ativo foi salva.` });
+      } else {
+         console.warn("Product was not saved or ID is missing, skipping availability update.");
+      }
+
       onClose(savedProduct);
     } catch (error: any) {
-      console.error("Failed to save product or availability:", error);
-      toast({ title: "Erro ao Salvar", description: `Não foi possível salvar o produto ou sua disponibilidade: ${error.message || 'Erro desconhecido.'}`, variant: "destructive" });
+      // Error during onSubmit (product save) is typically handled and toasted by the parent page.
+      // This catch is more for unexpected errors or errors from setProductAvailabilityInActiveCycle.
+      console.error("Error in ProductForm handleSubmit (after calling onSubmit or during availability update):", error);
+      if (!String(error.message).toLowerCase().includes("produto")) { // Avoid double-toasting if error comes from onSubmit which might already toast
+         toast({ title: "Erro Adicional", description: `Ocorreu um problema ao definir a disponibilidade: ${error.message || 'Erro desconhecido.'}`, variant: "destructive" });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -188,29 +214,27 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
         <Label htmlFor="product-name" className="font-semibold">Nome do Produto</Label>
         <Input id="product-name" value={name} onChange={(e) => setName(e.target.value)} required className="mt-1" />
       </div>
-      
+
       <div>
         <Label htmlFor="product-description" className="font-semibold">Descrição Detalhada</Label>
         <Textarea id="product-description" value={description} onChange={(e) => setDescription(e.target.value)} required className="mt-1" rows={4} />
       </div>
 
       <div>
-        <Label htmlFor="product-image-url-display" className="font-semibold">URL da Imagem Atual</Label>
-        <Input 
-          id="product-image-url-display" 
-          type="text" 
-          value={imageUrl} 
-          onChange={(e) => {
-            setImageUrl(e.target.value);
-            setSelectedImageFile(null); 
-          }}
-          placeholder="https://exemplo.com/imagem.png ou será preenchida pelo upload"
+        <Label htmlFor="product-image-url-input" className="font-semibold">URL da Imagem</Label>
+        <Input
+          id="product-image-url-input"
+          type="text"
+          value={imageUrl}
+          onChange={handleDirectImageUrlChange}
+          placeholder="https://exemplo.com/imagem.png ou carregue abaixo"
+          className="mt-1"
         />
-        {(imageUrl) && ( 
+        {imageUrl ? (
           <div className="mt-2 w-32 h-32 relative border rounded-md overflow-hidden">
             <img src={imageUrl} alt="Preview do Produto" className="object-cover w-full h-full" data-ai-hint="chocolate item"/>
           </div>
-        )}
+        ) : null}
       </div>
 
       <div>
@@ -255,7 +279,7 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
           ))}
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="product-peso" className="font-semibold">Peso do Produto</Label>
@@ -286,12 +310,12 @@ export function ProductForm({ initialData, onSubmit, onClose }: ProductFormProps
             id="is-available-in-active-cycle"
             checked={isAvailableInActiveCycle}
             onCheckedChange={(checked) => setIsAvailableInActiveCycle(Boolean(checked))}
-            disabled={isLoadingAvailability || isSubmitting}
+            disabled={isLoadingAvailability || isSubmitting || !initialData?.productId}
           />
           <Label htmlFor="is-available-in-active-cycle" className="font-semibold">Disponível no ciclo de compra ativo?</Label>
           {isLoadingAvailability && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
         </div>
-        <p className="text-xs text-muted-foreground">Controla se este produto aparece para os clientes no ciclo de vendas ativo no site.</p>
+        <p className="text-xs text-muted-foreground">Controla se este produto aparece para os clientes no ciclo de vendas ativo no site. Para novos produtos, esta opção é aplicada após a criação do produto.</p>
 
         <div className="flex justify-end space-x-3 pt-4 border-t sticky bottom-0 bg-card py-3">
         <Button type="button" variant="outline" onClick={() => onClose()} disabled={isSubmitting}>
