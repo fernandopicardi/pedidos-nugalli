@@ -104,17 +104,21 @@ export default function PurchaseCycleManagementPage() {
                 console.warn("Error deactivating other cycles:", deactivateError.message);
             }
         }
-        const { data: updatedDbCycle, error: updateError } = await supabase
+        const { data: updatedDataArray, error: updateError } = await supabase
           .from('purchase_cycles')
           .update(dbPayload)
           .eq('cycle_id', cycleIdToUpdate)
-          .select()
-          .single();
+          .select();
 
         if (updateError) throw updateError;
-        if (!updatedDbCycle) {
-          throw new Error("Falha ao obter dados atualizados do ciclo após a atualização.");
+        
+        if (!updatedDataArray || updatedDataArray.length === 0) {
+          throw new Error("Falha ao obter dados atualizados do ciclo após a atualização, ou o ciclo não foi encontrado.");
         }
+        // if (updatedDataArray.length > 1) {
+        //   console.warn(`Múltiplos ciclos (${updatedDataArray.length}) encontrados após atualização para cycle_id: ${cycleIdToUpdate}. Usando o primeiro.`);
+        // }
+        const updatedDbCycle = updatedDataArray[0];
         
         const updatedFrontendCycle: PurchaseCycle = {
           cycleId: updatedDbCycle.cycle_id,
@@ -143,16 +147,16 @@ export default function PurchaseCycleManagementPage() {
                 console.warn("Error deactivating other cycles:", deactivateError.message);
             }
         }
-        const { data: insertedDbCycle, error: insertError } = await supabase // Store returned data
+        const { data: insertedDbData, error: insertError } = await supabase
           .from('purchase_cycles')
           .insert(dbPayload)
           .select() 
           .single(); 
         if (insertError) throw insertError;
-        if (!insertedDbCycle) {
+        if (!insertedDbData) {
           throw new Error("Falha ao obter dados do ciclo após a criação.");
         }
-        successMessage = `Ciclo "${insertedDbCycle.name}" criado com sucesso.`;
+        successMessage = `Ciclo "${insertedDbData.name}" criado com sucesso.`;
       }
       
       toast({ title: "Sucesso!", description: successMessage });
@@ -323,3 +327,4 @@ export default function PurchaseCycleManagementPage() {
     </PageContainer>
   );
 }
+
